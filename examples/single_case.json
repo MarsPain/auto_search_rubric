@@ -1,0 +1,34 @@
+{
+    "prompts": [
+        {
+        "prompt_id": "p1",
+        "prompt": "Write a short poem about spring",
+        "candidates": [
+            {
+            "candidate_id": "c1",
+            "text": "Spring is here\nFlowers grow\nBirds sing loud\nWind does blow\nRain falls down\nSun comes up\nGrass is green\nIn a cup",
+            "source": "weak",
+            "metadata": { "quality": 0.6 }
+            },
+            {
+            "candidate_id": "c2",
+            "text": "The flowers bloom in springtime bright,\nThe days grow warm, the stars shine light.\nThe birds return on gentle breeze,\nAnd dance among the budding trees.\nThe winter cold has gone away,\nAnd children come outside to play.\nOh happy spring, we love you so,\nWith all your colors all aglow.",
+            "source": "average",
+            "metadata": { "quality": 0.6 }
+            },
+            {
+            "candidate_id": "c3",
+            "text": "Dandelion clocks scatter across the thaw—\nthe lawn exhales green after months of held breath.\nA robin pulls a worm like a loose thread\nfrom the earth's damp hem, unstitching winter.\nThe forsythia ignites in yellow bursts\nagainst the grey bones of the fence.\nSomewhere, a screen door slams:\nsomeone's mother calling them home\nto wash the mud from their knees.",
+            "source": "good",
+            "metadata": { "quality": 0.6 }
+            },
+            {
+            "candidate_id": "c4",
+            "text": "The crocus bruises through the frost—\npurple thumbprint on winter's white cheek.\nEach morning now, the light arrives\nwith its luggage of gold, unpacking slowly\nacross the kitchen floor where dust\nbecomes pollen, where my grandmother's teacup\nholds a sprig of mint she planted\nbefore she learned how to die.\nSpring is not a season here\nbut a revision: the earth editing\nits own obituary, line by green line,\nuntil even the broken branches\nforget which way was down.",
+            "source": "excellent",
+            "metadata": { "quality": 0.6 }
+            }
+        ]
+        }
+    ]
+}

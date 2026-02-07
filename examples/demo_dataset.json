@@ -1,0 +1,131 @@
+{
+  "prompts": [
+    {
+      "prompt_id": "p_marketing_email",
+      "prompt": "Write a concise product launch email for a new project management tool for small teams. Include value proposition, social proof, and a clear CTA.",
+      "candidates": [
+        {
+          "candidate_id": "c1",
+          "source": "strong",
+          "text": "Subject: Launch your next sprint faster\n\nSmall teams lose hours in handoffs. Our new project tool cuts planning time with one shared board, built-in reminders, and lightweight reports. Teams like Northline Studio reduced weekly planning by 32% in three weeks. Start your free 14-day trial today and migrate in under 10 minutes.",
+          "metadata": { "quality": 0.93 }
+        },
+        {
+          "candidate_id": "c2",
+          "source": "diverse",
+          "text": "Your project plan should not feel like overhead. This launch introduces a focused workflow for small teams: clear ownership, fewer status meetings, and quick visibility across tasks. Trusted by 2,500 teams, including Atelier Five. Try it now and see your first project go live this week.",
+          "metadata": { "quality": 0.88 }
+        },
+        {
+          "candidate_id": "c3",
+          "source": "diverse",
+          "text": "In conclusion, this solution is very good and can help many users. As an AI language model, I cannot verify real metrics. Overall it is useful and modern.",
+          "metadata": { "quality": 0.45 }
+        },
+        {
+          "candidate_id": "c4",
+          "source": "base",
+          "text": "We launched a project tool. It is good for teams. Click the link.",
+          "metadata": { "quality": 0.41 }
+        },
+        {
+          "candidate_id": "c5",
+          "source": "strong",
+          "text": "Subject: Faster launches for your small team\n\nProject updates should be simple. Our launch gives your team one timeline, clear owners, and automatic reminders. Beta users report 2 fewer meetings per week and cleaner handoffs. See a 5-minute demo and start your trial now.",
+          "metadata": { "quality": 0.90 }
+        },
+        {
+          "candidate_id": "c6",
+          "source": "base",
+          "text": "This tool helps with tasks and projects. You can use it for work and planning. Please sign up if you are interested.",
+          "metadata": { "quality": 0.52 }
+        }
+      ]
+    },
+    {
+      "prompt_id": "p_debug_plan",
+      "prompt": "Given intermittent timeout errors in a Python API service, provide a debugging plan with hypotheses, instrumentation steps, and rollback safety checks.",
+      "candidates": [
+        {
+          "candidate_id": "d1",
+          "source": "strong",
+          "text": "1. Hypotheses: connection pool exhaustion, slow dependency, lock contention. 2. Instrumentation: add request id, pool wait time, downstream latency histogram, and timeout reason tags. 3. Reproduction: shadow traffic and load test with staged concurrency. 4. Rollback safety: canary at 5%, auto rollback if p95 latency rises >20% or error rate >1.5%.",
+          "metadata": { "quality": 0.95 }
+        },
+        {
+          "candidate_id": "d2",
+          "source": "diverse",
+          "text": "Start with a timeline of timeout spikes and correlate with deploys. Add tracing around DB and cache clients, including retries and queue depth. Then run a controlled load sweep to identify saturation point. Keep a rollback checklist: feature flag off path, previous image hash, and on-call approval before full rollout.",
+          "metadata": { "quality": 0.90 }
+        },
+        {
+          "candidate_id": "d3",
+          "source": "base",
+          "text": "Investigate logs and restart services if needed. Timeouts can happen for many reasons.",
+          "metadata": { "quality": 0.35 }
+        },
+        {
+          "candidate_id": "d4",
+          "source": "diverse",
+          "text": "Because timeouts are intermittent, create buckets by endpoint and payload size, then test whether large payloads correlate with worker starvation. Example instrumentation: queue wait, CPU steal, GC pause, and socket retry count. Add a rollback gate for SLO breach and include an incident commander decision point.",
+          "metadata": { "quality": 0.87 }
+        },
+        {
+          "candidate_id": "d5",
+          "source": "strong",
+          "text": "First, map the critical path and set a 48-hour measurement window. Second, add OpenTelemetry spans with timeout category labels. Third, compare pre/post canary on p50/p95 and error budget burn. However, if data quality is poor, delay broad rollout and keep rollback ready.",
+          "metadata": { "quality": 0.89 }
+        },
+        {
+          "candidate_id": "d6",
+          "source": "base",
+          "text": "Overall, debugging is important. In conclusion, monitor the API and improve performance gradually.",
+          "metadata": { "quality": 0.32 }
+        }
+      ]
+    },
+    {
+      "prompt_id": "p_policy_brief",
+      "prompt": "Draft a balanced policy brief on remote work for a mid-size company, including benefits, risks, and a phased implementation recommendation.",
+      "candidates": [
+        {
+          "candidate_id": "b1",
+          "source": "strong",
+          "text": "Remote work can improve hiring reach and retention, but unmanaged adoption may reduce mentorship and coordination speed. Recommend a three-phase rollout: pilot with two departments, measure productivity and attrition, then expand with team-level guardrails. Include monthly risk reviews and office-day anchors for onboarding.",
+          "metadata": { "quality": 0.92 }
+        },
+        {
+          "candidate_id": "b2",
+          "source": "diverse",
+          "text": "Benefits include wider talent access, lower commute burden, and potential real-estate savings. Risks include uneven visibility, weaker culture transmission, and security surface growth. A phased plan should start with policy principles, then trial cohorts, then scale with manager training and explicit decision rights.",
+          "metadata": { "quality": 0.89 }
+        },
+        {
+          "candidate_id": "b3",
+          "source": "base",
+          "text": "Remote work is good for people and companies. It also has some downsides. The company should do what works best.",
+          "metadata": { "quality": 0.40 }
+        },
+        {
+          "candidate_id": "b4",
+          "source": "diverse",
+          "text": "A balanced brief should include benefit metrics and risk controls. For example, track hiring cycle time and engagement scores, while mitigating security and communication risks with endpoint controls and meeting norms. However, keep exceptions for roles that require onsite equipment.",
+          "metadata": { "quality": 0.85 }
+        },
+        {
+          "candidate_id": "b5",
+          "source": "strong",
+          "text": "This recommendation uses a phased implementation: phase 1 baseline data, phase 2 hybrid pilot, phase 3 policy normalization. Include trade-offs around culture, learning velocity, and compliance. Set stop conditions if productivity or customer SLA drops beyond agreed thresholds.",
+          "metadata": { "quality": 0.91 }
+        },
+        {
+          "candidate_id": "b6",
+          "source": "base",
+          "text": "In conclusion, remote work has pros and cons. As an AI language model I suggest caution.",
+          "metadata": { "quality": 0.38 }
+        }
+      ]
+    }
+  ]
+}
+
