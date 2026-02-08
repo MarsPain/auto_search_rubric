@@ -1,0 +1,213 @@
+# auto_search_rubric
+
+[中文](README.md) | English
+
+An automated search framework for **rubric-based reward modeling**, inspired by the paper:
+
+`Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training`
+
+This repo keeps a baseline `Iterative RTD` for comparison, and defaults to a more extensible `Evolutionary RTD` implementation (`--mode evolutionary`).
+
+## Highlights
+
+- Structured rubric schema: `criteria`, `weights`, `grading_protocol`, positive/negative examples, checkpoints
+- Multi-vote verification aggregation: majority vote + vote-level variance tracking
+- Tail-focused objective:
+  - `TailAcc`
+  - `TailVar`
+  - `DiverseTailAcc`
+- Two runtime backends:
+  - `mock` (local heuristic components)
+  - `llm` (OpenRouter via openai-python)
+- Dataset-supported preference ranks (`metadata.rank`) with automatic `RankPreferenceJudge`
+
+## How This Repo Differs: Evolutionary RTD vs. Iterative RTD (Paper)
+
+> Note: this repo implements `iterative` as a baseline and provides `evolutionary` as the default/stronger search mode.
+
+### 1) A more extensible architecture
+
+- Protocol-based interfaces: `RubricInitializer`, `RubricProposer`, `Verifier`, `PreferenceJudge`
+- The same search flow can swap `mock` / `llm` components
+- Role-based model configuration (initializer/proposer/verifier/judge can use different models)
+
+### 2) Evolutionary search (not a single iterative trajectory)
+
+- **Mutation strategies + elitism**
+  - Maintain a rubric candidate **population**
+  - Generate multiple mutated rubrics per generation (`mutations_per_round`)
+  - Keep elite rubrics (`elitism_count`) and add winners to reduce single-path local optima risks
+
+- **Budget-aware filtering (successive halving)**
+  - Coarse evaluation for many candidates (small pair budget)
+  - Fine evaluation for a few survivors (medium to full budget)
+  - Implemented via `pair_budget_small / medium / full` for more “budget-efficient” search
+
+- **Hard-prompt focus**
+  - Each generation prioritizes prompts that are harder to separate (top margin + population disagreement)
+  - Concentrates limited budget on the “hard cases”
+
+### 3) Dataset-defined candidate preference ranks
+
+- If **all candidates** in the dataset provide `metadata.rank` (lower is better):
+  - the system automatically uses `RankPreferenceJudge`
+  - even with `llm` backend, it will prefer rank-based ground truth (no LLM judge calls needed)
+- If any candidate misses `rank`, it falls back to the default judge (heuristic under `mock`, LLM judge under `llm`)
+
+## Project Layout
+
+- `autosr/`: core package (CLI, search, evaluation, LLM/mock components)
+- `tests/`: `unittest` tests
+- `scripts/`: helper scripts for tests and “formal” runs
+- `examples/`: demo datasets (with/without rank)
+- `artifacts/`: default output directory
+
+## Install
+
+Requires: Python `>=3.11`
+
+```bash
+python3 -m pip install -e .
+```
+
+After installation, you can run via:
+
+- `python3 -m autosr.cli ...`
+- `autosr ...`
+
+## Quick Start
+
+Recommended default: evolutionary search
+
+```bash
+python3 -m autosr.cli \
+  --dataset examples/single_case.json \
+  --mode evolutionary \
+  --output artifacts/best_rubrics.json
+```
+
+Iterative baseline:
+
+```bash
+python3 -m autosr.cli \
+  --dataset examples/single_case.json \
+  --mode iterative \
+  --output artifacts/best_rubrics_iterative.json
+```
+
+## LLM Backend (OpenRouter)
+
+CLI supports `--backend {auto,mock,llm}`:
+
+- `auto` (default): use `llm` if `OPENROUTER_API_KEY` is present; otherwise `mock`
+- `llm`: require API key and fail fast if missing
+- `mock`: always use local components
+
+Run the “formal” flow (requires API key):
+
+```bash
+export OPENROUTER_API_KEY="<YOUR_OPENROUTER_API_KEY>"
+./scripts/run_formal_search.sh examples/single_case.json evolutionary artifacts/best_rubrics_formal.json
+```
+
+Direct CLI example with role-specific models:
+
+```bash
+python3 -m autosr.cli \
+  --dataset examples/single_case.json \
+  --mode evolutionary \
+  --output artifacts/best_rubrics_llm.json \
+  --backend llm \
+  --base-url https://openrouter.ai/api/v1 \
+  --model-default deepseek/deepseek-v3.2 \
+  --model-initializer deepseek/deepseek-v3.2 \
+  --model-proposer deepseek/deepseek-v3.2 \
+  --model-verifier deepseek/deepseek-v3.2 \
+  --model-judge deepseek/deepseek-v3.2 \
+  --llm-timeout 30 \
+  --llm-max-retries 2
+```
+
+## Search and Objective (Implementation Notes)
+
+- Objective:
+  - `total = TailAcc - lambda_var * TailVar + mu_diverse * DiverseTailAcc`
+- Key defaults (CLI):
+  - `--generations 12`
+  - `--population-size 8`
+  - `--mutations-per-round 6`
+  - `--batch-size 3`
+  - `--tail-fraction 0.25`
+  - `--lambda-var 0.2`
+  - `--mu-diverse 0.25`
+- Code-level (in `EvolutionaryConfig`) settings not currently exposed as CLI flags:
+  - `survival_fraction` (stage survival ratio)
+  - `elitism_count` (number of elites to keep)
+  - `stagnation_generations` (early-stop threshold)
+
+## Dataset Format
+
+Input must be JSON with top-level `prompts`:
+
+```json
+{
+  "prompts": [
+    {
+      "prompt_id": "p1",
+      "prompt": "Write ...",
+      "candidates": [
+        {
+          "candidate_id": "c1",
+          "text": "response text",
+          "source": "strong",
+          "metadata": { "quality": 0.91, "rank": 1 }
+        }
+      ]
+    }
+  ]
+}
+```
+
+Fields:
+
+- `prompt_id`, `prompt`: required
+- each prompt needs at least 2 `candidates`
+- `metadata.quality`: optional, used by the heuristic judge
+- `metadata.rank`: optional preference label (`1` is the best)
+
+Examples:
+
+- `examples/single_case.json` (quality-based)
+- `examples/single_case_with_rank.json` (rank-based)
+
+## Output Format
+
+The result is written to `--output`:
+
+- `best_rubrics`: best rubric per prompt
+- `best_scores`: objective score per prompt
+- `best_candidates`: top candidate id under the best rubric
+
+## Tests
+
+Run all tests:
+
+```bash
+./scripts/run_tests.sh
+```
+
+Or:
+
+```bash
+python3 -m unittest discover -s tests -p "test_*.py"
+```
+
+Notes:
+
+- If `OPENROUTER_API_KEY` is set, integration tests will run
+- Otherwise, integration tests are automatically skipped
+
+## Notes
+
+- This repo emphasizes reproducibility, component replaceability, and budget-aware search.
+- For strict comparisons, run both `iterative` and `evolutionary` and compare `best_scores` and generated rubrics.
