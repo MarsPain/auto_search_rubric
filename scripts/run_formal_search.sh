@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DATASET_PATH="${1:-examples/single_case.json}"
+DATASET_PATH="${1:-examples/single_case_with_rank.json}"
 MODE="${2:-evolutionary}"
 OUTPUT_PATH="${3:-artifacts/best_rubrics_formal.json}"
 

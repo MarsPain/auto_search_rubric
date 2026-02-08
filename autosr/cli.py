@@ -20,6 +20,7 @@ from .mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
     HeuristicVerifier,
+    RankPreferenceJudge,
     TemplateProposer,
 )
 from .models import PromptExample, Rubric
@@ -118,6 +119,7 @@ def main() -> None:
         backend=backend,
         api_key=api_key,
         role_models=role_models,
+        prompts=prompts,
     )
 
     if args.mode == "iterative":
@@ -171,43 +173,67 @@ def build_role_model_config(args: Any) -> RoleModelConfig:
     )
 
 
+def _has_rank_for_all_candidates(prompts: list[PromptExample]) -> bool:
+    """Check if all candidates across all prompts have metadata.rank defined."""
+    for prompt in prompts:
+        for candidate in prompt.candidates:
+            if candidate.metadata.get("rank") is None:
+                return False
+    return True
+
+
 def build_runtime_components(
     *,
     args: Any,
     backend: str,
     api_key: str | None,
     role_models: RoleModelConfig,
+    prompts: list[PromptExample],
 ):
     if backend == "mock":
+        # Auto-select judge based on dataset: if all candidates have rank, use RankPreferenceJudge
+        if _has_rank_for_all_candidates(prompts):
+            logging.getLogger(__name__).info("Detected metadata.rank in all candidates; using RankPreferenceJudge")
+            judge: RankPreferenceJudge | HeuristicPreferenceJudge = RankPreferenceJudge()
+        else:
+            judge = HeuristicPreferenceJudge()
         return (
             TemplateProposer(),
             HeuristicVerifier(noise=args.noise),
-            HeuristicPreferenceJudge(),
+            judge,
             HeuristicRubricInitializer(),
         )
 
     if api_key is None:
         raise ValueError("api_key is required for llm backend")
-    llm_config = LLMConfig(
+    llm_config_obj = LLMConfig(
         base_url=args.base_url,
         api_key=api_key,
         timeout=args.llm_timeout,
         max_retries=args.llm_max_retries,
         temperature=0.0,
     )
-    requester = LLMClient(llm_config)
+    requester = LLMClient(llm_config_obj)
+    
+    # Auto-select judge: if all candidates have rank, use RankPreferenceJudge instead of LLM
+    if _has_rank_for_all_candidates(prompts):
+        logging.getLogger(__name__).info("Detected metadata.rank in all candidates; using RankPreferenceJudge instead of LLMPreferenceJudge")
+        judge: LLMPreferenceJudge | RankPreferenceJudge = RankPreferenceJudge()
+    else:
+        judge = LLMPreferenceJudge(
+            requester, model=role_models.for_role("judge"), max_retries=llm_config_obj.max_retries
+        )
+    
     return (
         LLMRubricProposer(
-            requester, model=role_models.for_role("proposer"), max_retries=llm_config.max_retries
+            requester, model=role_models.for_role("proposer"), max_retries=llm_config_obj.max_retries
         ),
-        LLMVerifier(requester, model=role_models.for_role("verifier"), max_retries=llm_config.max_retries),
-        LLMPreferenceJudge(
-            requester, model=role_models.for_role("judge"), max_retries=llm_config.max_retries
-        ),
+        LLMVerifier(requester, model=role_models.for_role("verifier"), max_retries=llm_config_obj.max_retries),
+        judge,
         LLMRubricInitializer(
             requester,
             model=role_models.for_role("initializer"),
-            max_retries=llm_config.max_retries,
+            max_retries=llm_config_obj.max_retries,
         ),
     )
 

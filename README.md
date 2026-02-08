@@ -112,3 +112,20 @@ Input dataset must be JSON:
 ```
 
 `metadata.quality` is optional but useful for the demo `PreferenceJudge`.
+
+### Ground Truth via `metadata.rank`
+
+If all candidates provide `metadata.rank` (integer, lower is better), the system will **automatically use `RankPreferenceJudge`** instead of calling LLM API for ground truth pairwise preferences:
+
+```json
+{
+  "candidates": [
+    {"candidate_id": "c1", "text": "...", "metadata": {"rank": 1}},
+    {"candidate_id": "c2", "text": "...", "metadata": {"rank": 2}},
+    {"candidate_id": "c3", "text": "...", "metadata": {"rank": 3}}
+  ]
+}
+```
+
+- `rank: 1` = best candidate
+- If rank is missing for any candidate, falls back to `HeuristicPreferenceJudge` (using `metadata.quality` or source heuristics)

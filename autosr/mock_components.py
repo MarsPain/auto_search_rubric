@@ -114,6 +114,35 @@ class HeuristicPreferenceJudge:
         return 1 if left_score > right_score else -1
 
 
+class RankPreferenceJudge:
+    """
+    Preference judge that uses explicit metadata.rank for ground truth.
+    Lower rank = better quality (rank 1 is best).
+    """
+
+    def compare(
+        self,
+        prompt: str,
+        left: ResponseCandidate,
+        right: ResponseCandidate,
+    ) -> int:
+        left_rank = left.metadata.get("rank")
+        right_rank = right.metadata.get("rank")
+        
+        # If rank is missing for either candidate, fall back to heuristic
+        if left_rank is None or right_rank is None:
+            left_score = _judge_score(left)
+            right_score = _judge_score(right)
+            if abs(left_score - right_score) < 1e-9:
+                return 0
+            return 1 if left_score > right_score else -1
+        
+        # Compare ranks: lower rank is better
+        if left_rank == right_rank:
+            return 0
+        return 1 if left_rank < right_rank else -1
+
+
 class TemplateProposer:
     """
     Deterministic mutation-based proposer.
