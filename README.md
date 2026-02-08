@@ -184,8 +184,11 @@ Examples:
 The result is written to `--output`:
 
 - `best_rubrics`: best rubric per prompt
-- `best_scores`: objective score per prompt
+- `best_objective_scores`: objective score per prompt
+- `best_scores`: legacy alias of `best_objective_scores` (kept for compatibility)
 - `best_candidates`: top candidate id under the best rubric
+- `candidate_scores`: all candidate scores under the best rubric
+- `best_candidate_scores`: max value from `candidate_scores` per prompt
 
 ## Tests
 

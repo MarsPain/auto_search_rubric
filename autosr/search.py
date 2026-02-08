@@ -273,7 +273,7 @@ class EvolutionaryRTDSearcher:
                 population=population,
             )
 
-        self._ensure_best_defaults_when_empty(
+        self._finalize_best_from_population(
             prompts=prompts,
             population=population,
             best_rubrics=best_rubrics,
@@ -393,7 +393,7 @@ class EvolutionaryRTDSearcher:
         winners = self._successive_halving(item, new_candidates)
         return self._update_population(scored, winners, self.config.population_size)
 
-    def _ensure_best_defaults_when_empty(
+    def _finalize_best_from_population(
         self,
         *,
         prompts: list[PromptExample],
@@ -401,12 +401,18 @@ class EvolutionaryRTDSearcher:
         best_rubrics: dict[str, Rubric],
         best_scores: dict[str, float],
     ) -> None:
-        if best_rubrics:
-            return
+        """Finalize best rubrics by evaluating the final population.
+
+        This ensures that the best rubrics are selected from the final population,
+        not from intermediate generations. This fixes a bug where the population
+        evolved in the last generation but the new rubrics were never evaluated.
+        """
         for item in prompts:
             scored = self._score_population(item, population[item.prompt_id])
-            best_rubrics[item.prompt_id] = scored[0][0]
-            best_scores[item.prompt_id] = scored[0][1].total
+            # Only update if final population has a better rubric
+            if scored[0][1].total > best_scores.get(item.prompt_id, -math.inf):
+                best_rubrics[item.prompt_id] = scored[0][0]
+                best_scores[item.prompt_id] = scored[0][1].total
 
     def _init_population(self, item: PromptExample) -> list[Rubric]:
         base = self.initializer.initialize(item, rng=self.rng)

@@ -19,6 +19,7 @@ def save_rubrics(
     rubrics: dict[str, Rubric],
     scores: dict[str, float],
     best_candidates: dict[str, str] | None = None,
+    candidate_scores: dict[str, dict[str, float]] | None = None,
 ) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -26,8 +27,15 @@ def save_rubrics(
         "best_rubrics": {
             prompt_id: rubric.to_dict() for prompt_id, rubric in rubrics.items()
         },
+        "best_objective_scores": scores,
         "best_scores": scores,
     }
     if best_candidates is not None:
         payload["best_candidates"] = best_candidates
+    if candidate_scores is not None:
+        payload["candidate_scores"] = candidate_scores
+        payload["best_candidate_scores"] = {
+            prompt_id: max(scores_for_prompt.values()) if scores_for_prompt else 0.0
+            for prompt_id, scores_for_prompt in candidate_scores.items()
+        }
     file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")

@@ -137,7 +137,7 @@ def main() -> None:
         searcher = EvolutionaryRTDSearcher(proposer, verifier, judge, initializer, config=config)
 
     result = searcher.search(prompts)
-    best_candidates = compute_best_candidates(
+    best_candidates, candidate_scores = compute_best_candidates(
         prompts=prompts,
         rubrics=result.best_rubrics,
         verifier=verifier,
@@ -148,6 +148,7 @@ def main() -> None:
         result.best_rubrics,
         result.best_scores,
         best_candidates=best_candidates,
+        candidate_scores=candidate_scores,
     )
     _print_summary(result.best_scores, args.mode, args.output, backend, role_models)
 
@@ -244,9 +245,17 @@ def compute_best_candidates(
     rubrics: dict[str, Rubric],
     verifier: Any,
     seed: int,
-) -> dict[str, str]:
+) -> tuple[dict[str, str], dict[str, dict[str, float]]]:
+    """Compute best candidates and all candidate scores for each prompt.
+    
+    Returns:
+        Tuple of (best_candidates, all_candidate_scores) where:
+        - best_candidates: mapping from prompt_id to best candidate_id
+        - all_candidate_scores: mapping from prompt_id to dict of candidate_id -> score
+    """
     evaluator = RubricEvaluator(verifier, base_seed=seed)
     best_candidates: dict[str, str] = {}
+    all_candidate_scores: dict[str, dict[str, float]] = {}
     for item in prompts:
         rubric = rubrics.get(item.prompt_id)
         if rubric is None:
@@ -255,7 +264,10 @@ def compute_best_candidates(
         if not scored:
             continue
         best_candidates[item.prompt_id] = scored[0].candidate_id
-    return best_candidates
+        all_candidate_scores[item.prompt_id] = {
+            ev.candidate_id: ev.score for ev in scored
+        }
+    return best_candidates, all_candidate_scores
 
 
 def _print_summary(

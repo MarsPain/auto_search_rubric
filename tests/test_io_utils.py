@@ -26,8 +26,29 @@ class TestIOUtils(unittest.TestCase):
 
         self.assertIn("best_rubrics", payload)
         self.assertIn("best_scores", payload)
+        self.assertIn("best_objective_scores", payload)
         self.assertIn("best_candidates", payload)
+        self.assertNotIn("best_candidate_scores", payload)
+        self.assertEqual(payload["best_scores"], payload["best_objective_scores"])
         self.assertEqual(payload["best_candidates"][item.prompt_id], item.candidates[0].candidate_id)
+
+    def test_save_rubrics_writes_best_candidate_scores_when_candidate_scores_present(self) -> None:
+        item = load_dataset("examples/demo_dataset.json")[0]
+        rubric = HeuristicRubricInitializer().initialize(item, rng=random.Random(123))
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "out.json"
+            save_rubrics(
+                output_path,
+                rubrics={item.prompt_id: rubric},
+                scores={item.prompt_id: 0.42},
+                best_candidates={item.prompt_id: item.candidates[0].candidate_id},
+                candidate_scores={item.prompt_id: {"c1": 0.25, "c2": 0.9, "c3": 0.1}},
+            )
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+
+        self.assertIn("candidate_scores", payload)
+        self.assertIn("best_candidate_scores", payload)
+        self.assertEqual(payload["best_candidate_scores"][item.prompt_id], 0.9)
 
 
 if __name__ == "__main__":

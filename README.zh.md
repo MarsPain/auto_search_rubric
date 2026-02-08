@@ -184,8 +184,11 @@ python3 -m autosr.cli \
 结果会写入 `--output` 指定文件，结构如下：
 
 - `best_rubrics`：每个 prompt 的最优 rubric
-- `best_scores`：每个 prompt 的目标分
+- `best_objective_scores`：每个 prompt 的目标分
+- `best_scores`：`best_objective_scores` 的兼容别名
 - `best_candidates`：每个 prompt 在最优 rubric 下的 top candidate id
+- `candidate_scores`：最优 rubric 下所有 candidate 的分数
+- `best_candidate_scores`：每个 prompt 的最高 candidate 分数
 
 ## 测试
 
