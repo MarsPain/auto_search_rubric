@@ -31,8 +31,8 @@ from .search import (
     IterativeRTDSearcher,
 )
 
-DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini"
+DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = "openai/gpt-4o-mini"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -53,15 +53,15 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="Backend selection: auto uses llm when api key exists, otherwise mock",
     )
-    parser.add_argument("--base-url", default=DEFAULT_OPENROUTER_BASE_URL, help="LLM API base URL")
+    parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="LLM API base URL")
     parser.add_argument(
         "--api-key-env",
-        default="OPENROUTER_API_KEY",
+        default="LLM_API_KEY",
         help="Environment variable name containing LLM API key",
     )
     parser.add_argument(
         "--model-default",
-        default=DEFAULT_OPENROUTER_MODEL,
+        default=DEFAULT_MODEL,
         help="Default LLM model for all roles",
     )
     parser.add_argument("--model-initializer", default=None, help="Optional model override for initializer")
@@ -159,7 +159,7 @@ def resolve_backend(backend: str, api_key: str | None) -> str:
     if backend == "llm" and not api_key:
         raise ValueError(
             "LLM backend requires an API key. "
-            "Set OPENROUTER_API_KEY or use --api-key-env to choose another variable."
+            "Set LLM_API_KEY or use --api-key-env to choose another variable."
         )
     return backend
 

@@ -94,18 +94,20 @@ python3 -m autosr.cli \
   --output artifacts/best_rubrics_iterative.json
 ```
 
-## LLM Backend (OpenRouter)
+## LLM Backend
 
 CLI supports `--backend {auto,mock,llm}`:
 
-- `auto` (default): use `llm` if `OPENROUTER_API_KEY` is present; otherwise `mock`
+- `auto` (default): use `llm` if `LLM_API_KEY` is present; otherwise `mock`
 - `llm`: require API key and fail fast if missing
 - `mock`: always use local components
+
+The default configuration uses OpenRouter-compatible endpoints. You can override `--base-url` to use any OpenAI-compatible API provider.
 
 Run the "formal" flow (requires API key):
 
 ```bash
-export OPENROUTER_API_KEY="<YOUR_OPENROUTER_API_KEY>"
+export LLM_API_KEY="<YOUR_API_KEY>"
 ./scripts/run_formal_search.sh examples/single_case.json evolutionary artifacts/best_rubrics_formal.json
 ```
 
@@ -206,7 +208,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 Notes:
 
-- If `OPENROUTER_API_KEY` is set, integration tests will run
+- If `LLM_API_KEY` is set, integration tests will run
 - Otherwise, integration tests are automatically skipped
 
 ## Notes

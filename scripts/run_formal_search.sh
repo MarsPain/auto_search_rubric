@@ -5,13 +5,13 @@ DATASET_PATH="${1:-examples/single_case_with_rank.json}"
 MODE="${2:-evolutionary}"
 OUTPUT_PATH="${3:-artifacts/best_rubrics_formal.json}"
 
-if [[ -z "${OPENROUTER_API_KEY:-}" ]]; then
-  echo "OPENROUTER_API_KEY is not set. Export it before running formal search." >&2
+if [[ -z "${LLM_API_KEY:-}" ]]; then
+  echo "LLM_API_KEY is not set. Export it before running formal search." >&2
   exit 1
 fi
 
-BASE_URL="${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}"
-MODEL_DEFAULT="${MODEL_DEFAULT:-deepseek/deepseek-v3.2}"
+BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
+LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
 MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
 MODEL_VERIFIER="${MODEL_VERIFIER:-}"
@@ -26,7 +26,7 @@ cmd=(
   --output "${OUTPUT_PATH}"
   --backend auto
   --base-url "${BASE_URL}"
-  --model-default "${MODEL_DEFAULT}"
+  --model-default "${LLM_MODEL}"
   --llm-timeout "${LLM_TIMEOUT}"
   --llm-max-retries "${LLM_MAX_RETRIES}"
   --generations 4

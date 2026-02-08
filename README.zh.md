@@ -94,18 +94,20 @@ python3 -m autosr.cli \
   --output artifacts/best_rubrics_iterative.json
 ```
 
-## LLM 后端（OpenRouter）
+## LLM 后端
 
 CLI 支持 `--backend {auto,mock,llm}`：
 
-- `auto`（默认）：检测到 `OPENROUTER_API_KEY` 则用 `llm`，否则 `mock`
+- `auto`（默认）：检测到 `LLM_API_KEY` 则用 `llm`，否则 `mock`
 - `llm`：强制使用 LLM，缺少 key 时直接报错
 - `mock`：强制使用本地组件
+
+默认配置使用 OpenRouter 兼容的端点。你可以通过 `--base-url` 参数覆盖为任何 OpenAI 兼容的 API 提供商。
 
 运行 formal 流程（需要 API Key）：
 
 ```bash
-export OPENROUTER_API_KEY="<YOUR_OPENROUTER_API_KEY>"
+export LLM_API_KEY="<YOUR_API_KEY>"
 ./scripts/run_formal_search.sh examples/single_case.json evolutionary artifacts/best_rubrics_formal.json
 ```
 
@@ -206,7 +208,7 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 说明：
 
-- 设置了 `OPENROUTER_API_KEY` 时，会执行集成测试
+- 设置了 `LLM_API_KEY` 时，会执行集成测试
 - 未设置时，集成测试会自动跳过
 
 ## 备注

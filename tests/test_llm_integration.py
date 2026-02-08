@@ -8,13 +8,13 @@ import tempfile
 import unittest
 
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+LLM_API_KEY = os.getenv("LLM_API_KEY")
 
 
-@unittest.skipUnless(OPENROUTER_API_KEY, "OPENROUTER_API_KEY is required for integration test")
-class TestOpenRouterIntegration(unittest.TestCase):
+@unittest.skipUnless(LLM_API_KEY, "LLM_API_KEY is required for integration test")
+class TestLLMIntegration(unittest.TestCase):
     def test_cli_runs_iterative_and_evolutionary_with_llm(self) -> None:
-        model_name = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
+        model_name = os.getenv("LLM_MODEL", "openai/gpt-4o-mini")
         repo_root = Path(__file__).resolve().parent.parent
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
