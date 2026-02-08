@@ -14,7 +14,12 @@ def load_dataset(path: str | Path) -> list[PromptExample]:
     return [PromptExample.from_dict(item) for item in prompts_raw]
 
 
-def save_rubrics(path: str | Path, rubrics: dict[str, Rubric], scores: dict[str, float]) -> None:
+def save_rubrics(
+    path: str | Path,
+    rubrics: dict[str, Rubric],
+    scores: dict[str, float],
+    best_candidates: dict[str, str] | None = None,
+) -> None:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
@@ -23,5 +28,6 @@ def save_rubrics(path: str | Path, rubrics: dict[str, Rubric], scores: dict[str,
         },
         "best_scores": scores,
     }
+    if best_candidates is not None:
+        payload["best_candidates"] = best_candidates
     file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
-

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .evaluator import ObjectiveConfig
+from .evaluator import ObjectiveConfig, RubricEvaluator
 from .io_utils import load_dataset, save_rubrics
 from .llm_client import LLMClient
 from .llm_components import (
@@ -22,6 +22,7 @@ from .mock_components import (
     HeuristicVerifier,
     TemplateProposer,
 )
+from .models import PromptExample, Rubric
 from .search import (
     EvolutionaryConfig,
     EvolutionaryRTDSearcher,
@@ -134,7 +135,18 @@ def main() -> None:
         searcher = EvolutionaryRTDSearcher(proposer, verifier, judge, initializer, config=config)
 
     result = searcher.search(prompts)
-    save_rubrics(args.output, result.best_rubrics, result.best_scores)
+    best_candidates = compute_best_candidates(
+        prompts=prompts,
+        rubrics=result.best_rubrics,
+        verifier=verifier,
+        seed=args.seed,
+    )
+    save_rubrics(
+        args.output,
+        result.best_rubrics,
+        result.best_scores,
+        best_candidates=best_candidates,
+    )
     _print_summary(result.best_scores, args.mode, args.output, backend, role_models)
 
 
@@ -198,6 +210,26 @@ def build_runtime_components(
             max_retries=llm_config.max_retries,
         ),
     )
+
+
+def compute_best_candidates(
+    *,
+    prompts: list[PromptExample],
+    rubrics: dict[str, Rubric],
+    verifier: Any,
+    seed: int,
+) -> dict[str, str]:
+    evaluator = RubricEvaluator(verifier, base_seed=seed)
+    best_candidates: dict[str, str] = {}
+    for item in prompts:
+        rubric = rubrics.get(item.prompt_id)
+        if rubric is None:
+            continue
+        scored = evaluator.evaluate_candidates(item, rubric)
+        if not scored:
+            continue
+        best_candidates[item.prompt_id] = scored[0].candidate_id
+    return best_candidates
 
 
 def _print_summary(
