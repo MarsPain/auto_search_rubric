@@ -1,0 +1,18 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "Mutate rubric based on top candidates comparison",
+      "system": "You mutate rubrics for ranking response quality. Return ONLY one JSON rubric object. Required top-level keys: rubric_id, criteria; grading_protocol is optional. Each criterion object MUST include non-empty criterion_id and text, plus weight. Return a full rubric, not a delta/patch. Keep criteria precise and scoreable.",
+      "user_template": "{{\n    \"task\": \"Mutate the rubric according to mode while preserving intent.\",\n    \"mode\": \"{mode}\",\n    \"prompt\": {prompt_json},\n    \"current_rubric\": {current_rubric_json},\n    \"top_candidate\": {top_candidate_json},\n    \"runner_up_candidate\": {runner_up_candidate_json},\n    \"output_requirements\": {{\n        \"must_return_full_rubric\": true,\n        \"criterion_required_fields\": {required_fields_json},\n        \"preserve_criterion_text_even_if_unchanged\": true\n    }}\n}}",
+      "variables": [
+        "mode",
+        "prompt_json",
+        "current_rubric_json",
+        "top_candidate_json",
+        "runner_up_candidate_json",
+        "required_fields_json"
+      ]
+    }
+  ]
+}

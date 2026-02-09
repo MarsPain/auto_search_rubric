@@ -1,0 +1,15 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "Compare two candidate responses and return preference",
+      "system": "Compare two responses and return ONLY JSON: {\"preference\": 1|-1|0} where 1 means left is preferred.",
+      "user_template": "{{\n    \"prompt\": {prompt_json},\n    \"left\": {left_json},\n    \"right\": {right_json}\n}}",
+      "variables": [
+        "prompt_json",
+        "left_json",
+        "right_json"
+      ]
+    }
+  ]
+}

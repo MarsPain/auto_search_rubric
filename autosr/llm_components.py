@@ -9,9 +9,22 @@ from typing import Any, Callable, Mapping, Protocol
 from .llm_client import LLMParseError
 from .models import GradingProtocol, PromptExample, ResponseCandidate, Rubric
 
+# Import prompt management
+from .prompts import constants as prompt_constants
+from .prompts.loader import (
+    ConstantPromptRepository,
+    PromptRepository,
+    create_repository,
+)
+
 logger = logging.getLogger(__name__)
 
 _REQUIRED_CRITERION_FIELDS = ["criterion_id", "text", "weight"]
+
+
+def _get_required_fields_json() -> str:
+    """Return JSON-encoded required criterion fields."""
+    return json.dumps(_REQUIRED_CRITERION_FIELDS)
 
 
 class JsonRequester(Protocol):
@@ -20,7 +33,14 @@ class JsonRequester(Protocol):
 
 
 class _LLMComponentBase:
-    def __init__(self, requester: JsonRequester, *, model: str, max_retries: int) -> None:
+    def __init__(
+        self,
+        requester: JsonRequester,
+        *,
+        model: str,
+        max_retries: int,
+        prompt_repository: PromptRepository | None = None,
+    ) -> None:
         if not model.strip():
             raise ValueError("model must not be empty")
         if max_retries < 0:
@@ -28,6 +48,8 @@ class _LLMComponentBase:
         self.requester = requester
         self.model = model
         self.max_retries = max_retries
+        # Use provided repository or fall back to constants
+        self._repository = prompt_repository or ConstantPromptRepository()
 
     def _request_validated(
         self,
@@ -52,34 +74,39 @@ class _LLMComponentBase:
                     raise
         raise LLMParseError(f"failed to parse payload after retries: {last_error}")
 
+    def _get_prompt_config(self, template_id: str, version: str | None = None):
+        """Get prompt configuration from repository."""
+        return self._repository.get(template_id, version)
+
 
 class LLMRubricInitializer(_LLMComponentBase):
+    """Initializes rubrics using LLM.
+    
+    Supports external prompt configuration via prompt_repository parameter.
+    """
+
     def initialize(self, item: PromptExample, *, rng: random.Random) -> Rubric:
-        system_prompt = (
-            "You are a rubric designer. Return ONLY one JSON object. "
-            "Required top-level keys: rubric_id, criteria, grading_protocol. "
-            "Each criterion object MUST include non-empty criterion_id and text, plus weight. "
-            "Do not omit required fields. Do not return markdown, comments, or partial patches."
-        )
-        user_prompt = json.dumps(
-            {
-                "task": "Create an evaluation rubric for the prompt.",
-                "prompt": item.prompt,
-                "candidate_samples": [_candidate_snapshot(c) for c in item.candidates[:4]],
-                "constraints": {
-                    "criteria_count_range": [3, 6],
-                    "weights_sum_hint": 1.0,
-                    "criterion_required_fields": _REQUIRED_CRITERION_FIELDS,
-                    "return_full_rubric": True,
-                    "grading_protocol_default": {
-                        "num_votes": 1,
-                        "allow_na": True,
-                        "vote_method": "majority",
-                    },
-                },
-            },
-            ensure_ascii=False,
-        )
+        # Build context for template rendering
+        candidate_samples = [_candidate_snapshot(c) for c in item.candidates[:4]]
+        
+        try:
+            # Try to use configured template
+            config = self._get_prompt_config("rubric_initializer")
+            system_prompt, user_prompt = config.render(
+                prompt_json=json.dumps(item.prompt, ensure_ascii=False),
+                candidate_samples_json=json.dumps(candidate_samples, ensure_ascii=False),
+                required_fields_json=_get_required_fields_json(),
+            )
+        except (KeyError, FileNotFoundError, ValueError) as exc:
+            # Fallback to constants (backward compatible)
+            logger.debug("Using constant fallback for rubric_initializer: %s", exc)
+            system_prompt = prompt_constants.RUBRIC_INITIALIZER_SYSTEM
+            user_prompt = prompt_constants.RUBRIC_INITIALIZER_USER_TEMPLATE.format(
+                prompt_json=json.dumps(item.prompt, ensure_ascii=False),
+                candidate_samples_json=json.dumps(candidate_samples, ensure_ascii=False),
+                required_fields_json=_get_required_fields_json(),
+            )
+        
         fallback_id = f"{item.prompt_id}_llm_init_{rng.randint(0, 9999)}"
         return self._request_validated(
             system_prompt=system_prompt,
@@ -93,6 +120,11 @@ class LLMRubricInitializer(_LLMComponentBase):
 
 
 class LLMRubricProposer(_LLMComponentBase):
+    """Proposes rubric mutations using LLM.
+    
+    Supports external prompt configuration via prompt_repository parameter.
+    """
+
     def propose(
         self,
         prompt: str,
@@ -103,28 +135,26 @@ class LLMRubricProposer(_LLMComponentBase):
         mode: str,
         rng: random.Random,
     ) -> Rubric:
-        system_prompt = (
-            "You mutate rubrics for ranking response quality. Return ONLY one JSON rubric object. "
-            "Required top-level keys: rubric_id, criteria; grading_protocol is optional. "
-            "Each criterion object MUST include non-empty criterion_id and text, plus weight. "
-            "Return a full rubric, not a delta/patch. Keep criteria precise and scoreable."
-        )
-        user_prompt = json.dumps(
-            {
-                "task": "Mutate the rubric according to mode while preserving intent.",
-                "mode": mode,
-                "prompt": prompt,
-                "current_rubric": rubric.to_dict(),
-                "top_candidate": _candidate_snapshot(left),
-                "runner_up_candidate": _candidate_snapshot(right),
-                "output_requirements": {
-                    "must_return_full_rubric": True,
-                    "criterion_required_fields": _REQUIRED_CRITERION_FIELDS,
-                    "preserve_criterion_text_even_if_unchanged": True,
-                },
-            },
-            ensure_ascii=False,
-        )
+        # Build context for template rendering
+        context = {
+            "mode": mode,
+            "prompt_json": json.dumps(prompt, ensure_ascii=False),
+            "current_rubric_json": json.dumps(rubric.to_dict(), ensure_ascii=False),
+            "top_candidate_json": json.dumps(_candidate_snapshot(left), ensure_ascii=False),
+            "runner_up_candidate_json": json.dumps(_candidate_snapshot(right), ensure_ascii=False),
+            "required_fields_json": _get_required_fields_json(),
+        }
+        
+        try:
+            # Try to use configured template
+            config = self._get_prompt_config("rubric_proposer")
+            system_prompt, user_prompt = config.render(**context)
+        except (KeyError, FileNotFoundError, ValueError) as exc:
+            # Fallback to constants (backward compatible)
+            logger.debug("Using constant fallback for rubric_proposer: %s", exc)
+            system_prompt = prompt_constants.RUBRIC_PROPOSER_SYSTEM
+            user_prompt = prompt_constants.RUBRIC_PROPOSER_USER_TEMPLATE.format(**context)
+        
         fallback_id = f"{rubric.rubric_id}_{mode}_{rng.randint(0, 9999)}"
         return self._request_validated(
             system_prompt=system_prompt,
@@ -138,6 +168,11 @@ class LLMRubricProposer(_LLMComponentBase):
 
 
 class LLMVerifier(_LLMComponentBase):
+    """Verifies candidate responses using LLM.
+    
+    Supports external prompt configuration via prompt_repository parameter.
+    """
+
     def grade(
         self,
         prompt: str,
@@ -146,20 +181,27 @@ class LLMVerifier(_LLMComponentBase):
         *,
         seed: int,
     ) -> dict[str, int | None]:
-        system_prompt = (
-            "You are a strict evaluator. Return ONLY JSON: "
-            '{"grades": {"criterion_id": 0|1|null, ...}}.'
-        )
-        user_prompt = json.dumps(
-            {
-                "seed": seed,
-                "prompt": prompt,
-                "candidate": _candidate_snapshot(candidate),
-                "criteria": [criterion.to_dict() for criterion in rubric.criteria],
-                "allow_na": rubric.grading_protocol.allow_na,
-            },
-            ensure_ascii=False,
-        )
+        # Build context for template rendering
+        criteria_data = [criterion.to_dict() for criterion in rubric.criteria]
+        allow_na = "true" if rubric.grading_protocol.allow_na else "false"
+        
+        context = {
+            "seed": seed,
+            "prompt_json": json.dumps(prompt, ensure_ascii=False),
+            "candidate_json": json.dumps(_candidate_snapshot(candidate), ensure_ascii=False),
+            "criteria_json": json.dumps(criteria_data, ensure_ascii=False),
+            "allow_na": allow_na,
+        }
+        
+        try:
+            # Try to use configured template
+            config = self._get_prompt_config("verifier")
+            system_prompt, user_prompt = config.render(**context)
+        except (KeyError, FileNotFoundError, ValueError) as exc:
+            # Fallback to constants (backward compatible)
+            logger.debug("Using constant fallback for verifier: %s", exc)
+            system_prompt = prompt_constants.VERIFIER_SYSTEM
+            user_prompt = prompt_constants.VERIFIER_USER_TEMPLATE.format(**context)
 
         def parse(payload: dict[str, Any]) -> dict[str, int | None]:
             grades_payload = payload.get("grades", payload)
@@ -179,24 +221,33 @@ class LLMVerifier(_LLMComponentBase):
 
 
 class LLMPreferenceJudge(_LLMComponentBase):
+    """Compares two responses using LLM.
+    
+    Supports external prompt configuration via prompt_repository parameter.
+    """
+
     def compare(
         self,
         prompt: str,
         left: ResponseCandidate,
         right: ResponseCandidate,
     ) -> int:
-        system_prompt = (
-            "Compare two responses and return ONLY JSON: "
-            '{"preference": 1|-1|0} where 1 means left is preferred.'
-        )
-        user_prompt = json.dumps(
-            {
-                "prompt": prompt,
-                "left": _candidate_snapshot(left),
-                "right": _candidate_snapshot(right),
-            },
-            ensure_ascii=False,
-        )
+        # Build context for template rendering
+        context = {
+            "prompt_json": json.dumps(prompt, ensure_ascii=False),
+            "left_json": json.dumps(_candidate_snapshot(left), ensure_ascii=False),
+            "right_json": json.dumps(_candidate_snapshot(right), ensure_ascii=False),
+        }
+        
+        try:
+            # Try to use configured template
+            config = self._get_prompt_config("judge")
+            system_prompt, user_prompt = config.render(**context)
+        except (KeyError, FileNotFoundError, ValueError) as exc:
+            # Fallback to constants (backward compatible)
+            logger.debug("Using constant fallback for judge: %s", exc)
+            system_prompt = prompt_constants.JUDGE_SYSTEM
+            user_prompt = prompt_constants.JUDGE_USER_TEMPLATE.format(**context)
 
         def parse(payload: dict[str, Any]) -> int:
             if "preference" not in payload:
@@ -341,3 +392,53 @@ def _normalize_preference(value: Any) -> int:
         if token in {"0", "tie", "equal"}:
             return 0
     raise LLMParseError("preference must be one of 1, 0, -1")
+
+
+# Export factory function for convenience
+def create_llm_components(
+    requester: JsonRequester,
+    *,
+    model: str,
+    max_retries: int = 3,
+    prompt_config_path: str | None = None,
+):
+    """Factory to create all LLM components with optional external configuration.
+    
+    Args:
+        requester: LLM client implementing JsonRequester protocol
+        model: Model name to use
+        max_retries: Number of retry attempts for failed requests
+        prompt_config_path: Optional path to YAML/JSON prompt configs.
+                           If None, uses built-in constants.
+    
+    Returns:
+        Tuple of (initializer, proposer, verifier, judge)
+    """
+    repository = create_repository(prompt_config_path) if prompt_config_path else None
+    
+    initializer = LLMRubricInitializer(
+        requester,
+        model=model,
+        max_retries=max_retries,
+        prompt_repository=repository,
+    )
+    proposer = LLMRubricProposer(
+        requester,
+        model=model,
+        max_retries=max_retries,
+        prompt_repository=repository,
+    )
+    verifier = LLMVerifier(
+        requester,
+        model=model,
+        max_retries=max_retries,
+        prompt_repository=repository,
+    )
+    judge = LLMPreferenceJudge(
+        requester,
+        model=model,
+        max_retries=max_retries,
+        prompt_repository=repository,
+    )
+    
+    return initializer, proposer, verifier, judge

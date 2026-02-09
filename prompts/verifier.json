@@ -1,0 +1,17 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "Grade candidate response using rubric criteria",
+      "system": "You are a strict evaluator. Return ONLY JSON: {\"grades\": {\"criterion_id\": 0|1|null, ...}}.",
+      "user_template": "{{\n    \"seed\": {seed},\n    \"prompt\": {prompt_json},\n    \"candidate\": {candidate_json},\n    \"criteria\": {criteria_json},\n    \"allow_na\": {allow_na}\n}}",
+      "variables": [
+        "seed",
+        "prompt_json",
+        "candidate_json",
+        "criteria_json",
+        "allow_na"
+      ]
+    }
+  ]
+}
