@@ -11,7 +11,8 @@ if [[ -z "${LLM_API_KEY:-}" ]]; then
 fi
 
 BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
-LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
+# LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
+LLM_MODEL="${LLM_MODEL:-stepfun/step-3.5-flash:free}"
 MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
 MODEL_VERIFIER="${MODEL_VERIFIER:-}"

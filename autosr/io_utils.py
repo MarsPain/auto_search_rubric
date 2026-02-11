@@ -14,6 +14,38 @@ def load_dataset(path: str | Path) -> list[PromptExample]:
     return [PromptExample.from_dict(item) for item in prompts_raw]
 
 
+
+
+def load_initial_rubrics(path: str | Path) -> dict[str, Rubric]:
+    """Load preset initial rubrics from JSON.
+
+    Supported formats:
+    - {"best_rubrics": {"prompt_id": {rubric}}}
+    - {"rubrics": {"prompt_id": {rubric}}}
+    - {"rubric": {rubric}} or a direct rubric object with `criteria`
+      (mapped to special key "__default__").
+    """
+    file_path = Path(path)
+    raw = json.loads(file_path.read_text(encoding="utf-8"))
+
+    if isinstance(raw, dict) and "best_rubrics" in raw:
+        source = raw["best_rubrics"]
+    elif isinstance(raw, dict) and "rubrics" in raw:
+        source = raw["rubrics"]
+    elif isinstance(raw, dict) and "rubric" in raw:
+        source = {"__default__": raw["rubric"]}
+    elif isinstance(raw, dict) and "criteria" in raw:
+        source = {"__default__": raw}
+    else:
+        raise ValueError(
+            "unsupported preset rubric format; expected best_rubrics/rubrics/rubric or direct rubric object"
+        )
+
+    if not isinstance(source, dict):
+        raise ValueError("preset rubric payload must be an object mapping")
+
+    return {str(prompt_id): Rubric.from_dict(rubric_raw) for prompt_id, rubric_raw in source.items()}
+
 def save_rubrics(
     path: str | Path,
     rubrics: dict[str, Rubric],

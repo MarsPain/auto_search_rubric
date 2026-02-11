@@ -5,6 +5,7 @@ from dataclasses import replace
 from hashlib import sha256
 import random
 import re
+from typing import Any, Mapping
 
 from .models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
 
@@ -52,6 +53,39 @@ class HeuristicRubricInitializer:
             grading_protocol=GradingProtocol(num_votes=3, allow_na=True, vote_method="majority"),
             metadata={"origin": "heuristic_initializer"},
         )
+
+
+class PresetRubricInitializer:
+    """Initializer that loads pre-defined rubrics by prompt_id."""
+
+    def __init__(
+        self,
+        preset_rubrics: Mapping[str, Rubric],
+        *,
+        fallback_initializer: Any = None,
+        strict: bool = False,
+    ) -> None:
+        self._preset_rubrics = dict(preset_rubrics)
+        self._fallback_initializer = fallback_initializer
+        self._strict = strict
+
+    def initialize(self, item: PromptExample, *, rng: random.Random) -> Rubric:
+        rubric = self._preset_rubrics.get(item.prompt_id)
+        if rubric is None:
+            rubric = self._preset_rubrics.get("__default__")
+
+        if rubric is not None:
+            resolved = deepcopy(rubric)
+            resolved.metadata = dict(resolved.metadata)
+            resolved.metadata["origin"] = "preset_initializer"
+            resolved.metadata["preset_prompt_id"] = item.prompt_id
+            return resolved
+
+        if self._strict or self._fallback_initializer is None:
+            raise ValueError(
+                f"no preset rubric found for prompt_id={item.prompt_id!r} and no fallback initializer available"
+            )
+        return self._fallback_initializer.initialize(item, rng=rng)
 
 
 class HeuristicVerifier:
@@ -284,4 +318,3 @@ def _top_keywords(text: str, max_keywords: int = 4) -> list[str]:
         digest = sha256(text.encode("utf-8")).hexdigest()[:8]
         return [digest]
     return keywords
-

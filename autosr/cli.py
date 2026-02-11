@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .evaluator import ObjectiveConfig, RubricEvaluator
-from .io_utils import load_dataset, save_rubrics
+from .io_utils import load_dataset, load_initial_rubrics, save_rubrics
 from .llm_client import LLMClient
 from .llm_components import (
     LLMPreferenceJudge,
@@ -20,6 +20,7 @@ from .mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
     HeuristicVerifier,
+    PresetRubricInitializer,
     RankPreferenceJudge,
     TemplateProposer,
 )
@@ -70,6 +71,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model-judge", default=None, help="Optional model override for preference judge")
     parser.add_argument("--llm-timeout", type=float, default=30.0, help="LLM request timeout (seconds)")
     parser.add_argument("--llm-max-retries", type=int, default=2, help="LLM retry count")
+
+    parser.add_argument(
+        "--initializer-strategy",
+        choices=["backend", "preset"],
+        default="backend",
+        help="Initial rubric strategy: backend uses default initializer for selected backend; preset loads from --preset-rubrics",
+    )
+    parser.add_argument(
+        "--preset-rubrics",
+        default=None,
+        help="Path to preset initial rubric JSON (supports best_rubrics/rubrics/rubric formats)",
+    )
+    parser.add_argument(
+        "--preset-strict",
+        action="store_true",
+        help="When using preset strategy, require every prompt_id to have a preset rubric",
+    )
 
     parser.add_argument("--iterations", type=int, default=6, help="Iterative mode steps")
     parser.add_argument("--generations", type=int, default=12, help="Evolution generations")
@@ -198,45 +216,51 @@ def build_runtime_components(
             judge: RankPreferenceJudge | HeuristicPreferenceJudge = RankPreferenceJudge()
         else:
             judge = HeuristicPreferenceJudge()
-        return (
-            TemplateProposer(),
-            HeuristicVerifier(noise=args.noise),
-            judge,
-            HeuristicRubricInitializer(),
-        )
-
-    if api_key is None:
-        raise ValueError("api_key is required for llm backend")
-    llm_config_obj = LLMConfig(
-        base_url=args.base_url,
-        api_key=api_key,
-        timeout=args.llm_timeout,
-        max_retries=args.llm_max_retries,
-        temperature=0.0,
-    )
-    requester = LLMClient(llm_config_obj)
-    
-    # Auto-select judge: if all candidates have rank, use RankPreferenceJudge instead of LLM
-    if _has_rank_for_all_candidates(prompts):
-        logging.getLogger(__name__).info("Detected metadata.rank in all candidates; using RankPreferenceJudge instead of LLMPreferenceJudge")
-        judge: LLMPreferenceJudge | RankPreferenceJudge = RankPreferenceJudge()
+        proposer = TemplateProposer()
+        verifier = HeuristicVerifier(noise=args.noise)
+        initializer = HeuristicRubricInitializer()
     else:
-        judge = LLMPreferenceJudge(
-            requester, model=role_models.for_role("judge"), max_retries=llm_config_obj.max_retries
+        if api_key is None:
+            raise ValueError("api_key is required for llm backend")
+        llm_config_obj = LLMConfig(
+            base_url=args.base_url,
+            api_key=api_key,
+            timeout=args.llm_timeout,
+            max_retries=args.llm_max_retries,
+            temperature=0.0,
         )
-    
-    return (
-        LLMRubricProposer(
+        requester = LLMClient(llm_config_obj)
+
+        # Auto-select judge: if all candidates have rank, use RankPreferenceJudge instead of LLM
+        if _has_rank_for_all_candidates(prompts):
+            logging.getLogger(__name__).info("Detected metadata.rank in all candidates; using RankPreferenceJudge instead of LLMPreferenceJudge")
+            judge = RankPreferenceJudge()
+        else:
+            judge = LLMPreferenceJudge(
+                requester, model=role_models.for_role("judge"), max_retries=llm_config_obj.max_retries
+            )
+
+        proposer = LLMRubricProposer(
             requester, model=role_models.for_role("proposer"), max_retries=llm_config_obj.max_retries
-        ),
-        LLMVerifier(requester, model=role_models.for_role("verifier"), max_retries=llm_config_obj.max_retries),
-        judge,
-        LLMRubricInitializer(
+        )
+        verifier = LLMVerifier(requester, model=role_models.for_role("verifier"), max_retries=llm_config_obj.max_retries)
+        initializer = LLMRubricInitializer(
             requester,
             model=role_models.for_role("initializer"),
             max_retries=llm_config_obj.max_retries,
-        ),
-    )
+        )
+
+    if args.initializer_strategy == "preset":
+        if not args.preset_rubrics:
+            raise ValueError("--initializer-strategy preset requires --preset-rubrics")
+        preset_rubrics = load_initial_rubrics(args.preset_rubrics)
+        initializer = PresetRubricInitializer(
+            preset_rubrics,
+            fallback_initializer=initializer,
+            strict=args.preset_strict,
+        )
+
+    return proposer, verifier, judge, initializer
 
 
 def compute_best_candidates(
