@@ -8,66 +8,101 @@ from .models import PromptExample, Rubric
 
 
 def load_dataset(path: str | Path) -> list[PromptExample]:
+    """Load dataset from JSON file.
+
+    Args:
+        path: Path to the JSON dataset file.
+
+    Returns:
+        List of PromptExample objects.
+    """
     file_path = Path(path)
     raw = json.loads(file_path.read_text(encoding="utf-8"))
     prompts_raw = raw.get("prompts", [])
     return [PromptExample.from_dict(item) for item in prompts_raw]
 
 
-
-
 def load_initial_rubrics(path: str | Path) -> dict[str, Rubric]:
-    """Load preset initial rubrics from JSON.
+    """Load initial rubrics from JSON file.
 
-    Supported formats:
-    - {"best_rubrics": {"prompt_id": {rubric}}}
-    - {"rubrics": {"prompt_id": {rubric}}}
-    - {"rubric": {rubric}} or a direct rubric object with `criteria`
-      (mapped to special key "__default__").
+    Supports multiple formats:
+    - best_rubrics format: {"best_rubrics": [{"prompt_id": "p1", "rubric": {...}}, ...]}
+    - rubrics format: {"rubrics": [{"prompt_id": "p1", "rubric": {...}}, ...]}
+    - Direct format: {"p1": {...rubric...}, "p2": {...rubric...}}
+
+    Args:
+        path: Path to the JSON file containing rubrics.
+
+    Returns:
+        Dict mapping prompt_id to Rubric objects.
     """
     file_path = Path(path)
     raw = json.loads(file_path.read_text(encoding="utf-8"))
 
-    if isinstance(raw, dict) and "best_rubrics" in raw:
-        source = raw["best_rubrics"]
-    elif isinstance(raw, dict) and "rubrics" in raw:
-        source = raw["rubrics"]
-    elif isinstance(raw, dict) and "rubric" in raw:
-        source = {"__default__": raw["rubric"]}
-    elif isinstance(raw, dict) and "criteria" in raw:
-        source = {"__default__": raw}
-    else:
-        raise ValueError(
-            "unsupported preset rubric format; expected best_rubrics/rubrics/rubric or direct rubric object"
-        )
+    result: dict[str, Rubric] = {}
 
-    if not isinstance(source, dict):
-        raise ValueError("preset rubric payload must be an object mapping")
+    # Try best_rubrics format (output format from save_rubrics)
+    if "best_rubrics" in raw:
+        for item in raw["best_rubrics"]:
+            prompt_id = item.get("prompt_id")
+            rubric_data = item.get("rubric")
+            if prompt_id and rubric_data:
+                result[prompt_id] = Rubric.from_dict(rubric_data)
+        return result
 
-    return {str(prompt_id): Rubric.from_dict(rubric_raw) for prompt_id, rubric_raw in source.items()}
+    # Try rubrics format (array of prompt_id + rubric pairs)
+    if "rubrics" in raw:
+        for item in raw["rubrics"]:
+            prompt_id = item.get("prompt_id")
+            rubric_data = item.get("rubric")
+            if prompt_id and rubric_data:
+                result[prompt_id] = Rubric.from_dict(rubric_data)
+        return result
+
+    # Try direct format: {prompt_id: rubric_dict, ...}
+    for key, value in raw.items():
+        if isinstance(value, dict) and "criteria" in value:
+            result[key] = Rubric.from_dict(value)
+
+    return result
+
 
 def save_rubrics(
     path: str | Path,
-    rubrics: dict[str, Rubric],
-    scores: dict[str, float],
+    best_rubrics: dict[str, Rubric],
+    best_scores: dict[str, float],
+    *,
     best_candidates: dict[str, str] | None = None,
     candidate_scores: dict[str, dict[str, float]] | None = None,
 ) -> None:
+    """Save rubrics and scores to JSON file.
+
+    Args:
+        path: Output file path.
+        best_rubrics: Dict mapping prompt_id to best Rubric.
+        best_scores: Dict mapping prompt_id to objective score.
+        best_candidates: Optional dict mapping prompt_id to best candidate_id.
+        candidate_scores: Optional dict mapping prompt_id to dict of candidate_id -> score.
+    """
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
-    payload: dict[str, Any] = {
-        "best_rubrics": {
-            prompt_id: rubric.to_dict() for prompt_id, rubric in rubrics.items()
-        },
-        "best_objective_scores": scores,
-        "best_scores": scores,
-    }
-    if best_candidates is not None:
-        payload["best_candidates"] = best_candidates
-    if candidate_scores is not None:
-        payload["candidate_scores"] = candidate_scores
-        payload["best_candidate_scores"] = {
-            prompt_id: max(scores_for_prompt.values()) if scores_for_prompt else 0.0
-            for prompt_id, scores_for_prompt in candidate_scores.items()
+
+    best_rubrics_list = []
+    for prompt_id in sorted(best_rubrics.keys()):
+        rubric = best_rubrics[prompt_id]
+        entry: dict[str, Any] = {
+            "prompt_id": prompt_id,
+            "rubric": rubric.to_dict(),
+            "score": best_scores.get(prompt_id, 0.0),
         }
-    file_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        if best_candidates and prompt_id in best_candidates:
+            entry["best_candidate_id"] = best_candidates[prompt_id]
+        if candidate_scores and prompt_id in candidate_scores:
+            entry["candidate_scores"] = candidate_scores[prompt_id]
+        best_rubrics_list.append(entry)
+
+    output = {"best_rubrics": best_rubrics_list}
+    file_path.write_text(
+        json.dumps(output, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )

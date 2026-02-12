@@ -16,6 +16,7 @@ from .llm_components import (
     LLMVerifier,
 )
 from .llm_config import LLMConfig, RoleModelConfig
+from .content_extraction import create_verifier_with_extraction
 from .mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
@@ -99,6 +100,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lambda-var", type=float, default=0.2, help="Penalty coefficient for tail variance")
     parser.add_argument("--mu-diverse", type=float, default=0.25, help="Bonus for cross-source tail alignment")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+
+    # Content extraction options
+    parser.add_argument(
+        "--extract-strategy",
+        choices=["tag", "regex", "identity"],
+        default="identity",
+        help="Content extraction strategy for verifier input (default: identity = no extraction)",
+    )
+    parser.add_argument(
+        "--extract-tag",
+        default="content",
+        help="Tag name for 'tag' strategy (default: content)",
+    )
+    parser.add_argument(
+        "--extract-pattern",
+        default=None,
+        help="Regex pattern for 'regex' strategy",
+    )
+    parser.add_argument(
+        "--extract-join-separator",
+        default="\n\n",
+        help="Separator for joining multiple extractions (default: newline)",
+    )
     return parser
 
 
@@ -258,6 +282,24 @@ def build_runtime_components(
             preset_rubrics,
             fallback_initializer=initializer,
             strict=args.preset_strict,
+        )
+
+    # Apply content extraction strategy to verifier if requested
+    if args.extract_strategy != "identity":
+        extraction_kwargs = {
+            "join_multiple": args.extract_join_separator,
+        }
+        if args.extract_strategy == "tag":
+            extraction_kwargs["tag_name"] = args.extract_tag
+        elif args.extract_strategy == "regex":
+            if not args.extract_pattern:
+                raise ValueError("--extract-strategy regex requires --extract-pattern")
+            extraction_kwargs["pattern"] = args.extract_pattern
+
+        verifier = create_verifier_with_extraction(
+            verifier,
+            args.extract_strategy,
+            **extraction_kwargs,
         )
 
     return proposer, verifier, judge, initializer
