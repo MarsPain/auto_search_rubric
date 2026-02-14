@@ -1,218 +1,23 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import logging
 import math
 import random
-from typing import Any
 
-from .evaluator import (
-    ObjectiveBreakdown,
-    ObjectiveConfig,
-    RubricEvaluator,
-    compute_objective,
-    disagreement_score,
-    top2_under_rubric,
-)
-from .interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
-from .models import PromptExample, ResponseCandidate, Rubric
-
-logger = logging.getLogger(__name__)
-
-
-MUTATION_MODES = (
-    "raise_bar",
-    "decompose",
-    "factual_focus",
-    "anti_fluff",
-    "counterexample_trigger",
-    "weight_perturb",
+from ..evaluator import ObjectiveBreakdown, RubricEvaluator, disagreement_score
+from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
+from ..models import PromptExample, Rubric
+from ..types import MutationMode
+from .config import EvolutionaryConfig, SearchResult
+from .strategies import (
+    MUTATION_MODES,
+    _append_unique,
+    _build_top2_pair,
+    _evaluate_rubric,
+    _fingerprint,
 )
 
-
-@dataclass(slots=True)
-class IterativeConfig:
-    iterations: int = 6
-    accept_only_if_improve: bool = True
-    objective: ObjectiveConfig = field(default_factory=ObjectiveConfig)
-    seed: int = 7
-
-
-@dataclass(slots=True)
-class EvolutionaryConfig:
-    population_size: int = 8
-    generations: int = 20
-    mutations_per_round: int = 6
-    survival_fraction: float = 0.2
-    batch_size: int = 4
-    elitism_count: int = 2
-    objective: ObjectiveConfig = field(default_factory=ObjectiveConfig)
-    stagnation_generations: int = 6
-    seed: int = 7
-
-    def __post_init__(self) -> None:
-        if self.population_size < 2:
-            raise ValueError("population_size must be >= 2")
-        if self.generations < 1:
-            raise ValueError("generations must be >= 1")
-        if self.mutations_per_round < 1:
-            raise ValueError("mutations_per_round must be >= 1")
-        if not 0 < self.survival_fraction <= 1:
-            raise ValueError("survival_fraction must be in (0, 1]")
-        if self.elitism_count < 1:
-            raise ValueError("elitism_count must be >= 1")
-
-
-@dataclass(slots=True)
-class SearchResult:
-    best_rubrics: dict[str, Rubric]
-    best_scores: dict[str, float]
-    history: dict[str, list[float]]
-    diagnostics: dict[str, Any] = field(default_factory=dict)
-
-
-class IterativeRTDSearcher:
-    def __init__(
-        self,
-        proposer: RubricProposer,
-        verifier: Verifier,
-        judge: PreferenceJudge,
-        initializer: RubricInitializer,
-        config: IterativeConfig | None = None,
-    ) -> None:
-        self.proposer = proposer
-        self.judge = judge
-        self.initializer = initializer
-        self.config = config or IterativeConfig()
-        self.rng = random.Random(self.config.seed)
-        self.evaluator = RubricEvaluator(verifier, base_seed=self.config.seed)
-
-    def search(self, prompts: list[PromptExample]) -> SearchResult:
-        best_rubrics: dict[str, Rubric] = {}
-        best_scores: dict[str, float] = {}
-        history: dict[str, list[float]] = {}
-        logger.info(
-            "starting iterative search prompts=%d iterations=%d",
-            len(prompts),
-            self.config.iterations,
-        )
-        for item in prompts:
-            logger.info("iterative prompt=%s init", item.prompt_id)
-            best_rubric, best_score, local_history = self._search_one_prompt_iterative(item)
-            best_rubrics[item.prompt_id] = best_rubric
-            best_scores[item.prompt_id] = best_score
-            history[item.prompt_id] = local_history
-            logger.info(
-                "iterative prompt=%s complete best_score=%.4f",
-                item.prompt_id,
-                best_score,
-            )
-
-        return SearchResult(
-            best_rubrics=best_rubrics,
-            best_scores=best_scores,
-            history=history,
-            diagnostics={"mode": "iterative"},
-        )
-
-    def _search_one_prompt_iterative(
-        self, item: PromptExample
-    ) -> tuple[Rubric, float, list[float]]:
-        rubric = self.initializer.initialize(item, rng=self.rng)
-        best_rubric = rubric
-        best_score = -math.inf
-        local_history: list[float] = []
-
-        for step in range(self.config.iterations):
-            breakdown = self._evaluate_rubric(item, rubric)
-            local_history.append(breakdown.total)
-            logger.info(
-                "iterative prompt=%s step=%d/%d current_score=%.4f",
-                item.prompt_id,
-                step + 1,
-                self.config.iterations,
-                breakdown.total,
-            )
-            best_rubric, best_score = self._track_best(
-                best_rubric, best_score, rubric, breakdown.total
-            )
-
-            left, right = self._build_top2_pair(item, rubric)
-            candidate_rubric = self._propose_mutation(item, left, right, rubric, step)
-            if not self.config.accept_only_if_improve:
-                rubric = candidate_rubric
-                continue
-
-            candidate_breakdown = self._evaluate_rubric(item, candidate_rubric)
-            best_rubric, best_score = self._track_best(
-                best_rubric, best_score, candidate_rubric, candidate_breakdown.total
-            )
-            if self._should_accept_candidate(
-                current_score=breakdown.total,
-                candidate_score=candidate_breakdown.total,
-            ):
-                rubric = candidate_rubric
-
-        final_breakdown = self._evaluate_rubric(item, rubric)
-        best_rubric, best_score = self._track_best(
-            best_rubric, best_score, rubric, final_breakdown.total
-        )
-        return best_rubric, best_score, local_history
-
-    def _evaluate_rubric(
-        self,
-        item: PromptExample,
-        rubric: Rubric,
-        *,
-        pair_budget: int | None = None,
-    ) -> ObjectiveBreakdown:
-        return _evaluate_rubric(
-            item=item,
-            rubric=rubric,
-            evaluator=self.evaluator,
-            judge=self.judge,
-            objective=self.config.objective,
-            pair_budget=pair_budget,
-        )
-
-    def _build_top2_pair(
-        self,
-        item: PromptExample,
-        rubric: Rubric,
-    ) -> tuple[ResponseCandidate, ResponseCandidate]:
-        return _build_top2_pair(item=item, rubric=rubric, evaluator=self.evaluator)
-
-    def _propose_mutation(
-        self,
-        item: PromptExample,
-        left: ResponseCandidate,
-        right: ResponseCandidate,
-        rubric: Rubric,
-        step: int,
-    ) -> Rubric:
-        mode = MUTATION_MODES[step % len(MUTATION_MODES)]
-        return self.proposer.propose(
-            item.prompt,
-            left,
-            right,
-            rubric,
-            mode=mode,
-            rng=self.rng,
-        )
-
-    def _track_best(
-        self,
-        best_rubric: Rubric,
-        best_score: float,
-        candidate_rubric: Rubric,
-        candidate_score: float,
-    ) -> tuple[Rubric, float]:
-        if candidate_score > best_score:
-            return candidate_rubric, candidate_score
-        return best_rubric, best_score
-
-    def _should_accept_candidate(self, *, current_score: float, candidate_score: float) -> bool:
-        return candidate_score >= current_score
+logger = logging.getLogger("autosr.search")
 
 
 class EvolutionaryRTDSearcher:
@@ -409,7 +214,6 @@ class EvolutionaryRTDSearcher:
         """
         for item in prompts:
             scored = self._score_population(item, population[item.prompt_id])
-            # Only update if final population has a better rubric
             if scored[0][1].total > best_scores.get(item.prompt_id, -math.inf):
                 best_rubrics[item.prompt_id] = scored[0][0]
                 best_scores[item.prompt_id] = scored[0][1].total
@@ -520,52 +324,3 @@ class EvolutionaryRTDSearcher:
         hardness.sort(key=lambda pair: pair[1], reverse=True)
         chosen = hardness[: self.config.batch_size]
         return {prompt_id for prompt_id, _ in chosen}
-
-
-def _lookup_candidate(item: PromptExample, candidate_id: str):
-    for candidate in item.candidates:
-        if candidate.candidate_id == candidate_id:
-            return candidate
-    raise KeyError(f"candidate_id {candidate_id} not found in prompt {item.prompt_id}")
-
-
-def _fingerprint(rubric: Rubric) -> str:
-    return rubric.fingerprint()
-
-
-def _append_unique(population: list[Rubric], rubric: Rubric, seen: set[str]) -> bool:
-    fp = _fingerprint(rubric)
-    if fp in seen:
-        return False
-    population.append(rubric)
-    seen.add(fp)
-    return True
-
-
-def _evaluate_rubric(
-    *,
-    item: PromptExample,
-    rubric: Rubric,
-    evaluator: RubricEvaluator,
-    judge: PreferenceJudge,
-    objective: ObjectiveConfig,
-    pair_budget: int | None = None,
-) -> ObjectiveBreakdown:
-    return compute_objective(
-        item=item,
-        rubric=rubric,
-        evaluator=evaluator,
-        judge=judge,
-        config=objective,
-        pair_budget=pair_budget,
-    )
-
-
-def _build_top2_pair(
-    *,
-    item: PromptExample,
-    rubric: Rubric,
-    evaluator: RubricEvaluator,
-) -> tuple[ResponseCandidate, ResponseCandidate]:
-    left_id, right_id = top2_under_rubric(item, rubric, evaluator)
-    return _lookup_candidate(item, left_id), _lookup_candidate(item, right_id)

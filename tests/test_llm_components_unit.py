@@ -13,6 +13,7 @@ from autosr.llm_components import (
     LLMVerifier,
 )
 from autosr.models import Criterion, PromptExample, ResponseCandidate, Rubric
+from autosr.types import MutationMode
 
 
 class _StubRequester:
@@ -98,7 +99,7 @@ class TestLLMComponents(unittest.TestCase):
             _build_item().candidates[0],
             _build_item().candidates[1],
             _build_rubric(),
-            mode="raise_bar",
+            mode=MutationMode.RAISE_BAR,
             rng=random.Random(1),
         )
         self.assertEqual(mutated.rubric_id, "rubric_m1")
@@ -180,7 +181,7 @@ class TestLLMComponents(unittest.TestCase):
             _build_item().candidates[0],
             _build_item().candidates[1],
             _build_rubric(),
-            mode="raise_bar",
+            mode=MutationMode.RAISE_BAR,
             rng=random.Random(1),
         )
 

@@ -88,12 +88,15 @@ def save_rubrics(
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     best_rubrics_list = []
+    best_objective_scores: dict[str, float] = {}
     for prompt_id in sorted(best_rubrics.keys()):
         rubric = best_rubrics[prompt_id]
+        objective_score = best_scores.get(prompt_id, 0.0)
+        best_objective_scores[prompt_id] = objective_score
         entry: dict[str, Any] = {
             "prompt_id": prompt_id,
             "rubric": rubric.to_dict(),
-            "score": best_scores.get(prompt_id, 0.0),
+            "score": objective_score,
         }
         if best_candidates and prompt_id in best_candidates:
             entry["best_candidate_id"] = best_candidates[prompt_id]
@@ -101,7 +104,12 @@ def save_rubrics(
             entry["candidate_scores"] = candidate_scores[prompt_id]
         best_rubrics_list.append(entry)
 
-    output = {"best_rubrics": best_rubrics_list}
+    output = {
+        "best_rubrics": best_rubrics_list,
+        "best_objective_scores": best_objective_scores,
+        # Legacy alias kept for compatibility with existing downstream parsers.
+        "best_scores": dict(best_objective_scores),
+    }
     file_path.write_text(
         json.dumps(output, indent=2, ensure_ascii=False),
         encoding="utf-8",

@@ -154,6 +154,8 @@ class TestSaveRubrics(unittest.TestCase):
             self.assertEqual(payload["best_rubrics"][0]["prompt_id"], item.prompt_id)
             self.assertEqual(payload["best_rubrics"][0]["score"], 1.25)
             self.assertIn("rubric", payload["best_rubrics"][0])
+            self.assertEqual(payload["best_objective_scores"][item.prompt_id], 1.25)
+            self.assertEqual(payload["best_scores"][item.prompt_id], 1.25)
 
     def test_save_rubrics_writes_best_candidates(self) -> None:
         """Test that best candidates are included when provided."""

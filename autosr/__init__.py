@@ -14,6 +14,14 @@ from .search import (
     IterativeRTDSearcher,
     SearchResult,
 )
+from .types import (
+    BackendType,
+    ExtractionStrategy,
+    InitializerStrategy,
+    LLMRole,
+    MutationMode,
+    SearchMode,
+)
 
 __all__ = [
     # Content extraction strategies
@@ -35,4 +43,11 @@ __all__ = [
     "IterativeConfig",
     "IterativeRTDSearcher",
     "SearchResult",
+    # Types/Enums
+    "BackendType",
+    "ExtractionStrategy",
+    "InitializerStrategy",
+    "LLMRole",
+    "MutationMode",
+    "SearchMode",
 ]

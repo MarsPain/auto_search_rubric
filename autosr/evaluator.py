@@ -8,6 +8,7 @@ import random
 import statistics
 from typing import Iterable
 
+from .config import ObjectiveConfig
 from .interfaces import PreferenceJudge, Verifier
 from .models import PromptExample, Rubric
 
@@ -19,23 +20,6 @@ class CandidateEvaluation:
     variance: float
     majority_grades: dict[str, int | None]
     vote_scores: list[float]
-
-
-@dataclass(slots=True)
-class ObjectiveConfig:
-    tail_fraction: float = 0.25
-    lambda_var: float = 0.2
-    mu_diverse: float = 0.25
-    tie_tolerance: float = 1e-8
-    pair_budget_small: int = 8
-    pair_budget_medium: int = 24
-    pair_budget_full: int = 0
-
-    def __post_init__(self) -> None:
-        if not 0 < self.tail_fraction <= 1:
-            raise ValueError("tail_fraction must be in (0, 1]")
-        if self.pair_budget_small < 0 or self.pair_budget_medium < 0 or self.pair_budget_full < 0:
-            raise ValueError("pair budgets must be >= 0")
 
 
 @dataclass(slots=True)

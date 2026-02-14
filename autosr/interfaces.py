@@ -4,6 +4,7 @@ import random
 from typing import Protocol
 
 from .models import PromptExample, ResponseCandidate, Rubric
+from .types import MutationMode
 
 
 class Verifier(Protocol):
@@ -41,10 +42,22 @@ class RubricProposer(Protocol):
         right: ResponseCandidate,
         rubric: Rubric,
         *,
-        mode: str,
+        mode: MutationMode,
         rng: random.Random,
     ) -> Rubric:
-        """Generate a new rubric variant."""
+        """Generate a new rubric variant.""
+        
+        Args:
+            prompt: The original prompt text
+            left: The preferred candidate response
+            right: The runner-up candidate response
+            rubric: The current rubric to mutate
+            mode: The mutation strategy to apply
+            rng: Random number generator for deterministic behavior
+            
+        Returns:
+            A new mutated rubric variant
+        """
 
 
 class RubricInitializer(Protocol):

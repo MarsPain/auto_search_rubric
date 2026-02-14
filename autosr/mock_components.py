@@ -8,6 +8,7 @@ import re
 from typing import Any, Mapping
 
 from .models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
+from .types import MutationMode
 
 
 class HeuristicRubricInitializer:
@@ -190,20 +191,20 @@ class TemplateProposer:
         right: ResponseCandidate,
         rubric: Rubric,
         *,
-        mode: str,
+        mode: MutationMode,
         rng: random.Random,
     ) -> Rubric:
         updated = deepcopy(rubric)
-        updated.rubric_id = f"{rubric.rubric_id}_{mode}_{rng.randint(0, 9999)}"
-        if mode == "raise_bar":
+        updated.rubric_id = f"{rubric.rubric_id}_{mode.value}_{rng.randint(0, 9999)}"
+        if mode is MutationMode.RAISE_BAR:
             self._raise_bar(updated)
-        elif mode == "decompose":
+        elif mode is MutationMode.DECOMPOSE:
             self._decompose(updated, rng)
-        elif mode == "factual_focus":
+        elif mode is MutationMode.FACTUAL_FOCUS:
             self._factual_focus(updated)
-        elif mode == "anti_fluff":
+        elif mode is MutationMode.ANTI_FLUFF:
             self._anti_fluff(updated)
-        elif mode == "counterexample_trigger":
+        elif mode is MutationMode.COUNTEREXAMPLE_TRIGGER:
             self._counterexample(updated)
         else:
             self._weight_perturb(updated, rng)
