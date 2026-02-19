@@ -315,7 +315,7 @@ class EvolutionaryRTDSearcher:
         prompt_map = {item.prompt_id: item for item in prompts}
         for prompt_id, scored in scored_population.items():
             best_breakdown = scored[0][1]
-            margin_term = 1.0 / (best_breakdown.top_margin + 1e-6)
+            margin_term = 1.0 / (1.0 + best_breakdown.top_margin)
             disagreement = disagreement_score(
                 prompt_map[prompt_id], populations[prompt_id], self.evaluator
             )
