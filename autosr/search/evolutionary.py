@@ -8,7 +8,9 @@ from ..evaluator import ObjectiveBreakdown, RubricEvaluator, disagreement_score
 from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
 from ..models import PromptExample, Rubric
 from ..types import MutationMode
+from .adaptive_mutation import AdaptiveMutationSelector, compute_population_diversity
 from .config import EvolutionaryConfig, SearchResult
+from .selection_strategies import select_parents
 from .strategies import (
     MUTATION_MODES,
     _append_unique,
@@ -36,12 +38,21 @@ class EvolutionaryRTDSearcher:
         self.rng = random.Random(self.config.seed)
         self.evaluator = RubricEvaluator(verifier, base_seed=self.config.seed)
 
+        # Initialize adaptive mutation selector
+        self.mutation_selector = AdaptiveMutationSelector(self.config, self.rng)
+
+        # Track diversity history for diagnostics
+        self.diversity_history: list[float] = []
+
     def search(self, prompts: list[PromptExample]) -> SearchResult:
         logger.info(
-            "starting evolutionary search prompts=%d generations=%d population=%d",
+            "starting evolutionary search prompts=%d generations=%d population=%d "
+            "selection=%s mutation=%s",
             len(prompts),
             self.config.generations,
             self.config.population_size,
+            self.config.selection_strategy.name,
+            self.config.adaptive_mutation.name,
         )
         population, history, best_rubrics, best_scores = self._init_global_state(prompts)
         stale_rounds = 0
@@ -49,6 +60,14 @@ class EvolutionaryRTDSearcher:
         for generation in range(self.config.generations):
             scored_population = self._score_generation(prompts, population)
             self._log_generation_progress(generation, scored_population)
+
+            # Compute and track diversity
+            for item in prompts:
+                diversity = compute_population_diversity(
+                    population[item.prompt_id], rng=self.rng
+                )
+                self.diversity_history.append(diversity)
+
             generation_improved = self._update_generation_bests(
                 scored_population=scored_population,
                 best_rubrics=best_rubrics,
@@ -76,7 +95,11 @@ class EvolutionaryRTDSearcher:
                 hard_prompt_ids=hard_prompt_ids,
                 scored_population=scored_population,
                 population=population,
+                generation=generation,
             )
+
+            # Update mutation selector for next generation
+            self.mutation_selector.next_generation()
 
         self._finalize_best_from_population(
             prompts=prompts,
@@ -85,11 +108,20 @@ class EvolutionaryRTDSearcher:
             best_scores=best_scores,
         )
 
+        diagnostics = {
+            "mode": "evolutionary",
+            "selection_strategy": self.config.selection_strategy.name,
+            "adaptive_mutation": self.config.adaptive_mutation.name,
+            "mutation_diagnostics": self.mutation_selector.get_diagnostics(),
+            "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
+            if self.diversity_history else 0.0,
+        }
+
         return SearchResult(
             best_rubrics=best_rubrics,
             best_scores=best_scores,
             history=history,
-            diagnostics={"mode": "evolutionary"},
+            diagnostics=diagnostics,
         )
 
     def _init_global_state(
@@ -167,15 +199,21 @@ class EvolutionaryRTDSearcher:
         hard_prompt_ids: set[str],
         scored_population: dict[str, list[tuple[Rubric, ObjectiveBreakdown]]],
         population: dict[str, list[Rubric]],
+        generation: int,
     ) -> None:
         for item in prompts:
             if item.prompt_id not in hard_prompt_ids:
                 continue
             scored = scored_population[item.prompt_id]
+            current_diversity = compute_population_diversity(
+                population[item.prompt_id], rng=self.rng
+            )
             population[item.prompt_id] = self._evolve_one_prompt(
                 item=item,
                 scored=scored,
                 population_for_prompt=population[item.prompt_id],
+                generation=generation,
+                diversity_score=current_diversity,
             )
 
     def _evolve_one_prompt(
@@ -184,18 +222,45 @@ class EvolutionaryRTDSearcher:
         item: PromptExample,
         scored: list[tuple[Rubric, ObjectiveBreakdown]],
         population_for_prompt: list[Rubric],
+        generation: int,  # noqa: ARG002
+        diversity_score: float,
     ) -> list[Rubric]:
         del population_for_prompt  # Reserved for future prompt-local stateful strategies.
         best_current = scored[0][0]
+        best_current_score = scored[0][1].total
         left, right = _build_top2_pair(item=item, rubric=best_current, evaluator=self.evaluator)
         new_candidates: list[Rubric] = []
-        for idx in range(self.config.mutations_per_round):
-            mode = MUTATION_MODES[idx % len(MUTATION_MODES)]
+        mutation_modes_used: list[MutationMode] = []
+
+        for _idx in range(self.config.mutations_per_round):
+            # Use adaptive mutation selection
+            mode = self.mutation_selector.select_mode(diversity_score=diversity_score)
+            mutation_modes_used.append(mode)
             mutated = self.proposer.propose(
                 item.prompt, left, right, best_current, mode=mode, rng=self.rng
             )
             new_candidates.append(mutated)
+
+        logger.debug(
+            "prompt=%s mutation_modes=%s",
+            item.prompt_id,
+            [m.name for m in mutation_modes_used],
+        )
+
         winners = self._successive_halving(item, new_candidates)
+
+        # Record mutation outcomes for adaptive learning
+        winner_scores = self._score_population(item, winners)
+        best_winner_score = winner_scores[0][1].total if winner_scores else best_current_score
+        improvement = best_winner_score - best_current_score
+
+        for mode in mutation_modes_used:
+            self.mutation_selector.record_outcome(
+                mode=mode,
+                was_successful=improvement > 0,
+                score_improvement=improvement,
+            )
+
         return self._update_population(scored, winners, self.config.population_size)
 
     def _finalize_best_from_population(
@@ -290,19 +355,44 @@ class EvolutionaryRTDSearcher:
         winners: list[Rubric],
         target_size: int,
     ) -> list[Rubric]:
+        """Update population using configured selection strategy.
+
+        Uses the selection_strategy from config to choose parents for next generation.
+        """
         new_population: list[Rubric] = []
         seen: set[str] = set()
-        existing_sorted = [rubric for rubric, _ in scored_existing]
-        for rubric in existing_sorted[: self.config.elitism_count]:
+
+        # Always keep elite individuals
+        for rubric, _ in scored_existing[: self.config.elitism_count]:
             _append_unique(new_population, rubric, seen)
+
+        # Select parents using configured strategy
+        num_parents_needed = target_size - len(new_population)
+        if num_parents_needed > 0 and scored_existing:
+            selected = select_parents(
+                strategy=self.config.selection_strategy.name.lower(),
+                scored_population=scored_existing,
+                num_parents=num_parents_needed,
+                rng=self.rng,
+                config=self.config,
+            )
+            for rubric in selected:
+                if len(new_population) >= target_size:
+                    break
+                _append_unique(new_population, rubric, seen)
+
+        # Fill any remaining slots with winners
         for rubric in winners:
             if len(new_population) >= target_size:
                 break
             _append_unique(new_population, rubric, seen)
-        for rubric in existing_sorted:
+
+        # Final fallback: fill with existing population
+        for rubric, _ in scored_existing:
             if len(new_population) >= target_size:
                 break
             _append_unique(new_population, rubric, seen)
+
         return new_population[:target_size]
 
     def _select_hard_prompts(

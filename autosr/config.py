@@ -58,6 +58,7 @@ class SearchAlgorithmConfig:
     """Configuration for search algorithm parameters.
     
     Supports both iterative and evolutionary modes with shared validation.
+    Includes advanced selection and mutation strategies for evolutionary mode.
     """
     mode: SearchMode = field(default_factory=lambda: SearchMode.EVOLUTIONARY)
     seed: int = 7
@@ -65,7 +66,7 @@ class SearchAlgorithmConfig:
     # Iterative mode parameters
     iterations: int = 6
     
-    # Evolutionary mode parameters
+    # Evolutionary mode parameters - Basic
     generations: int = 12
     population_size: int = 8
     mutations_per_round: int = 6
@@ -73,6 +74,27 @@ class SearchAlgorithmConfig:
     survival_fraction: float = 0.2
     elitism_count: int = 2
     stagnation_generations: int = 6
+    
+    # === Selection Strategy Parameters ===
+    # "rank" - Original rank-based selection
+    # "tournament" - Tournament selection with configurable size
+    # "top_k" - Top-K with diversity protection
+    selection_strategy: str = "rank"
+    tournament_size: int = 3  # For tournament selection
+    tournament_p: float = 0.8  # Probability of selecting best from tournament
+    top_k_ratio: float = 0.3  # Ratio of population as elite pool
+    diversity_weight: float = 0.3  # Weight for diversity in selection (0-1)
+    
+    # === Adaptive Mutation Parameters ===
+    # "fixed" - Original fixed cycle through modes
+    # "success_feedback" - Adapt based on mutation success rate
+    # "exploration_decay" - High exploration early, exploitation later
+    # "diversity_driven" - Increase weight for modes that improve diversity
+    adaptive_mutation: str = "fixed"
+    mutation_window_size: int = 10  # History window for tracking
+    min_mutation_weight: float = 0.1  # Minimum weight for any mode
+    exploration_phase_ratio: float = 0.3  # Ratio of generations for exploration
+    diversity_threshold: float = 0.05  # Threshold for diversity-boosting
     
     def __post_init__(self) -> None:
         # Convert string to enum if needed (for backward compatibility)
@@ -84,6 +106,30 @@ class SearchAlgorithmConfig:
             raise ValueError("generations must be >= 1")
         if self.mutations_per_round < 1:
             raise ValueError("mutations_per_round must be >= 1")
+        
+        # Validate new selection strategy parameters
+        if self.selection_strategy not in ("rank", "tournament", "top_k"):
+            raise ValueError("selection_strategy must be 'rank', 'tournament', or 'top_k'")
+        if self.tournament_size < 2:
+            raise ValueError("tournament_size must be >= 2")
+        if not 0 < self.tournament_p <= 1:
+            raise ValueError("tournament_p must be in (0, 1]")
+        if not 0 < self.top_k_ratio <= 1:
+            raise ValueError("top_k_ratio must be in (0, 1]")
+        if not 0 <= self.diversity_weight <= 1:
+            raise ValueError("diversity_weight must be in [0, 1]")
+        
+        # Validate new adaptive mutation parameters
+        if self.adaptive_mutation not in ("fixed", "success_feedback", "exploration_decay", "diversity_driven"):
+            raise ValueError("adaptive_mutation must be 'fixed', 'success_feedback', 'exploration_decay', or 'diversity_driven'")
+        if self.mutation_window_size < 1:
+            raise ValueError("mutation_window_size must be >= 1")
+        if not 0 < self.min_mutation_weight <= 1:
+            raise ValueError("min_mutation_weight must be in (0, 1]")
+        if not 0 < self.exploration_phase_ratio <= 1:
+            raise ValueError("exploration_phase_ratio must be in (0, 1]")
+        if not 0 <= self.diversity_threshold <= 1:
+            raise ValueError("diversity_threshold must be in [0, 1]")
 
     def to_iterative_kwargs(self) -> dict[str, Any]:
         """Return kwargs for IterativeConfig."""
@@ -100,6 +146,16 @@ class SearchAlgorithmConfig:
             "elitism_count": self.elitism_count,
             "stagnation_generations": self.stagnation_generations,
             "seed": self.seed,
+            "selection_strategy": self.selection_strategy,
+            "tournament_size": self.tournament_size,
+            "tournament_p": self.tournament_p,
+            "top_k_ratio": self.top_k_ratio,
+            "diversity_weight": self.diversity_weight,
+            "adaptive_mutation": self.adaptive_mutation,
+            "mutation_window_size": self.mutation_window_size,
+            "min_mutation_weight": self.min_mutation_weight,
+            "exploration_phase_ratio": self.exploration_phase_ratio,
+            "diversity_threshold": self.diversity_threshold,
         }
     
     def is_iterative(self) -> bool:

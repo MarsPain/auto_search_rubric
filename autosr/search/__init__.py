@@ -1,9 +1,16 @@
 from ..types import MutationMode
-from .config import EvolutionaryConfig, IterativeConfig, SearchResult
+from .config import (
+    AdaptiveMutationSchedule,
+    EvolutionaryConfig,
+    IterativeConfig,
+    SearchResult,
+    SelectionStrategy,
+)
 from .strategies import MUTATION_MODES
 from .use_cases import EvolutionaryRTDSearcher, IterativeRTDSearcher
 
 __all__ = [
+    "AdaptiveMutationSchedule",
     "MUTATION_MODES",
     "EvolutionaryConfig",
     "EvolutionaryRTDSearcher",
@@ -11,4 +18,5 @@ __all__ = [
     "IterativeRTDSearcher",
     "MutationMode",
     "SearchResult",
+    "SelectionStrategy",
 ]

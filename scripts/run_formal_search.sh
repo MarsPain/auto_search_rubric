@@ -32,6 +32,53 @@ PRESET_STRICT="${PRESET_STRICT:-}"
 EXTRACT_STRATEGY="${EXTRACT_STRATEGY:-tag}"
 EXTRACT_TAG="${EXTRACT_TAG:-通话内容}"
 
+# =============================================================================
+# SELECTION STRATEGY & ADAPTIVE MUTATION CONFIGURATION
+# =============================================================================
+# Uncomment one of the following strategy blocks to test different configurations.
+# Only one SELECTION_STRATEGY should be active at a time.
+
+# -----------------------------------------------------------------------------
+# OPTION 1: Original (Rank-based) - Default behavior
+# -----------------------------------------------------------------------------
+SELECTION_STRATEGY="${SELECTION_STRATEGY:-rank}"
+# ADAPTIVE_MUTATION="${ADAPTIVE_MUTATION:-fixed}"
+
+# -----------------------------------------------------------------------------
+# OPTION 2: Tournament Selection + Success Feedback
+# Description: Balanced selection pressure with adaptive mutation learning
+# Best for: Stable convergence with automatic mutation optimization
+# -----------------------------------------------------------------------------
+# SELECTION_STRATEGY="${SELECTION_STRATEGY:-tournament}"
+# TOURNAMENT_SIZE="${TOURNAMENT_SIZE:-3}"
+# TOURNAMENT_P="${TOURNAMENT_P:-0.8}"
+# ADAPTIVE_MUTATION="${ADAPTIVE_MUTATION:-success_feedback}"
+# MUTATION_WINDOW_SIZE="${MUTATION_WINDOW_SIZE:-10}"
+
+# -----------------------------------------------------------------------------
+# OPTION 3: Top-K with Diversity Protection + Diversity Driven
+# Description: Explicit diversity control in both selection and mutation
+# Best for: Maintaining population diversity, avoiding local optima
+# -----------------------------------------------------------------------------
+SELECTION_STRATEGY="${SELECTION_STRATEGY:-top_k}"
+TOP_K_RATIO="${TOP_K_RATIO:-0.3}"
+DIVERSITY_WEIGHT="${DIVERSITY_WEIGHT:-0.4}"
+ADAPTIVE_MUTATION="${ADAPTIVE_MUTATION:-diversity_driven}"
+DIVERSITY_THRESHOLD="${DIVERSITY_THRESHOLD:-0.05}"
+
+# -----------------------------------------------------------------------------
+# OPTION 4: Tournament + Exploration Decay (Two-phase search)
+# Description: Early exploration with later exploitation
+# Best for: Complex search spaces requiring broad initial exploration
+# -----------------------------------------------------------------------------
+# SELECTION_STRATEGY="${SELECTION_STRATEGY:-tournament}"
+# TOURNAMENT_SIZE="${TOURNAMENT_SIZE:-2}"
+# TOURNAMENT_P="${TOURNAMENT_P:-0.7}"
+# ADAPTIVE_MUTATION="${ADAPTIVE_MUTATION:-exploration_decay}"
+# EXPLORATION_PHASE_RATIO="${EXPLORATION_PHASE_RATIO:-0.3}"
+
+# =============================================================================
+
 cmd=(
   python3 -u -m autosr.cli
   --dataset "${DATASET_PATH}"
@@ -49,6 +96,37 @@ cmd=(
   --mutations-per-round 2
   --batch-size 2
 )
+
+# Add selection strategy parameters if specified
+if [[ -n "${SELECTION_STRATEGY:-}" ]]; then
+  cmd+=(--selection-strategy "${SELECTION_STRATEGY}")
+fi
+if [[ -n "${TOURNAMENT_SIZE:-}" ]]; then
+  cmd+=(--tournament-size "${TOURNAMENT_SIZE}")
+fi
+if [[ -n "${TOURNAMENT_P:-}" ]]; then
+  cmd+=(--tournament-p "${TOURNAMENT_P}")
+fi
+if [[ -n "${TOP_K_RATIO:-}" ]]; then
+  cmd+=(--top-k-ratio "${TOP_K_RATIO}")
+fi
+if [[ -n "${DIVERSITY_WEIGHT:-}" ]]; then
+  cmd+=(--diversity-weight "${DIVERSITY_WEIGHT}")
+fi
+
+# Add adaptive mutation parameters if specified
+if [[ -n "${ADAPTIVE_MUTATION:-}" ]]; then
+  cmd+=(--adaptive-mutation "${ADAPTIVE_MUTATION}")
+fi
+if [[ -n "${MUTATION_WINDOW_SIZE:-}" ]]; then
+  cmd+=(--mutation-window-size "${MUTATION_WINDOW_SIZE}")
+fi
+if [[ -n "${DIVERSITY_THRESHOLD:-}" ]]; then
+  cmd+=(--diversity-threshold "${DIVERSITY_THRESHOLD}")
+fi
+if [[ -n "${EXPLORATION_PHASE_RATIO:-}" ]]; then
+  cmd+=(--exploration-phase-ratio "${EXPLORATION_PHASE_RATIO}")
+fi
 
 if [[ -n "${MODEL_INITIALIZER}" ]]; then
   cmd+=(--model-initializer "${MODEL_INITIALIZER}")

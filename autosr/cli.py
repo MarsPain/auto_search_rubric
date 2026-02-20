@@ -82,6 +82,72 @@ def build_parser() -> argparse.ArgumentParser:
     search_group.add_argument("--mutations-per-round", type=int, default=6, help="Mutations per round")
     search_group.add_argument("--batch-size", type=int, default=3, help="Prompts per generation")
     
+    # === Selection Strategy Options ===
+    selection_group = parser.add_argument_group("Selection Strategy Options (Evolutionary)")
+    selection_group.add_argument(
+        "--selection-strategy",
+        choices=["rank", "tournament", "top_k"],
+        default="rank",
+        help="Parent selection strategy (default: rank)",
+    )
+    selection_group.add_argument(
+        "--tournament-size",
+        type=int,
+        default=3,
+        help="Tournament size for tournament selection",
+    )
+    selection_group.add_argument(
+        "--tournament-p",
+        type=float,
+        default=0.8,
+        help="Probability of selecting best from tournament",
+    )
+    selection_group.add_argument(
+        "--top-k-ratio",
+        type=float,
+        default=0.3,
+        help="Ratio of population as elite pool for top_k selection",
+    )
+    selection_group.add_argument(
+        "--diversity-weight",
+        type=float,
+        default=0.3,
+        help="Weight for diversity in selection score (0-1)",
+    )
+    
+    # === Adaptive Mutation Options ===
+    mutation_group = parser.add_argument_group("Adaptive Mutation Options (Evolutionary)")
+    mutation_group.add_argument(
+        "--adaptive-mutation",
+        choices=["fixed", "success_feedback", "exploration_decay", "diversity_driven"],
+        default="fixed",
+        help="Adaptive mutation schedule (default: fixed)",
+    )
+    mutation_group.add_argument(
+        "--mutation-window-size",
+        type=int,
+        default=10,
+        help="History window size for tracking mutation success",
+    )
+    mutation_group.add_argument(
+        "--min-mutation-weight",
+        type=float,
+        default=0.1,
+        help="Minimum weight for any mutation mode",
+    )
+    mutation_group.add_argument(
+        "--exploration-phase-ratio",
+        type=float,
+        default=0.3,
+        help="Ratio of generations for exploration phase",
+    )
+    mutation_group.add_argument(
+        "--diversity-threshold",
+        type=float,
+        default=0.05,
+        help="Diversity threshold for triggering diversity-boosting mutations",
+    )
+    
     # === Objective function parameters ===
     objective_group = parser.add_argument_group("Objective Function Options")
     objective_group.add_argument("--tail-fraction", type=float, default=0.25, help="Top fraction for tail")
@@ -153,6 +219,16 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             population_size=args.population_size,
             mutations_per_round=args.mutations_per_round,
             batch_size=args.batch_size,
+            selection_strategy=args.selection_strategy,
+            tournament_size=args.tournament_size,
+            tournament_p=args.tournament_p,
+            top_k_ratio=args.top_k_ratio,
+            diversity_weight=args.diversity_weight,
+            adaptive_mutation=args.adaptive_mutation,
+            mutation_window_size=args.mutation_window_size,
+            min_mutation_weight=args.min_mutation_weight,
+            exploration_phase_ratio=args.exploration_phase_ratio,
+            diversity_threshold=args.diversity_threshold,
         ),
         objective=ObjectiveFunctionConfig(
             tail_fraction=args.tail_fraction,
