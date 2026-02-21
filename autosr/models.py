@@ -104,6 +104,12 @@ class Rubric:
             raise ValueError("rubric_id must not be empty")
         if not self.criteria:
             raise ValueError("rubric must include at least one criterion")
+        # Validate uniqueness of criterion_id
+        seen_ids = set()
+        for criterion in self.criteria:
+            if criterion.criterion_id in seen_ids:
+                raise ValueError(f"duplicate criterion_id: {criterion.criterion_id}")
+            seen_ids.add(criterion.criterion_id)
 
     def normalized_weights(self) -> dict[str, float]:
         total = sum(c.weight for c in self.criteria)
