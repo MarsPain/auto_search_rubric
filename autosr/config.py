@@ -28,7 +28,7 @@ class LLMBackendConfig:
     temperature: float = 0.0
     
     # Model configuration
-    default_model: str = "openai/gpt-4o-mini"
+    default_model: str = "stepfun/step-3.5-flash:free"
     initializer_model: str | None = None
     proposer_model: str | None = None
     verifier_model: str | None = None

@@ -103,6 +103,7 @@ CLI supports `--backend {auto,mock,llm}`:
 - `mock`: always use local components
 
 The default configuration uses OpenRouter-compatible endpoints. You can override `--base-url` to use any OpenAI-compatible API provider.
+Default model is `stepfun/step-3.5-flash:free`.
 
 Run the "formal" flow (requires API key):
 
@@ -120,11 +121,11 @@ python3 -m autosr.cli \
   --output artifacts/best_rubrics_llm.json \
   --backend llm \
   --base-url https://openrouter.ai/api/v1 \
-  --model-default deepseek/deepseek-v3.2 \
-  --model-initializer deepseek/deepseek-v3.2 \
-  --model-proposer deepseek/deepseek-v3.2 \
-  --model-verifier deepseek/deepseek-v3.2 \
-  --model-judge deepseek/deepseek-v3.2 \
+  --model-default stepfun/step-3.5-flash:free \
+  --model-initializer stepfun/step-3.5-flash:free \
+  --model-proposer stepfun/step-3.5-flash:free \
+  --model-verifier stepfun/step-3.5-flash:free \
+  --model-judge stepfun/step-3.5-flash:free \
   --llm-timeout 30 \
   --llm-max-retries 2
 ```
@@ -194,13 +195,26 @@ The result is written to `--output`:
 
 ## Tests
 
-Run all tests:
+Run unit tests:
+
+```bash
+./scripts/run_tests_unit.sh
+```
+
+Run integration tests:
+
+```bash
+export LLM_API_KEY="<YOUR_API_KEY>"
+./scripts/run_tests_integration.sh
+```
+
+Run the aggregate entrypoint:
 
 ```bash
 ./scripts/run_tests.sh
 ```
 
-Or:
+Or run full test discovery directly:
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
@@ -208,8 +222,11 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 Notes:
 
-- If `LLM_API_KEY` is set, integration tests will run
-- Otherwise, integration tests are automatically skipped
+- `run_tests_unit.sh` forces integration tests to skip
+- `run_tests_integration.sh` requires `LLM_API_KEY`
+- `run_tests.sh` always runs unit tests first, then runs integration tests only when `LLM_API_KEY` is set
+- Test scripts pick Python in this order: `VIRTUAL_ENV/bin/python` -> `PYTHON_BIN` -> `python3`
+- Integration test endpoint/model can be overridden with `LLM_BASE_URL` and `LLM_MODEL`
 
 ## Notes
 

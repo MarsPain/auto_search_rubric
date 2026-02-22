@@ -28,7 +28,7 @@ from .io_utils import load_dataset, load_initial_rubrics, save_rubrics
 from .models import PromptExample, Rubric
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "openai/gpt-4o-mini"
+DEFAULT_MODEL = "stepfun/step-3.5-flash:free"
 
 
 def build_parser() -> argparse.ArgumentParser:

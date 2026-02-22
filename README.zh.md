@@ -103,6 +103,7 @@ CLI 支持 `--backend {auto,mock,llm}`：
 - `mock`：强制使用本地组件
 
 默认配置使用 OpenRouter 兼容的端点。你可以通过 `--base-url` 参数覆盖为任何 OpenAI 兼容的 API 提供商。
+默认模型为 `stepfun/step-3.5-flash:free`。
 
 运行 formal 流程（需要 API Key）：
 
@@ -120,11 +121,11 @@ python3 -m autosr.cli \
   --output artifacts/best_rubrics_llm.json \
   --backend llm \
   --base-url https://openrouter.ai/api/v1 \
-  --model-default deepseek/deepseek-v3.2 \
-  --model-initializer deepseek/deepseek-v3.2 \
-  --model-proposer deepseek/deepseek-v3.2 \
-  --model-verifier deepseek/deepseek-v3.2 \
-  --model-judge deepseek/deepseek-v3.2 \
+  --model-default stepfun/step-3.5-flash:free \
+  --model-initializer stepfun/step-3.5-flash:free \
+  --model-proposer stepfun/step-3.5-flash:free \
+  --model-verifier stepfun/step-3.5-flash:free \
+  --model-judge stepfun/step-3.5-flash:free \
   --llm-timeout 30 \
   --llm-max-retries 2
 ```
@@ -194,13 +195,26 @@ python3 -m autosr.cli \
 
 ## 测试
 
-运行全部单测：
+运行单元测试：
+
+```bash
+./scripts/run_tests_unit.sh
+```
+
+运行集成测试：
+
+```bash
+export LLM_API_KEY="<YOUR_API_KEY>"
+./scripts/run_tests_integration.sh
+```
+
+运行聚合入口：
 
 ```bash
 ./scripts/run_tests.sh
 ```
 
-或：
+或直接用 `unittest` discover 全量发现测试：
 
 ```bash
 python3 -m unittest discover -s tests -p "test_*.py"
@@ -208,8 +222,11 @@ python3 -m unittest discover -s tests -p "test_*.py"
 
 说明：
 
-- 设置了 `LLM_API_KEY` 时，会执行集成测试
-- 未设置时，集成测试会自动跳过
+- `run_tests_unit.sh` 会强制跳过集成测试
+- `run_tests_integration.sh` 需要先设置 `LLM_API_KEY`
+- `run_tests.sh` 会先跑单元测试，只有在设置了 `LLM_API_KEY` 时才跑集成测试
+- 测试脚本的 Python 选择顺序：`VIRTUAL_ENV/bin/python` -> `PYTHON_BIN` -> `python3`
+- 集成测试可通过 `LLM_BASE_URL` 与 `LLM_MODEL` 覆盖默认端点和模型
 
 ## 备注
 

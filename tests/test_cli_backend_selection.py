@@ -3,10 +3,18 @@ from __future__ import annotations
 import unittest
 
 from autosr.config import LLMBackendConfig, RuntimeConfig
+from autosr.cli import build_parser
 from autosr.types import BackendType
 
 
 class TestCliBackendSelection(unittest.TestCase):
+    def test_default_model_is_stepfun_flash(self) -> None:
+        self.assertEqual(LLMBackendConfig().default_model, "stepfun/step-3.5-flash:free")
+
+        parser = build_parser()
+        args = parser.parse_args(["--dataset", "d.json", "--output", "o.json"])
+        self.assertEqual(args.model_default, "stepfun/step-3.5-flash:free")
+
     def test_auto_uses_mock_without_key(self) -> None:
         config = RuntimeConfig(backend="auto", llm=LLMBackendConfig(api_key=None))
         self.assertEqual(config.resolve_backend(), BackendType.MOCK)
