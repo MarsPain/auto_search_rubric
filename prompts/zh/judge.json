@@ -1,0 +1,15 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "比较两条候选回答并返回偏好（中文提示词）",
+      "system": "比较两条回答并只返回 JSON：{\"preference\": 1|-1|0}，其中 1 表示更偏好 left。",
+      "user_template": "{{\n    \"prompt\": {prompt_json},\n    \"left\": {left_json},\n    \"right\": {right_json}\n}}",
+      "variables": [
+        "prompt_json",
+        "left_json",
+        "right_json"
+      ]
+    }
+  ]
+}

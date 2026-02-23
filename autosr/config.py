@@ -33,6 +33,22 @@ class LLMBackendConfig:
     proposer_model: str | None = None
     verifier_model: str | None = None
     judge_model: str | None = None
+
+    # Prompt configuration
+    # When set, ComponentFactory will attempt to load prompt templates from:
+    # - prompts/<prompt_language>/ (preferred)
+    # - prompts/ (fallback)
+    # Otherwise it will use code constants.
+    prompt_language: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.prompt_language is None:
+            return
+        if not self.prompt_language.strip():
+            raise ValueError("prompt_language must be a non-empty string or None")
+        language = self.prompt_language.strip()
+        if "/" in language or "\\" in language or ".." in language:
+            raise ValueError("prompt_language must not contain path separators or '..'")
     
     def get_model_for_role(self, role: str | LLMRole) -> str:
         """Get the model for a specific role, falling back to default.

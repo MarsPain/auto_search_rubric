@@ -1,0 +1,15 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "根据 prompt 与候选样本初始化 rubric（中文提示词）",
+      "system": "你是 rubric 设计师。只返回一个 JSON 对象。顶层必须包含：rubric_id, criteria, grading_protocol。每个 criterion 对象必须包含非空的 criterion_id、text、weight。不要省略必填字段。不要返回 markdown、注释或不完整的 patch。",
+      "user_template": "{{\n    \"task\": \"为该 prompt 创建一个用于评估回答质量的 rubric。\",\n    \"prompt\": {prompt_json},\n    \"candidate_samples\": {candidate_samples_json},\n    \"constraints\": {{\n        \"criteria_count_range\": [3, 6],\n        \"weights_sum_hint\": 1.0,\n        \"criterion_required_fields\": {required_fields_json},\n        \"return_full_rubric\": true,\n        \"grading_protocol_default\": {{\n            \"num_votes\": 1,\n            \"allow_na\": true,\n            \"vote_method\": \"majority\"\n        }}\n    }}\n}}",
+      "variables": [
+        "prompt_json",
+        "candidate_samples_json",
+        "required_fields_json"
+      ]
+    }
+  ]
+}

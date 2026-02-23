@@ -130,6 +130,10 @@ python3 -m autosr.cli \
   --llm-max-retries 2
 ```
 
+Prompt language (template locale) can be configured via:
+
+- `--prompt-language zh` to load templates from `prompts/zh/` (falls back to `prompts/` if missing).
+
 ## Search and Objective (Implementation Notes)
 
 - Objective:

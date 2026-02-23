@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
     llm_group.add_argument("--model-judge", default=None, help="Model for judge")
     llm_group.add_argument("--llm-timeout", type=float, default=30.0, help="Request timeout (s)")
     llm_group.add_argument("--llm-max-retries", type=int, default=2, help="Retry count")
+    llm_group.add_argument(
+        "--prompt-language",
+        default="zh",
+        help="Language for LLM prompt templates (loads from prompts/<lang>/, fallback prompts/; default: constants)",
+    )
     
     # === Search algorithm parameters ===
     search_group = parser.add_argument_group("Search Algorithm Options")
@@ -223,6 +228,7 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             proposer_model=args.model_proposer,
             verifier_model=args.model_verifier,
             judge_model=args.model_judge,
+            prompt_language=getattr(args, "prompt_language", None),
         ),
         search=SearchAlgorithmConfig(
             mode=args.mode,

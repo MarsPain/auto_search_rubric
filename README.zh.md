@@ -130,6 +130,10 @@ python3 -m autosr.cli \
   --llm-max-retries 2
 ```
 
+提示词语言（模板 locale）可以通过以下参数指定：
+
+- `--prompt-language zh`：优先从 `prompts/zh/` 加载模板（若缺失则回退到 `prompts/`）。
+
 ## 搜索与目标函数（实现细节）
 
 - 目标函数：

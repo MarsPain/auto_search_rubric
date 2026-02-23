@@ -1,0 +1,17 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "使用 rubric 标准为候选回答打分（中文提示词）",
+      "system": "你是严格的评估器。只返回 JSON：{\"grades\": {\"criterion_id\": 0|1|null, ...}}。",
+      "user_template": "{{\n    \"seed\": {seed},\n    \"prompt\": {prompt_json},\n    \"candidate\": {candidate_json},\n    \"criteria\": {criteria_json},\n    \"allow_na\": {allow_na}\n}}",
+      "variables": [
+        "seed",
+        "prompt_json",
+        "candidate_json",
+        "criteria_json",
+        "allow_na"
+      ]
+    }
+  ]
+}

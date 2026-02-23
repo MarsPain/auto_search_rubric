@@ -7,6 +7,7 @@ and other entry points to remain agnostic of implementation details.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .content_extraction import create_verifier_with_extraction
@@ -55,6 +56,8 @@ class ComponentFactory:
         self.config = config
         self._backend = config.resolve_backend()
         self._llm_client: LLMClient | None = None
+        self._prompt_repository = None
+        self._prompt_repository_initialized = False
     
     def _get_llm_client(self) -> LLMClient:
         """Get or create the shared LLM client."""
@@ -69,6 +72,32 @@ class ComponentFactory:
             )
             self._llm_client = LLMClient(llm_config)
         return self._llm_client
+
+    def _get_prompt_repository(self):
+        """Get or create the prompt repository based on prompt language configuration."""
+        if self._prompt_repository_initialized:
+            return self._prompt_repository
+
+        self._prompt_repository_initialized = True
+        prompt_language = self.config.llm.prompt_language
+        if not prompt_language:
+            self._prompt_repository = None
+            return None
+
+        language = prompt_language.strip().lower()
+        base = Path("prompts")
+        preferred = base / language
+        fallback = base
+
+        from .prompts.loader import create_repository
+
+        if preferred.exists():
+            self._prompt_repository = create_repository(preferred)
+        elif fallback.exists():
+            self._prompt_repository = create_repository(fallback)
+        else:
+            self._prompt_repository = None
+        return self._prompt_repository
     
     def _has_rank_for_all_candidates(self, prompts: list[PromptExample]) -> bool:
         """Check if all candidates across all prompts have metadata.rank defined."""
@@ -88,6 +117,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.PROPOSER),
             max_retries=llm_cfg.max_retries,
+            prompt_repository=self._get_prompt_repository(),
         )
     
     def create_verifier(self) -> Verifier:
@@ -100,6 +130,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.VERIFIER),
             max_retries=llm_cfg.max_retries,
+            prompt_repository=self._get_prompt_repository(),
         )
     
     def create_judge(self, prompts: list[PromptExample]) -> PreferenceJudge:
@@ -120,6 +151,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.JUDGE),
             max_retries=llm_cfg.max_retries,
+            prompt_repository=self._get_prompt_repository(),
         )
     
     def create_base_initializer(self) -> RubricInitializer:
@@ -132,6 +164,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.INITIALIZER),
             max_retries=llm_cfg.max_retries,
+            prompt_repository=self._get_prompt_repository(),
         )
     
     def create_initializer(self) -> RubricInitializer:

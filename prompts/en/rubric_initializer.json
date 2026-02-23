@@ -1,0 +1,15 @@
+{
+  "templates": [
+    {
+      "version": "1.0.0",
+      "description": "Initialize a new rubric from prompt and candidate samples",
+      "system": "You are a rubric designer. Return ONLY one JSON object. Required top-level keys: rubric_id, criteria, grading_protocol. Each criterion object MUST include non-empty criterion_id and text, plus weight. Do not omit required fields. Do not return markdown, comments, or partial patches.",
+      "user_template": "{{\n    \"task\": \"Create an evaluation rubric for the prompt.\",\n    \"prompt\": {prompt_json},\n    \"candidate_samples\": {candidate_samples_json},\n    \"constraints\": {{\n        \"criteria_count_range\": [3, 6],\n        \"weights_sum_hint\": 1.0,\n        \"criterion_required_fields\": {required_fields_json},\n        \"return_full_rubric\": true,\n        \"grading_protocol_default\": {{\n            \"num_votes\": 1,\n            \"allow_na\": true,\n            \"vote_method\": \"majority\"\n        }}\n    }}\n}}",
+      "variables": [
+        "prompt_json",
+        "candidate_samples_json",
+        "required_fields_json"
+      ]
+    }
+  ]
+}
