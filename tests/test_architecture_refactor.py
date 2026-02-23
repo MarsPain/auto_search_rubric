@@ -47,6 +47,7 @@ class TestArchitectureRefactor(unittest.TestCase):
             "autosr.llm_components.parsers",
             "autosr.content_extraction.use_cases",
             "autosr.content_extraction.strategies",
+            "autosr.run_records.use_cases",
         ]
         for name in modules:
             with self.subTest(module=name):

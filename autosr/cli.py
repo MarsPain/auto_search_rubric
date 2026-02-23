@@ -7,9 +7,11 @@ to ComponentFactory and all configuration to RuntimeConfig.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import logging
 import os
 from pathlib import Path
+import sys
 from typing import Any
 
 from .config import (
@@ -24,7 +26,12 @@ from .config import (
 from .types import BackendType, LLMRole
 from .evaluator import RubricEvaluator
 from .factory import ComponentFactory
-from .io_utils import load_dataset, load_initial_rubrics, save_rubrics
+from .run_records.use_cases import build_reproducible_script, build_run_manifest
+from .io_utils import (
+    load_dataset,
+    save_run_record_files,
+    save_rubrics,
+)
 from .models import PromptExample, Rubric
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
@@ -305,6 +312,9 @@ def print_summary(
     mode: str,
     output_path: str,
     config: RuntimeConfig,
+    *,
+    run_manifest_path: Path | None = None,
+    reproducible_script_path: Path | None = None,
 ) -> None:
     """Print execution summary."""
     print(f"Mode: {mode}")
@@ -324,12 +334,17 @@ def print_summary(
         print(f"  - {prompt_id}: {score:.4f}")
     
     print(f"Saved: {Path(output_path)}")
+    if run_manifest_path is not None:
+        print(f"Run manifest: {run_manifest_path}")
+    if reproducible_script_path is not None:
+        print(f"Repro script: {reproducible_script_path}")
 
 
 def main() -> None:
     """Main entry point."""
     parser = build_parser()
-    args = parser.parse_args()
+    raw_cli_args = sys.argv[1:]
+    args = parser.parse_args(raw_cli_args)
     
     setup_logging(args.verbose)
     
@@ -354,6 +369,17 @@ def main() -> None:
         factory=factory,
         seed=config.search.seed,
     )
+
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    run_manifest = build_run_manifest(
+        args=args,
+        config=config,
+        dataset_path=Path(args.dataset),
+        output_path=Path(args.output),
+        raw_cli_args=raw_cli_args,
+        run_id=run_id,
+    )
+    reproducible_script = build_reproducible_script(run_manifest)
     
     # Save results
     save_rubrics(
@@ -362,9 +388,22 @@ def main() -> None:
         result.best_scores,
         best_candidates=best_candidates,
         candidate_scores=candidate_scores,
+        run_manifest=run_manifest,
+    )
+    run_manifest_path, reproducible_script_path = save_run_record_files(
+        args.output,
+        run_manifest=run_manifest,
+        reproducible_script=reproducible_script,
     )
     
-    print_summary(result.best_scores, args.mode, args.output, config)
+    print_summary(
+        result.best_scores,
+        args.mode,
+        args.output,
+        config,
+        run_manifest_path=run_manifest_path,
+        reproducible_script_path=reproducible_script_path,
+    )
 
 
 if __name__ == "__main__":

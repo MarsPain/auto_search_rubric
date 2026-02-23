@@ -74,6 +74,7 @@ def save_rubrics(
     *,
     best_candidates: dict[str, str] | None = None,
     candidate_scores: dict[str, dict[str, float]] | None = None,
+    run_manifest: dict[str, Any] | None = None,
 ) -> None:
     """Save rubrics and scores to JSON file.
 
@@ -83,6 +84,7 @@ def save_rubrics(
         best_scores: Dict mapping prompt_id to objective score.
         best_candidates: Optional dict mapping prompt_id to best candidate_id.
         candidate_scores: Optional dict mapping prompt_id to dict of candidate_id -> score.
+        run_manifest: Optional reproducibility metadata for this run.
     """
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +112,42 @@ def save_rubrics(
         # Legacy alias kept for compatibility with existing downstream parsers.
         "best_scores": dict(best_objective_scores),
     }
+    if run_manifest is not None:
+        output["run_manifest"] = run_manifest
     file_path.write_text(
         json.dumps(output, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+def save_run_record_files(
+    path: str | Path,
+    *,
+    run_manifest: dict[str, Any],
+    reproducible_script: str,
+) -> tuple[Path, Path]:
+    """Archive per-run reproducibility files.
+
+    Files are written under `<output_parent>/run_records/` and include:
+    - a manifest JSON snapshot (`*.manifest.json`)
+    - an executable shell script (`*.reproduce.sh`)
+
+    Returns:
+        Tuple of (manifest_path, script_path).
+    """
+    file_path = Path(path)
+    run_records_dir = file_path.parent / "run_records"
+    run_records_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = str(run_manifest.get("run_id", "unknown_run"))
+    base_name = file_path.stem
+    manifest_path = run_records_dir / f"{base_name}_{run_id}.manifest.json"
+    script_path = run_records_dir / f"{base_name}_{run_id}.reproduce.sh"
+
+    manifest_path.write_text(
+        json.dumps(run_manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    script_path.write_text(reproducible_script, encoding="utf-8")
+    script_path.chmod(0o755)
+    return manifest_path, script_path

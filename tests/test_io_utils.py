@@ -6,7 +6,12 @@ import random
 import tempfile
 import unittest
 
-from autosr.io_utils import load_dataset, load_initial_rubrics, save_rubrics
+from autosr.io_utils import (
+    load_dataset,
+    load_initial_rubrics,
+    save_run_record_files,
+    save_rubrics,
+)
 from autosr.mock_components import HeuristicRubricInitializer
 
 
@@ -212,6 +217,54 @@ class TestSaveRubrics(unittest.TestCase):
                 best_scores={item.prompt_id: 1.0},
             )
             self.assertTrue(output_path.exists())
+
+    def test_save_rubrics_writes_run_manifest(self) -> None:
+        """Test that run manifest is included when provided."""
+        item = load_dataset("examples/demo_dataset.json")[0]
+        rubric = HeuristicRubricInitializer().initialize(item, rng=random.Random(123))
+        run_manifest = {
+            "run_id": "20260222T100000_000000Z",
+            "backend": {"requested": "auto", "resolved": "mock"},
+            "seed": 7,
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "out.json"
+            save_rubrics(
+                output_path,
+                best_rubrics={item.prompt_id: rubric},
+                best_scores={item.prompt_id: 1.0},
+                run_manifest=run_manifest,
+            )
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertIn("run_manifest", payload)
+            self.assertEqual(payload["run_manifest"]["run_id"], "20260222T100000_000000Z")
+
+    def test_save_run_record_files_writes_manifest_and_script(self) -> None:
+        """Test per-run reproducibility files are archived in run_records."""
+        run_manifest = {
+            "run_id": "20260222T100000_000000Z",
+            "backend": {"requested": "auto", "resolved": "mock"},
+        }
+        script_text = "#!/usr/bin/env bash\nset -euo pipefail\n"
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "best_rubrics.json"
+            manifest_path, script_path = save_run_record_files(
+                output_path,
+                run_manifest=run_manifest,
+                reproducible_script=script_text,
+            )
+
+            self.assertTrue(manifest_path.exists())
+            self.assertTrue(script_path.exists())
+            self.assertIn("run_records", str(manifest_path))
+            self.assertIn("run_records", str(script_path))
+            self.assertEqual(
+                json.loads(manifest_path.read_text(encoding="utf-8"))["run_id"],
+                "20260222T100000_000000Z",
+            )
+            self.assertEqual(script_path.read_text(encoding="utf-8"), script_text)
 
 
 if __name__ == "__main__":
