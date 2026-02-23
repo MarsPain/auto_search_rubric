@@ -138,7 +138,13 @@ def compute_objective(
         judge=judge,
         tie_tolerance=config.tie_tolerance,
     )
-    tail_acc, diverse_tail_acc = _compute_tail_metrics(stats)
+    tail_acc_raw, diverse_tail_acc_raw = _compute_tail_metrics(stats)
+    tail_acc = _shrink_toward_neutral(tail_acc_raw, stats.valid, config.pair_confidence_prior)
+    diverse_tail_acc = _shrink_toward_neutral(
+        diverse_tail_acc_raw,
+        stats.valid,
+        config.pair_confidence_prior,
+    )
     return _compose_objective_breakdown(
         tail_acc=tail_acc,
         tail_var=tail_var,
@@ -265,6 +271,13 @@ def _compute_tail_metrics(stats: PairAlignmentStats) -> tuple[float, float]:
         # If no cross-source pair exists in tail, fall back to tail_acc.
         diverse_tail_acc = tail_acc
     return tail_acc, diverse_tail_acc
+
+
+def _shrink_toward_neutral(value: float, sample_count: int, prior: float) -> float:
+    if prior <= 0:
+        return value
+    confidence = sample_count / (sample_count + prior)
+    return 0.5 + (confidence * (value - 0.5))
 
 
 def _compose_objective_breakdown(

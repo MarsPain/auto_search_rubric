@@ -173,6 +173,7 @@ class ObjectiveConfig:
     tail_fraction: float = 0.25
     lambda_var: float = 0.2  # Penalty coefficient for tail variance
     mu_diverse: float = 0.25  # Bonus for cross-source tail alignment
+    pair_confidence_prior: float = 8.0  # Shrink pair-based accuracies toward 0.5 for low sample counts
     
     # Pair budget configuration for successive halving
     pair_budget_small: int = 8
@@ -186,6 +187,8 @@ class ObjectiveConfig:
             raise ValueError("tail_fraction must be in (0, 1]")
         if self.pair_budget_small < 0 or self.pair_budget_medium < 0 or self.pair_budget_full < 0:
             raise ValueError("pair budgets must be >= 0")
+        if self.pair_confidence_prior < 0:
+            raise ValueError("pair_confidence_prior must be >= 0")
 
 
 # Backward compatibility alias. New code should use ObjectiveConfig.

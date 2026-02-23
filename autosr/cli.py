@@ -160,6 +160,12 @@ def build_parser() -> argparse.ArgumentParser:
     objective_group.add_argument("--tail-fraction", type=float, default=0.25, help="Top fraction for tail")
     objective_group.add_argument("--lambda-var", type=float, default=0.2, help="Variance penalty coefficient")
     objective_group.add_argument("--mu-diverse", type=float, default=0.25, help="Diversity bonus coefficient")
+    objective_group.add_argument(
+        "--pair-confidence-prior",
+        type=float,
+        default=8.0,
+        help="Pseudo-count prior for shrinking pair-based accuracies toward 0.5",
+    )
     
     # === Verifier options ===
     verifier_group = parser.add_argument_group("Verifier Options")
@@ -241,6 +247,7 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             tail_fraction=args.tail_fraction,
             lambda_var=args.lambda_var,
             mu_diverse=args.mu_diverse,
+            pair_confidence_prior=args.pair_confidence_prior,
         ),
         initializer=InitializerStrategyConfig(
             strategy=args.initializer_strategy,

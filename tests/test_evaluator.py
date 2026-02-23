@@ -55,9 +55,9 @@ class TestEvaluatorObjective(unittest.TestCase):
             HeuristicPreferenceJudge(),
             ObjectiveConfig(),
         )
-        self.assertAlmostEqual(result.total, 1.25, places=8)
-        self.assertAlmostEqual(result.tail_acc, 1.0, places=8)
-        self.assertAlmostEqual(result.diverse_tail_acc, 1.0, places=8)
+        self.assertAlmostEqual(result.total, 0.6944444444, places=8)
+        self.assertAlmostEqual(result.tail_acc, 0.5555555556, places=8)
+        self.assertAlmostEqual(result.diverse_tail_acc, 0.5555555556, places=8)
         self.assertEqual(result.valid_pairs, 1)
         self.assertEqual(result.diverse_pairs, 1)
 
@@ -94,7 +94,13 @@ class TestEvaluatorObjective(unittest.TestCase):
             rubric,
             _StaticEvaluator(scored),
             _StaticJudge(pref=1),
-            ObjectiveConfig(tail_fraction=1.0, tie_tolerance=tolerance, lambda_var=0.0, mu_diverse=0.0),
+            ObjectiveConfig(
+                tail_fraction=1.0,
+                tie_tolerance=tolerance,
+                lambda_var=0.0,
+                mu_diverse=0.0,
+                pair_confidence_prior=0.0,
+            ),
         )
         self.assertEqual(result.valid_pairs, 1)
         self.assertEqual(result.tail_acc, 0.0)
@@ -130,13 +136,65 @@ class TestEvaluatorObjective(unittest.TestCase):
             rubric,
             _StaticEvaluator(scored),
             _StaticJudge(pref=1),
-            ObjectiveConfig(tail_fraction=1.0, lambda_var=0.0, mu_diverse=0.4),
+            ObjectiveConfig(
+                tail_fraction=1.0,
+                lambda_var=0.0,
+                mu_diverse=0.4,
+                pair_confidence_prior=0.0,
+            ),
         )
         self.assertEqual(result.valid_pairs, 1)
         self.assertEqual(result.diverse_pairs, 0)
         self.assertEqual(result.tail_acc, 1.0)
         self.assertEqual(result.diverse_tail_acc, result.tail_acc)
         self.assertAlmostEqual(result.total, 1.4, places=8)
+
+    def test_pair_confidence_prior_shrinks_small_sample_alignment(self) -> None:
+        item = _build_two_candidate_item("same", "diverse")
+        rubric = _build_test_rubric()
+        scored = [
+            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+        ]
+        result = compute_objective(
+            item,
+            rubric,
+            _StaticEvaluator(scored),
+            _StaticJudge(pref=1),
+            ObjectiveConfig(
+                tail_fraction=1.0,
+                lambda_var=0.0,
+                mu_diverse=0.0,
+                pair_confidence_prior=8.0,
+            ),
+        )
+        expected = 0.5 + ((1.0 / 9.0) * (1.0 - 0.5))
+        self.assertEqual(result.valid_pairs, 1)
+        self.assertAlmostEqual(result.tail_acc, expected, places=8)
+        self.assertAlmostEqual(result.total, expected, places=8)
+
+    def test_pair_confidence_prior_zero_preserves_legacy_behavior(self) -> None:
+        item = _build_two_candidate_item("same", "diverse")
+        rubric = _build_test_rubric()
+        scored = [
+            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+        ]
+        result = compute_objective(
+            item,
+            rubric,
+            _StaticEvaluator(scored),
+            _StaticJudge(pref=1),
+            ObjectiveConfig(
+                tail_fraction=1.0,
+                lambda_var=0.0,
+                mu_diverse=0.0,
+                pair_confidence_prior=0.0,
+            ),
+        )
+        self.assertEqual(result.valid_pairs, 1)
+        self.assertEqual(result.tail_acc, 1.0)
+        self.assertEqual(result.total, 1.0)
 
 
 def _build_test_rubric() -> Rubric:

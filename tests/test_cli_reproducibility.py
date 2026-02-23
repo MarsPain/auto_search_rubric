@@ -42,6 +42,7 @@ class TestCliReproducibility(unittest.TestCase):
             tail_fraction = 0.25
             lambda_var = 0.2
             mu_diverse = 0.25
+            pair_confidence_prior = 8.0
             noise = 0.08
             initializer_strategy = "backend"
             preset_rubrics = None
