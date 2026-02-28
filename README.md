@@ -2,85 +2,110 @@
 
 English | [中文](README.zh.md)
 
-An automated search framework for **rubric-based reward modeling**, inspired by the paper:
-
+Automated search framework for rubric-based reward modeling, inspired by:
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
-This repo keeps a baseline `Iterative RTD` for comparison, and defaults to a more extensible `Evolutionary RTD` implementation (`--mode evolutionary`).
-
-> Original paper Iterative RTD open-source project: [Jun-Kai-Zhang/rubrics](https://github.com/Jun-Kai-Zhang/rubrics)
+This repository keeps `iterative` as a baseline and uses `evolutionary` as the default search mode.
 
 ## Highlights
 
-- Structured rubric schema: `criteria`, `weights`, `grading_protocol`, positive/negative examples, checkpoints
-- Multi-vote verification aggregation: majority vote + vote-level variance tracking
-- Tail-focused objective:
-  - `TailAcc`
-  - `TailVar`
-  - `DiverseTailAcc`
-- Dataset-supported preference ranks (`metadata.rank`) with automatic `RankPreferenceJudge`
+- Unified runtime configuration with typed enums (`autosr.types`) and layered config dataclasses (`autosr.config`)
+- Composition-root factory (`ComponentFactory`) for backend-aware dependency wiring
+- Canonical domain models in `autosr.data_models` with compatibility re-export in `autosr.models`
+- Search extensibility:
+  - Parent selection: `rank`, `tournament`, `top_k`
+  - Adaptive mutation: `fixed`, `success_feedback`, `exploration_decay`, `diversity_driven`
+- LLM architecture split into transport config (`autosr.llm_config`) and runtime config (`autosr.config`)
+- Reproducibility outputs:
+  - `run_manifest` embedded in output JSON
+  - archived manifest and replay script under `<output_parent>/run_records/`
 
-## How This Repo Differs: Evolutionary RTD vs. Iterative RTD (Paper)
+## Architecture (Current)
 
-> Note: this repo implements `iterative` as a baseline and provides `evolutionary` as the default/stronger search mode.
+### Entry and Composition
 
-### 1) A more extensible architecture
+- `autosr/cli.py`
+  - Parses CLI args only
+  - Builds `RuntimeConfig`
+  - Delegates runtime wiring to `ComponentFactory`
+- `autosr/factory.py`
+  - Single composition root for backend selection and component assembly
+  - Auto-resolves rank-based judge when all candidates provide `metadata.rank`
 
-- Protocol-based interfaces: `RubricInitializer`, `RubricProposer`, `Verifier`, `PreferenceJudge`
-- The same search flow can swap `mock` / `llm` components
-- Role-based model configuration (initializer/proposer/verifier/judge can use different models)
+### Config and Types
 
-### 2) Evolutionary search (not a single iterative trajectory)
+- `autosr/config.py`
+  - Runtime-level configuration:
+    - `RuntimeConfig`
+    - `LLMBackendConfig`
+    - `SearchAlgorithmConfig`
+    - `ObjectiveConfig` (compat alias: `ObjectiveFunctionConfig`)
+    - `InitializerStrategyConfig`, `ContentExtractionConfig`, `VerifierConfig`
+- `autosr/llm_config.py`
+  - Low-level LLM transport/model config (`LLMConfig`, `RoleModelConfig`)
+- `autosr/types.py`
+  - Shared enums:
+    - `BackendType`, `SearchMode`, `SelectionStrategy`
+    - `AdaptiveMutationSchedule`, `InitializerStrategy`, `ExtractionStrategy`, `LLMRole`
 
-- **Mutation strategies + elitism**
-  - Maintain a rubric candidate **population**
-  - Generate multiple mutated rubrics per generation (`mutations_per_round`)
-  - Keep elite rubrics (`elitism_count`) and add winners to reduce single-path local optima risks
+### Domain and Shared Modules
 
-- **Budget-aware filtering (successive halving)**
-  - Coarse evaluation for many candidates (small pair budget)
-  - Fine evaluation for a few survivors (medium to full budget)
-  - Implemented via `pair_budget_small / medium / full` for more "budget-efficient" search
+- `autosr/data_models.py`: canonical domain entities (`Rubric`, `Criterion`, `PromptExample`, ...)
+- `autosr/models.py`: compatibility import layer
+- `autosr/exceptions.py`: shared LLM exceptions (`LLMCallError`, `LLMParseError`)
+- `autosr/io_utils.py`: dataset/rubric I/O and run-record persistence
+- `autosr/run_records/use_cases.py`: run manifest + reproducible shell script generation
 
-- **Hard-prompt focus**
-  - Each generation prioritizes prompts that are harder to separate (top margin + population disagreement)
-  - Concentrates limited budget on the "hard cases"
+### Search Domain
 
-### 3) Dataset-defined candidate preference ranks
+- `autosr/search/config.py`: `IterativeConfig`, `EvolutionaryConfig`, `SearchResult`
+- `autosr/search/iterative.py`: iterative baseline implementation
+- `autosr/search/evolutionary.py`: evolutionary algorithm implementation
+- `autosr/search/strategies.py`: reusable search helpers
+- `autosr/search/selection_strategies.py`: parent selection policies
+- `autosr/search/adaptive_mutation.py`: mutation scheduler and diversity metrics
+- `autosr/search/use_cases.py`: searcher entrypoints exports
 
-- If **all candidates** in the dataset provide `metadata.rank` (lower is better):
-  - the system automatically uses `RankPreferenceJudge`
-  - even with `llm` backend, it will prefer rank-based ground truth (no LLM judge calls needed)
-- If any candidate misses `rank`, it falls back to the default judge (heuristic under `mock`, LLM judge under `llm`)
+### LLM + Extraction Domain
+
+- `autosr/llm_components/base.py`: request/retry base + prompt rendering fallback
+- `autosr/llm_components/parsers.py`: response normalization/validation
+- `autosr/llm_components/use_cases.py`: initializer/proposer/verifier/judge implementations
+- `autosr/llm_components/factory.py`: legacy helper kept for compatibility
+- `autosr/content_extraction/strategies.py`: `tag` / `regex` / `identity` extraction
+- `autosr/content_extraction/use_cases.py`: extraction-decorated verifier
+- `autosr/prompts/loader.py` + `autosr/prompts/constants.py`: file templates and constant fallback
 
 ## Project Layout
 
-- `autosr/`: core package (CLI, search, evaluation, LLM/mock components)
-- `tests/`: `unittest` tests
-- `scripts/`: helper scripts for tests and "formal" runs
-- `examples/`: demo datasets (with/without rank)
+- `autosr/`: core package
+- `prompts/`: prompt templates (supports locale folders such as `prompts/zh/` and `prompts/en/`)
+- `tests/`: `unittest` test suite
+- `scripts/`: unit/integration/formal run scripts
+- `examples/`: demo datasets and examples
 - `artifacts/`: default output directory
 
-## Install
+## Environment Setup
 
-Requires: Python `>=3.11`
+Requires Python `>=3.11` and `uv`.
 
 ```bash
-python3 -m pip install -e .
+uv sync
 ```
 
-After installation, you can run via:
+Run commands with `uv run`:
 
-- `python3 -m autosr.cli ...`
-- `autosr ...`
+```bash
+uv run python -m autosr.cli --help
+```
 
 ## Quick Start
 
-Recommended default: evolutionary search
+Default (evolutionary):
 
 ```bash
-python3 -m autosr.cli \
-  --dataset examples/single_case.json \
+uv run python -m autosr.cli \
+  --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
 ```
@@ -88,72 +113,77 @@ python3 -m autosr.cli \
 Iterative baseline:
 
 ```bash
-python3 -m autosr.cli \
+uv run python -m autosr.cli \
   --dataset examples/single_case.json \
   --mode iterative \
   --output artifacts/best_rubrics_iterative.json
 ```
 
-## LLM Backend
-
-CLI supports `--backend {auto,mock,llm}`:
-
-- `auto` (default): use `llm` if `LLM_API_KEY` is present; otherwise `mock`
-- `llm`: require API key and fail fast if missing
-- `mock`: always use local components
-
-The default configuration uses OpenRouter-compatible endpoints. You can override `--base-url` to use any OpenAI-compatible API provider.
-Default model is `stepfun/step-3.5-flash:free`.
-
-Run the "formal" flow (requires API key):
+Evolutionary with custom strategy and prompt locale:
 
 ```bash
-export LLM_API_KEY="<YOUR_API_KEY>"
-./scripts/run_formal_search.sh examples/single_case.json evolutionary artifacts/best_rubrics_formal.json
-```
-
-Direct CLI example with role-specific models:
-
-```bash
-python3 -m autosr.cli \
-  --dataset examples/single_case.json \
+uv run python -m autosr.cli \
+  --dataset examples/single_case_with_rank.json \
   --mode evolutionary \
-  --output artifacts/best_rubrics_llm.json \
-  --backend llm \
-  --base-url https://openrouter.ai/api/v1 \
-  --model-default stepfun/step-3.5-flash:free \
-  --model-initializer stepfun/step-3.5-flash:free \
-  --model-proposer stepfun/step-3.5-flash:free \
-  --model-verifier stepfun/step-3.5-flash:free \
-  --model-judge stepfun/step-3.5-flash:free \
-  --llm-timeout 30 \
-  --llm-max-retries 2
+  --output artifacts/best_rubrics_rank.json \
+  --selection-strategy top_k \
+  --adaptive-mutation diversity_driven \
+  --prompt-language zh
 ```
 
-Prompt language (template locale) can be configured via:
+## Backend and LLM Configuration
 
-- `--prompt-language zh` to load templates from `prompts/zh/` (falls back to `prompts/` if missing).
+`--backend {auto,mock,llm}`:
 
-## Search and Objective (Implementation Notes)
+- `auto` (default): resolve to `llm` when API key exists, else `mock`
+- `llm`: requires API key (`LLM_API_KEY` by default, configurable via `--api-key-env`)
+- `mock`: local heuristic components only
 
-- Objective:
-  - `total = TailAcc - lambda_var * TailVar + mu_diverse * DiverseTailAcc`
-- Key defaults (CLI):
-  - `--generations 12`
-  - `--population-size 8`
-  - `--mutations-per-round 6`
-  - `--batch-size 3`
-  - `--tail-fraction 0.25`
-  - `--lambda-var 0.2`
-  - `--mu-diverse 0.25`
-- Code-level (in `EvolutionaryConfig`) settings not currently exposed as CLI flags:
-  - `survival_fraction` (stage survival ratio)
-  - `elitism_count` (number of elites to keep)
-  - `stagnation_generations` (early-stop threshold)
+Default endpoint/model:
+
+- `--base-url https://openrouter.ai/api/v1`
+- `--model-default stepfun/step-3.5-flash:free`
+
+Role-specific model override is supported:
+
+- `--model-initializer`
+- `--model-proposer`
+- `--model-verifier`
+- `--model-judge`
+
+Prompt locale loading order:
+
+1. `prompts/<language>/` (when `--prompt-language` is set)
+2. `prompts/`
+3. built-in constants in code
+
+Formal LLM-backed flow:
+
+```bash
+export LLM_API_KEY="..."
+./scripts/run_formal_search.sh \
+  examples/call_summary_dataset_with_rank_single.json \
+  evolutionary \
+  artifacts/best_rubrics_formal_call_summary.json
+```
+
+## Search Objective and Controls
+
+Objective:
+
+`score = TailAcc - lambda_var * TailVar + mu_diverse * DiverseTailAcc`
+
+Common flags:
+
+- `--generations`, `--population-size`, `--mutations-per-round`, `--batch-size`
+- `--tail-fraction`, `--lambda-var`, `--mu-diverse`
+- `--pair-confidence-prior` (pairwise confidence shrinkage; set `0` to disable)
+- `--selection-strategy {rank,tournament,top_k}`
+- `--adaptive-mutation {fixed,success_feedback,exploration_decay,diversity_driven}`
 
 ## Dataset Format
 
-Input must be JSON with top-level `prompts`:
+Input JSON must contain top-level `prompts`:
 
 ```json
 {
@@ -174,65 +204,69 @@ Input must be JSON with top-level `prompts`:
 }
 ```
 
-Fields:
+Notes:
 
-- `prompt_id`, `prompt`: required
-- each prompt needs at least 2 `candidates`
-- `metadata.quality`: optional, used by the heuristic judge
-- `metadata.rank`: optional preference label (`1` is the best)
+- `prompt_id` and `prompt` are required
+- each prompt must provide at least 2 candidates
+- `metadata.rank` is optional (`1` is best); if present for all candidates, rank-based judge is auto-selected
 
-Examples:
+## Output and Reproducibility
 
-- `examples/single_case.json` (quality-based)
-- `examples/single_case_with_rank.json` (rank-based)
+Main output JSON (`--output`) includes:
 
-## Output Format
+- `best_rubrics` (array; each item may include `best_candidate_id` and `candidate_scores`)
+- `best_objective_scores`
+- `best_scores` (legacy alias of `best_objective_scores`)
+- optional `run_manifest`
 
-The result is written to `--output`:
+Per-run reproducibility files are written to:
 
-- `best_rubrics`: best rubric per prompt
-- `best_objective_scores`: objective score per prompt
-- `best_scores`: legacy alias of `best_objective_scores` (kept for compatibility)
-- `best_candidates`: top candidate id under the best rubric
-- `candidate_scores`: all candidate scores under the best rubric
-- `best_candidate_scores`: max value from `candidate_scores` per prompt
+- `<output_parent>/run_records/<output_stem>_<run_id>.manifest.json`
+- `<output_parent>/run_records/<output_stem>_<run_id>.reproduce.sh`
 
 ## Tests
 
-Run unit tests:
+Unit tests:
 
 ```bash
 ./scripts/run_tests_unit.sh
 ```
 
-Run integration tests:
+Integration tests (requires API key):
 
 ```bash
-export LLM_API_KEY="<YOUR_API_KEY>"
+export LLM_API_KEY="..."
 ./scripts/run_tests_integration.sh
 ```
 
-Run the aggregate entrypoint:
+Aggregate entrypoint:
 
 ```bash
 ./scripts/run_tests.sh
 ```
 
-Or run full test discovery directly:
+Run all tests directly:
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py"
+uv run python -m unittest discover -s tests -p "test_*.py"
 ```
 
-Notes:
+Architecture-focused regression set:
 
-- `run_tests_unit.sh` forces integration tests to skip
-- `run_tests_integration.sh` requires `LLM_API_KEY`
-- `run_tests.sh` always runs unit tests first, then runs integration tests only when `LLM_API_KEY` is set
-- Test scripts pick Python in this order: `VIRTUAL_ENV/bin/python` -> `PYTHON_BIN` -> `python3`
-- Integration test endpoint/model can be overridden with `LLM_BASE_URL` and `LLM_MODEL`
+```bash
+uv run python -m unittest \
+  tests.test_architecture_refactor \
+  tests.test_cli_backend_selection \
+  tests.test_cli_best_candidates \
+  tests.test_io_utils \
+  tests.test_search_config_enum_unification \
+  tests.test_data_models_compat \
+  tests.test_exceptions_module \
+  tests.test_evolutionary_decoupling
+```
 
 ## Notes
 
-- This repo emphasizes reproducibility, component replaceability, and budget-aware search.
-- For strict comparisons, run both `iterative` and `evolutionary` and compare `best_scores` and generated rubrics.
+- Import domain entities from `autosr.data_models` in new code.
+- Prefer `ComponentFactory(RuntimeConfig(...))` over manual runtime wiring.
+- Keep secrets in environment variables only (`LLM_API_KEY`, optional `LLM_BASE_URL`, `LLM_MODEL`).

@@ -2,158 +2,188 @@
 
 [English](README.md) | 中文
 
-面向 **Rubric-based Reward Modeling** 的自动搜索框架，灵感来自论文：
-
+面向 Rubric-based Reward Modeling 的自动搜索框架，灵感来自论文：
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
-本仓库保留了对照基线 `Iterative RTD`，并默认采用更可扩展的 `Evolutionary RTD` 搜索实现（`--mode evolutionary`）。
+本仓库保留 `iterative` 作为基线，并将 `evolutionary` 作为默认搜索模式。
 
-> 原论文 Iterative RTD 开源项目：[Jun-Kai-Zhang/rubrics](https://github.com/Jun-Kai-Zhang/rubrics)
+## 亮点
 
-## 重点
+- 使用类型化枚举（`autosr.types`）和分层配置 dataclass（`autosr.config`）统一运行配置
+- 通过组合根 `ComponentFactory` 进行后端感知的依赖装配
+- 领域模型以 `autosr.data_models` 为主，`autosr.models` 仅保留兼容导出
+- 搜索策略可扩展：
+  - 父代选择：`rank`、`tournament`、`top_k`
+  - 自适应变异：`fixed`、`success_feedback`、`exploration_decay`、`diversity_driven`
+- LLM 架构分离为传输配置（`autosr.llm_config`）与运行时配置（`autosr.config`）
+- 可复现实验产物：
+  - 输出 JSON 内嵌 `run_manifest`
+  - `<output_parent>/run_records/` 下归档 manifest 与复现脚本
 
-- 结构化 Rubric Schema：`criteria`、`weights`、`grading_protocol`、正/反例与检查点
-- 多票验证聚合：多数投票 + vote-level 方差统计
-- Tail-focused 目标函数：
-  - `TailAcc`
-  - `TailVar`
-  - `DiverseTailAcc`
-- 支持在数据集中预定义候选答案偏好排序（`metadata.rank`），自动启用 `RankPreferenceJudge`
+## 当前架构
 
-## Evolutionary RTD 与论文 Iterative RTD 的区别
+### 入口与组合
 
-> 说明：本仓库实现了 `iterative` 模式作为基线，同时提供默认 `evolutionary` 模式用于更强搜索。
+- `autosr/cli.py`
+  - 仅负责 CLI 参数解析
+  - 构建 `RuntimeConfig`
+  - 将运行时装配委托给 `ComponentFactory`
+- `autosr/factory.py`
+  - 统一组合根：后端选择与组件组装
+  - 当所有候选都带 `metadata.rank` 时自动启用 rank judge
 
-### 1) 更易拓展的架构设计
+### 配置与类型
 
-- 基于协议接口解耦：`RubricInitializer`、`RubricProposer`、`Verifier`、`PreferenceJudge`
-- 同一套搜索流程可替换 mock / LLM 组件
-- 支持 role-based 模型配置（initializer/proposer/verifier/judge 可分别指定模型）
+- `autosr/config.py`
+  - 运行时配置：
+    - `RuntimeConfig`
+    - `LLMBackendConfig`
+    - `SearchAlgorithmConfig`
+    - `ObjectiveConfig`（兼容别名：`ObjectiveFunctionConfig`）
+    - `InitializerStrategyConfig`、`ContentExtractionConfig`、`VerifierConfig`
+- `autosr/llm_config.py`
+  - LLM 传输/模型底层配置（`LLMConfig`、`RoleModelConfig`）
+- `autosr/types.py`
+  - 共享枚举：
+    - `BackendType`、`SearchMode`、`SelectionStrategy`
+    - `AdaptiveMutationSchedule`、`InitializerStrategy`、`ExtractionStrategy`、`LLMRole`
 
-### 2) Evolutionary 搜索方式（非单路径迭代）
+### 领域与共享模块
 
-- **变异策略 + 精英保留（elitism）**
-  - 维护 rubric 候选群体（population），不是只沿单条轨迹迭代
-  - 每轮生成多个变异 rubric（`mutations_per_round`）
-  - 保留精英 rubric（`elitism_count`）并补充优胜变体，降低陷入局部路径的风险
+- `autosr/data_models.py`：规范领域实体（`Rubric`、`Criterion`、`PromptExample` 等）
+- `autosr/models.py`：兼容导入层
+- `autosr/exceptions.py`：共享 LLM 异常（`LLMCallError`、`LLMParseError`）
+- `autosr/io_utils.py`：数据集/结果 I/O 与 run-record 持久化
+- `autosr/run_records/use_cases.py`：run manifest 与可复现实验脚本生成
 
-- **预算筛选机制（successive halving）**
-  - 先粗评大量候选（小预算 pair 采样）
-  - 再精评少量候选（中预算到全预算）
-  - 通过 `pair_budget_small / medium / full` 实现"省预算"的候选筛选
+### 搜索域
 
-- **难例聚焦（hard prompt selection）**
-  - 每代优先优化"难区分"的 prompt（综合 top margin + 群体分歧度）
-  - 用有限预算集中攻克区分难题样本
+- `autosr/search/config.py`：`IterativeConfig`、`EvolutionaryConfig`、`SearchResult`
+- `autosr/search/iterative.py`：迭代基线实现
+- `autosr/search/evolutionary.py`：进化搜索实现
+- `autosr/search/strategies.py`：可复用搜索辅助策略
+- `autosr/search/selection_strategies.py`：父代选择策略
+- `autosr/search/adaptive_mutation.py`：变异调度与多样性指标
+- `autosr/search/use_cases.py`：searcher 对外入口导出
 
-### 3) 支持预定义 candidates 的 Preference Rank
+### LLM 与提取域
 
-- 当数据集中 **所有 candidate** 都带有 `metadata.rank`（数值越小越好）时：
-  - 自动启用 `RankPreferenceJudge`
-  - 即使在 `llm` backend 下，也会优先使用 rank 作为偏好真值，不必调用 LLM judge
-- 若任一 candidate 缺失 `rank`，则回退到默认 judge（mock 下为启发式，llm 下为 LLM judge）
+- `autosr/llm_components/base.py`：请求/重试基类与 prompt 回退渲染
+- `autosr/llm_components/parsers.py`：响应归一化与校验
+- `autosr/llm_components/use_cases.py`：initializer/proposer/verifier/judge 实现
+- `autosr/llm_components/factory.py`：保留的兼容工厂
+- `autosr/content_extraction/strategies.py`：`tag` / `regex` / `identity` 提取策略
+- `autosr/content_extraction/use_cases.py`：带提取装饰器的 verifier
+- `autosr/prompts/loader.py` + `autosr/prompts/constants.py`：模板加载与常量回退
 
 ## 项目结构
 
-- `autosr/`：核心包（CLI、搜索、评估、LLM/mock 组件）
-- `tests/`：`unittest` 测试
-- `scripts/`：测试与 formal 运行脚本
-- `examples/`：示例数据集（含带/不带 rank 的版本）
+- `autosr/`：核心包
+- `prompts/`：提示词模板（支持 `prompts/zh/`、`prompts/en/` 等 locale 子目录）
+- `tests/`：`unittest` 测试集
+- `scripts/`：单测/集测/formal 运行脚本
+- `examples/`：示例数据与示例脚本
 - `artifacts/`：默认输出目录
 
-## 安装
+## 环境准备
 
-要求：Python `>=3.11`
+要求：Python `>=3.11` 与 `uv`。
 
 ```bash
-python3 -m pip install -e .
+uv sync
 ```
 
-安装后可使用以下两种方式运行：
+建议统一使用 `uv run` 执行命令：
 
-- `python3 -m autosr.cli ...`
-- `autosr ...`
+```bash
+uv run python -m autosr.cli --help
+```
 
 ## 快速开始
 
-默认推荐：Evolutionary 搜索
+默认（evolutionary）：
 
 ```bash
-python3 -m autosr.cli \
-  --dataset examples/single_case.json \
+uv run python -m autosr.cli \
+  --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
 ```
 
-Iterative 基线对照：
+Iterative 基线：
 
 ```bash
-python3 -m autosr.cli \
+uv run python -m autosr.cli \
   --dataset examples/single_case.json \
   --mode iterative \
   --output artifacts/best_rubrics_iterative.json
 ```
 
-## LLM 后端
-
-CLI 支持 `--backend {auto,mock,llm}`：
-
-- `auto`（默认）：检测到 `LLM_API_KEY` 则用 `llm`，否则 `mock`
-- `llm`：强制使用 LLM，缺少 key 时直接报错
-- `mock`：强制使用本地组件
-
-默认配置使用 OpenRouter 兼容的端点。你可以通过 `--base-url` 参数覆盖为任何 OpenAI 兼容的 API 提供商。
-默认模型为 `stepfun/step-3.5-flash:free`。
-
-运行 formal 流程（需要 API Key）：
+自定义选择策略与提示词语言：
 
 ```bash
-export LLM_API_KEY="<YOUR_API_KEY>"
-./scripts/run_formal_search.sh examples/single_case.json evolutionary artifacts/best_rubrics_formal.json
-```
-
-直接通过 CLI 指定角色模型：
-
-```bash
-python3 -m autosr.cli \
-  --dataset examples/single_case.json \
+uv run python -m autosr.cli \
+  --dataset examples/single_case_with_rank.json \
   --mode evolutionary \
-  --output artifacts/best_rubrics_llm.json \
-  --backend llm \
-  --base-url https://openrouter.ai/api/v1 \
-  --model-default stepfun/step-3.5-flash:free \
-  --model-initializer stepfun/step-3.5-flash:free \
-  --model-proposer stepfun/step-3.5-flash:free \
-  --model-verifier stepfun/step-3.5-flash:free \
-  --model-judge stepfun/step-3.5-flash:free \
-  --llm-timeout 30 \
-  --llm-max-retries 2
+  --output artifacts/best_rubrics_rank.json \
+  --selection-strategy top_k \
+  --adaptive-mutation diversity_driven \
+  --prompt-language zh
 ```
 
-提示词语言（模板 locale）可以通过以下参数指定：
+## 后端与 LLM 配置
 
-- `--prompt-language zh`：优先从 `prompts/zh/` 加载模板（若缺失则回退到 `prompts/`）。
+`--backend {auto,mock,llm}`：
 
-## 搜索与目标函数（实现细节）
+- `auto`（默认）：检测到 API key 用 `llm`，否则 `mock`
+- `llm`：必须提供 API key（默认读取 `LLM_API_KEY`，可用 `--api-key-env` 改名）
+- `mock`：仅本地启发式组件
 
-- 目标函数：
-  - `total = TailAcc - lambda_var * TailVar + mu_diverse * DiverseTailAcc`
-- 默认关键参数（CLI）：
-  - `--generations 12`
-  - `--population-size 8`
-  - `--mutations-per-round 6`
-  - `--batch-size 3`
-  - `--tail-fraction 0.25`
-  - `--lambda-var 0.2`
-  - `--mu-diverse 0.25`
-- 代码层面（`EvolutionaryConfig`）还包含但目前未暴露为 CLI 参数的配置项：
-  - `survival_fraction`（每阶段保留比例）
-  - `elitism_count`（精英保留数量）
-  - `stagnation_generations`（停滞早停阈值）
+默认端点与模型：
+
+- `--base-url https://openrouter.ai/api/v1`
+- `--model-default stepfun/step-3.5-flash:free`
+
+支持按角色覆写模型：
+
+- `--model-initializer`
+- `--model-proposer`
+- `--model-verifier`
+- `--model-judge`
+
+提示词模板加载顺序：
+
+1. `prompts/<language>/`（设置 `--prompt-language` 时）
+2. `prompts/`
+3. 代码内置常量模板
+
+LLM formal 流程示例：
+
+```bash
+export LLM_API_KEY="..."
+./scripts/run_formal_search.sh \
+  examples/call_summary_dataset_with_rank_single.json \
+  evolutionary \
+  artifacts/best_rubrics_formal_call_summary.json
+```
+
+## 搜索目标与常用控制参数
+
+目标函数：
+
+`score = TailAcc - lambda_var * TailVar + mu_diverse * DiverseTailAcc`
+
+常用参数：
+
+- `--generations`、`--population-size`、`--mutations-per-round`、`--batch-size`
+- `--tail-fraction`、`--lambda-var`、`--mu-diverse`
+- `--pair-confidence-prior`（pairwise 置信收缩，设为 `0` 可关闭）
+- `--selection-strategy {rank,tournament,top_k}`
+- `--adaptive-mutation {fixed,success_feedback,exploration_decay,diversity_driven}`
 
 ## 数据格式
 
-输入必须是 JSON，最外层含 `prompts`：
+输入 JSON 顶层需要包含 `prompts`：
 
 ```json
 {
@@ -174,65 +204,69 @@ python3 -m autosr.cli \
 }
 ```
 
-字段说明：
+说明：
 
-- `prompt_id`、`prompt` 必填
-- 每个 prompt 至少需要 2 个 `candidates`
-- `metadata.quality`：用于启发式 judge（可选）
-- `metadata.rank`：偏好排序标签（可选，`1` 表示最佳）
+- `prompt_id` 与 `prompt` 必填
+- 每个 prompt 至少 2 个 candidates
+- `metadata.rank` 可选（`1` 最优）；若所有候选都提供，则自动切换 rank judge
 
-可参考：
+## 输出与可复现
 
-- `examples/single_case.json`（quality 版本）
-- `examples/single_case_with_rank.json`（rank 版本）
+主输出 JSON（`--output`）包含：
 
-## 输出格式
+- `best_rubrics`（数组；每项可包含 `best_candidate_id` 与 `candidate_scores`）
+- `best_objective_scores`
+- `best_scores`（`best_objective_scores` 的兼容别名）
+- 可选 `run_manifest`
 
-结果会写入 `--output` 指定文件，结构如下：
+每次运行还会在如下目录生成可复现文件：
 
-- `best_rubrics`：每个 prompt 的最优 rubric
-- `best_objective_scores`：每个 prompt 的目标分
-- `best_scores`：`best_objective_scores` 的兼容别名
-- `best_candidates`：每个 prompt 在最优 rubric 下的 top candidate id
-- `candidate_scores`：最优 rubric 下所有 candidate 的分数
-- `best_candidate_scores`：每个 prompt 的最高 candidate 分数
+- `<output_parent>/run_records/<output_stem>_<run_id>.manifest.json`
+- `<output_parent>/run_records/<output_stem>_<run_id>.reproduce.sh`
 
 ## 测试
 
-运行单元测试：
+单元测试：
 
 ```bash
 ./scripts/run_tests_unit.sh
 ```
 
-运行集成测试：
+集成测试（需要 API key）：
 
 ```bash
-export LLM_API_KEY="<YOUR_API_KEY>"
+export LLM_API_KEY="..."
 ./scripts/run_tests_integration.sh
 ```
 
-运行聚合入口：
+聚合入口：
 
 ```bash
 ./scripts/run_tests.sh
 ```
 
-或直接用 `unittest` discover 全量发现测试：
+直接执行全量测试：
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py"
+uv run python -m unittest discover -s tests -p "test_*.py"
 ```
 
-说明：
+架构回归测试集合：
 
-- `run_tests_unit.sh` 会强制跳过集成测试
-- `run_tests_integration.sh` 需要先设置 `LLM_API_KEY`
-- `run_tests.sh` 会先跑单元测试，只有在设置了 `LLM_API_KEY` 时才跑集成测试
-- 测试脚本的 Python 选择顺序：`VIRTUAL_ENV/bin/python` -> `PYTHON_BIN` -> `python3`
-- 集成测试可通过 `LLM_BASE_URL` 与 `LLM_MODEL` 覆盖默认端点和模型
+```bash
+uv run python -m unittest \
+  tests.test_architecture_refactor \
+  tests.test_cli_backend_selection \
+  tests.test_cli_best_candidates \
+  tests.test_io_utils \
+  tests.test_search_config_enum_unification \
+  tests.test_data_models_compat \
+  tests.test_exceptions_module \
+  tests.test_evolutionary_decoupling
+```
 
 ## 备注
 
-- 本仓库强调"可复现实验 + 可替换组件 + 预算感知搜索"。
-- 若你想严格复现实验对照，可同时运行 `iterative` 与 `evolutionary`，比较 `best_scores` 与输出 rubric 差异。
+- 新代码优先从 `autosr.data_models` 导入领域实体。
+- 运行时装配优先使用 `ComponentFactory(RuntimeConfig(...))`，避免手工拼装依赖。
+- 密钥只通过环境变量管理（`LLM_API_KEY`，以及可选 `LLM_BASE_URL`、`LLM_MODEL`）。
