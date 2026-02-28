@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import Protocol
 
-from .models import PromptExample, ResponseCandidate, Rubric
+from .data_models import PromptExample, ResponseCandidate, Rubric
 from .types import MutationMode
 
 

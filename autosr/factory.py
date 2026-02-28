@@ -28,7 +28,7 @@ from .mock_components import (
     RankPreferenceJudge,
     TemplateProposer,
 )
-from .models import PromptExample
+from .data_models import PromptExample
 from .search import EvolutionaryConfig, EvolutionaryRTDSearcher, IterativeConfig, IterativeRTDSearcher
 from .types import BackendType, InitializerStrategy, LLMRole, SearchMode
 

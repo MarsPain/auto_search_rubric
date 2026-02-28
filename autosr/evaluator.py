@@ -10,7 +10,7 @@ from typing import Iterable
 
 from .config import ObjectiveConfig
 from .interfaces import PreferenceJudge, Verifier
-from .models import PromptExample, Rubric
+from .data_models import PromptExample, Rubric
 
 
 @dataclass(slots=True)

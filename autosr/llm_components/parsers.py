@@ -6,7 +6,7 @@ import re
 from typing import Any, Mapping
 
 from ..exceptions import LLMParseError
-from ..models import GradingProtocol, Rubric
+from ..data_models import GradingProtocol, Rubric
 
 logger = logging.getLogger("autosr.llm_components")
 

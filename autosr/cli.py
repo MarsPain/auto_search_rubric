@@ -37,7 +37,7 @@ from .io_utils import (
     save_run_record_files,
     save_rubrics,
 )
-from .models import PromptExample, Rubric
+from .data_models import PromptExample, Rubric
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "stepfun/step-3.5-flash:free"

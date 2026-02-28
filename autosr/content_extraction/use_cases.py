@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from ..interfaces import Verifier
-from ..models import ResponseCandidate, Rubric
+from ..data_models import ResponseCandidate, Rubric
 from .strategies import ContentExtractor
 
 

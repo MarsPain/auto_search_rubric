@@ -6,7 +6,7 @@ from .content_extraction import (
     create_content_extractor,
     create_verifier_with_extraction,
 )
-from .models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
+from .data_models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
 from .search import (
     EvolutionaryConfig,
     EvolutionaryRTDSearcher,

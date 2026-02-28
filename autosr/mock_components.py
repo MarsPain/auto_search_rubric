@@ -7,7 +7,7 @@ import random
 import re
 from typing import Any, Mapping
 
-from .models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
+from .data_models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
 from .types import MutationMode
 
 

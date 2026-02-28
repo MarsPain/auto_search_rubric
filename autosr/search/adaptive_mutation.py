@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Protocol
 
-from ..models import Rubric
+from ..data_models import Rubric
 from ..types import AdaptiveMutationSchedule, MutationMode
 
 if TYPE_CHECKING:

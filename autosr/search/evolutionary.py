@@ -6,7 +6,7 @@ import random
 
 from ..evaluator import ObjectiveBreakdown, RubricEvaluator, disagreement_score
 from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
-from ..models import PromptExample, Rubric
+from ..data_models import PromptExample, Rubric
 from ..types import MutationMode
 from .adaptive_mutation import (
     DiversityMetric,

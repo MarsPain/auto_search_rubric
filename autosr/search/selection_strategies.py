@@ -11,7 +11,7 @@ import random
 from typing import TYPE_CHECKING
 
 from ..evaluator import ObjectiveBreakdown
-from ..models import Rubric
+from ..data_models import Rubric
 from ..types import SelectionStrategy
 
 if TYPE_CHECKING:

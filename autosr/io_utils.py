@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .models import PromptExample, Rubric
+from .data_models import PromptExample, Rubric
 
 
 def load_dataset(path: str | Path) -> list[PromptExample]:

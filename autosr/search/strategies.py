@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..config import ObjectiveConfig
 from ..evaluator import ObjectiveBreakdown, RubricEvaluator, compute_objective, top2_under_rubric
 from ..interfaces import PreferenceJudge
-from ..models import PromptExample, ResponseCandidate, Rubric
+from ..data_models import PromptExample, ResponseCandidate, Rubric
 from ..types import MutationMode
 
 

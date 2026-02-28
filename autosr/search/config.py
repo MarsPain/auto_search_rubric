@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..config import ObjectiveConfig
-from ..models import Rubric
+from ..data_models import Rubric
 from ..types import AdaptiveMutationSchedule, SelectionStrategy
 
 
