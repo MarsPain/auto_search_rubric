@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, Callable, Protocol
 
-from ..llm_client import LLMParseError
+from ..exceptions import LLMParseError
 from ..prompts.loader import ConstantPromptRepository, PromptRepository
 
 logger = logging.getLogger("autosr.llm_components")

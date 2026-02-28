@@ -19,7 +19,7 @@ from .llm_components import (
     LLMRubricProposer,
     LLMVerifier,
 )
-from .llm_config import LLMConfig, RoleModelConfig
+from .llm_config import LLMConfig
 from .mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
@@ -34,6 +34,8 @@ from .types import BackendType, InitializerStrategy, LLMRole, SearchMode
 
 if TYPE_CHECKING:
     from .config import RuntimeConfig
+    from .llm_components.base import JsonRequester
+    from .prompts.loader import PromptRepository
 
 logger = logging.getLogger(__name__)
 
@@ -52,14 +54,21 @@ class ComponentFactory:
         searcher = factory.create_searcher()
     """
     
-    def __init__(self, config: RuntimeConfig) -> None:
+    def __init__(
+        self,
+        config: RuntimeConfig,
+        *,
+        llm_requester: JsonRequester | None = None,
+        prompt_repository: PromptRepository | None = None,
+    ) -> None:
         self.config = config
         self._backend = config.resolve_backend()
-        self._llm_client: LLMClient | None = None
-        self._prompt_repository = None
-        self._prompt_repository_initialized = False
+        # Keep attribute name for backward compatibility in tests/extensions.
+        self._llm_client: JsonRequester | None = llm_requester
+        self._prompt_repository: PromptRepository | None = prompt_repository
+        self._prompt_repository_initialized = prompt_repository is not None
     
-    def _get_llm_client(self) -> LLMClient:
+    def _get_llm_client(self) -> JsonRequester:
         """Get or create the shared LLM client."""
         if self._llm_client is None:
             llm_cfg = self.config.llm
@@ -73,7 +82,7 @@ class ComponentFactory:
             self._llm_client = LLMClient(llm_config)
         return self._llm_client
 
-    def _get_prompt_repository(self):
+    def _get_prompt_repository(self) -> PromptRepository | None:
         """Get or create the prompt repository based on prompt language configuration."""
         if self._prompt_repository_initialized:
             return self._prompt_repository
@@ -184,10 +193,15 @@ class ComponentFactory:
         
         return base_initializer
     
-    def create_verifier_with_extraction(self, prompts: list[PromptExample]) -> Verifier:
+    def create_verifier_with_extraction(
+        self,
+        prompts: list[PromptExample] | None = None,
+    ) -> Verifier:
         """Create verifier with content extraction wrapper if configured."""
         from .types import ExtractionStrategy
-        
+        # Kept for API compatibility with call sites that pass dataset prompts.
+        _ = prompts
+
         verifier = self.create_verifier()
         ext_cfg = self.config.extraction
         

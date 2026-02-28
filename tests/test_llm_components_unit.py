@@ -5,7 +5,7 @@ import random
 import unittest
 from typing import Any
 
-from autosr.llm_client import LLMParseError
+from autosr.exceptions import LLMParseError
 from autosr.llm_components import (
     LLMPreferenceJudge,
     LLMRubricInitializer,

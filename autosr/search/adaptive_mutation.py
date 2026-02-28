@@ -12,12 +12,47 @@ import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
+from ..models import Rubric
 from ..types import AdaptiveMutationSchedule, MutationMode
 
 if TYPE_CHECKING:
     from .config import EvolutionaryConfig
+
+
+class MutationScheduler(Protocol):
+    """Protocol for mutation mode scheduling strategies."""
+
+    def select_mode(self, diversity_score: float | None = None) -> MutationMode:
+        """Select the mutation mode for the next proposal."""
+
+    def record_outcome(
+        self,
+        mode: MutationMode,
+        was_successful: bool,
+        score_improvement: float,
+    ) -> None:
+        """Record the outcome of a mutation."""
+
+    def next_generation(self) -> None:
+        """Advance internal generation state."""
+
+    def get_diagnostics(self) -> dict[str, object]:
+        """Return scheduler diagnostics for run reports."""
+
+
+class DiversityMetric(Protocol):
+    """Protocol for population diversity metrics."""
+
+    def compute(
+        self,
+        rubrics: list[Rubric],
+        *,
+        sample_size: int = 10,
+        rng: random.Random | None = None,
+    ) -> float:
+        """Compute diversity score in [0, 1]."""
 
 
 @dataclass
@@ -276,8 +311,68 @@ class AdaptiveMutationSelector:
         }
 
 
+class FingerprintDiversityMetric:
+    """Default diversity metric based on rubric fingerprint distance."""
+
+    def compute(
+        self,
+        rubrics: list[Rubric],
+        *,
+        sample_size: int = 10,
+        rng: random.Random | None = None,
+    ) -> float:
+        if len(rubrics) < 2:
+            return 0.0
+
+        rng = rng or random.Random()
+
+        # Get fingerprints
+        fingerprints = [r.fingerprint() for r in rubrics]
+
+        # Sample pairs
+        n = len(fingerprints)
+        max_pairs = n * (n - 1) // 2
+        num_samples = min(sample_size, max_pairs)
+
+        distances = []
+        attempts = 0
+        max_attempts = num_samples * 10
+
+        while len(distances) < num_samples and attempts < max_attempts:
+            attempts += 1
+            i, j = rng.sample(range(n), 2)
+
+            fp1, fp2 = fingerprints[i], fingerprints[j]
+            max_len = max(len(fp1), len(fp2))
+
+            if max_len == 0:
+                continue
+
+            # Simple character-level distance
+            matches = sum(
+                1 for a, b in zip(fp1, fp2) if a == b
+            )
+            similarity = matches / max_len
+            distances.append(1.0 - similarity)
+
+        return sum(distances) / len(distances) if distances else 0.0
+
+
+def create_mutation_scheduler(
+    config: EvolutionaryConfig,
+    rng: random.Random,
+) -> MutationScheduler:
+    """Create the default mutation scheduler from config."""
+    return AdaptiveMutationSelector(config, rng)
+
+
+def create_diversity_metric() -> DiversityMetric:
+    """Create the default diversity metric implementation."""
+    return FingerprintDiversityMetric()
+
+
 def compute_population_diversity(
-    rubrics: list,
+    rubrics: list[Rubric],
     sample_size: int = 10,
     rng: random.Random | None = None,
 ) -> float:
@@ -293,38 +388,5 @@ def compute_population_diversity(
     Returns:
         Diversity score in [0, 1], higher is more diverse
     """
-    if len(rubrics) < 2:
-        return 0.0
-
-    rng = rng or random.Random()
-
-    # Get fingerprints
-    fingerprints = [r.fingerprint() for r in rubrics]
-
-    # Sample pairs
-    n = len(fingerprints)
-    max_pairs = n * (n - 1) // 2
-    num_samples = min(sample_size, max_pairs)
-
-    distances = []
-    attempts = 0
-    max_attempts = num_samples * 10
-
-    while len(distances) < num_samples and attempts < max_attempts:
-        attempts += 1
-        i, j = rng.sample(range(n), 2)
-
-        fp1, fp2 = fingerprints[i], fingerprints[j]
-        max_len = max(len(fp1), len(fp2))
-
-        if max_len == 0:
-            continue
-
-        # Simple character-level distance
-        matches = sum(
-            1 for a, b in zip(fp1, fp2) if a == b
-        )
-        similarity = matches / max_len
-        distances.append(1.0 - similarity)
-
-    return sum(distances) / len(distances) if distances else 0.0
+    metric = FingerprintDiversityMetric()
+    return metric.compute(rubrics, sample_size=sample_size, rng=rng)

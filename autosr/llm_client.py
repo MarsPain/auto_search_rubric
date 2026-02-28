@@ -5,17 +5,10 @@ import json
 import logging
 from typing import Any
 
+from .exceptions import LLMCallError, LLMParseError
 from .llm_config import LLMConfig
 
 logger = logging.getLogger(__name__)
-
-
-class LLMCallError(RuntimeError):
-    """Raised when an LLM API call fails after retries."""
-
-
-class LLMParseError(RuntimeError):
-    """Raised when an LLM response cannot be parsed as expected JSON."""
 
 
 @dataclass(slots=True)

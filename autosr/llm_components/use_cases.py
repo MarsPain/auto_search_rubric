@@ -4,7 +4,7 @@ import json
 import random
 from typing import Any
 
-from ..llm_client import LLMParseError
+from ..exceptions import LLMParseError
 from ..models import GradingProtocol, PromptExample, ResponseCandidate, Rubric
 from ..prompts import constants as prompt_constants
 from ..prompts.loader import PromptRepository

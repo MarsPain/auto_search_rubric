@@ -8,7 +8,12 @@ from ..evaluator import ObjectiveBreakdown, RubricEvaluator, disagreement_score
 from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
 from ..models import PromptExample, Rubric
 from ..types import MutationMode
-from .adaptive_mutation import AdaptiveMutationSelector, compute_population_diversity
+from .adaptive_mutation import (
+    DiversityMetric,
+    MutationScheduler,
+    create_diversity_metric,
+    create_mutation_scheduler,
+)
 from .config import EvolutionaryConfig, SearchResult
 from .selection_strategies import select_parents
 from .strategies import (
@@ -30,6 +35,8 @@ class EvolutionaryRTDSearcher:
         judge: PreferenceJudge,
         initializer: RubricInitializer,
         config: EvolutionaryConfig | None = None,
+        mutation_scheduler: MutationScheduler | None = None,
+        diversity_metric: DiversityMetric | None = None,
     ) -> None:
         self.proposer = proposer
         self.judge = judge
@@ -38,8 +45,12 @@ class EvolutionaryRTDSearcher:
         self.rng = random.Random(self.config.seed)
         self.evaluator = RubricEvaluator(verifier, base_seed=self.config.seed)
 
-        # Initialize adaptive mutation selector
-        self.mutation_selector = AdaptiveMutationSelector(self.config, self.rng)
+        # Use injected scheduler/metric when provided, otherwise create defaults from config.
+        self.mutation_scheduler = mutation_scheduler or create_mutation_scheduler(
+            self.config,
+            self.rng,
+        )
+        self.diversity_metric = diversity_metric or create_diversity_metric()
 
         # Track diversity history for diagnostics
         self.diversity_history: list[float] = []
@@ -62,10 +73,13 @@ class EvolutionaryRTDSearcher:
             self._log_generation_progress(generation, scored_population)
 
             # Compute and track diversity
+            diversity_scores: dict[str, float] = {}
             for item in prompts:
-                diversity = compute_population_diversity(
-                    population[item.prompt_id], rng=self.rng
+                diversity = self.diversity_metric.compute(
+                    population[item.prompt_id],
+                    rng=self.rng,
                 )
+                diversity_scores[item.prompt_id] = diversity
                 self.diversity_history.append(diversity)
 
             generation_improved = self._update_generation_bests(
@@ -95,11 +109,12 @@ class EvolutionaryRTDSearcher:
                 hard_prompt_ids=hard_prompt_ids,
                 scored_population=scored_population,
                 population=population,
+                diversity_scores=diversity_scores,
                 generation=generation,
             )
 
             # Update mutation selector for next generation
-            self.mutation_selector.next_generation()
+            self.mutation_scheduler.next_generation()
 
         self._finalize_best_from_population(
             prompts=prompts,
@@ -112,7 +127,7 @@ class EvolutionaryRTDSearcher:
             "mode": "evolutionary",
             "selection_strategy": self.config.selection_strategy.name,
             "adaptive_mutation": self.config.adaptive_mutation.name,
-            "mutation_diagnostics": self.mutation_selector.get_diagnostics(),
+            "mutation_diagnostics": self.mutation_scheduler.get_diagnostics(),
             "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
             if self.diversity_history else 0.0,
         }
@@ -199,21 +214,19 @@ class EvolutionaryRTDSearcher:
         hard_prompt_ids: set[str],
         scored_population: dict[str, list[tuple[Rubric, ObjectiveBreakdown]]],
         population: dict[str, list[Rubric]],
+        diversity_scores: dict[str, float],
         generation: int,
     ) -> None:
         for item in prompts:
             if item.prompt_id not in hard_prompt_ids:
                 continue
             scored = scored_population[item.prompt_id]
-            current_diversity = compute_population_diversity(
-                population[item.prompt_id], rng=self.rng
-            )
             population[item.prompt_id] = self._evolve_one_prompt(
                 item=item,
                 scored=scored,
                 population_for_prompt=population[item.prompt_id],
                 generation=generation,
-                diversity_score=current_diversity,
+                diversity_score=diversity_scores[item.prompt_id],
             )
 
     def _evolve_one_prompt(
@@ -234,7 +247,7 @@ class EvolutionaryRTDSearcher:
 
         for _idx in range(self.config.mutations_per_round):
             # Use adaptive mutation selection
-            mode = self.mutation_selector.select_mode(diversity_score=diversity_score)
+            mode = self.mutation_scheduler.select_mode(diversity_score=diversity_score)
             mutation_modes_used.append(mode)
             mutated = self.proposer.propose(
                 item.prompt, left, right, best_current, mode=mode, rng=self.rng
@@ -255,7 +268,7 @@ class EvolutionaryRTDSearcher:
         improvement = best_winner_score - best_current_score
 
         for mode in mutation_modes_used:
-            self.mutation_selector.record_outcome(
+            self.mutation_scheduler.record_outcome(
                 mode=mode,
                 was_successful=improvement > 0,
                 score_improvement=improvement,
