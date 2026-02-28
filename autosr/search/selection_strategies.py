@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from ..evaluator import ObjectiveBreakdown
 from ..models import Rubric
+from ..types import SelectionStrategy
 
 if TYPE_CHECKING:
     from .config import EvolutionaryConfig
@@ -198,14 +199,14 @@ def select_parents_top_k_diverse(
 
 # Registry for selection strategies
 SELECTION_STRATEGIES = {
-    "rank": select_parents_rank,
-    "tournament": select_parents_tournament,
-    "top_k": select_parents_top_k_diverse,
+    SelectionStrategy.RANK: select_parents_rank,
+    SelectionStrategy.TOURNAMENT: select_parents_tournament,
+    SelectionStrategy.TOP_K: select_parents_top_k_diverse,
 }
 
 
 def select_parents(
-    strategy: str,
+    strategy: SelectionStrategy | str,
     scored_population: list[tuple[Rubric, ObjectiveBreakdown]],
     num_parents: int,
     rng: random.Random,
@@ -214,7 +215,7 @@ def select_parents(
     """Select parents using the specified strategy.
 
     Args:
-        strategy: Selection strategy name (rank, tournament, top_k)
+        strategy: Selection strategy enum or string (rank, tournament, top_k)
         scored_population: List of (rubric, score) tuples
         num_parents: Number of parents to select
         rng: Random number generator
@@ -226,10 +227,14 @@ def select_parents(
     Raises:
         ValueError: If unknown strategy specified
     """
-    if strategy not in SELECTION_STRATEGIES:
+    resolved = strategy
+    if isinstance(strategy, str):
+        resolved = SelectionStrategy.from_string(strategy)
+
+    if resolved not in SELECTION_STRATEGIES:
         msg = f"Unknown selection strategy: {strategy}"
         raise ValueError(msg)
 
-    return SELECTION_STRATEGIES[strategy](
+    return SELECTION_STRATEGIES[resolved](
         scored_population, num_parents, rng, config
     )

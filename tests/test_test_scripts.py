@@ -37,9 +37,14 @@ class TestTestScripts(unittest.TestCase):
         integration_script = (self.scripts_dir / "run_tests_integration.sh").read_text(
             encoding="utf-8"
         )
-        for script_content in (unit_script, integration_script):
+        formal_script = (self.scripts_dir / "run_formal_search.sh").read_text(
+            encoding="utf-8"
+        )
+        for script_content in (unit_script, integration_script, formal_script):
+            self.assertIn("command -v uv", script_content)
+            self.assertIn("uv run python", script_content)
             self.assertIn("VIRTUAL_ENV", script_content)
-            self.assertIn("PYTHON_BIN", script_content)
+            self.assertIn("python3", script_content)
 
 
 if __name__ == "__main__":

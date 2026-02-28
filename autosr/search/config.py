@@ -1,49 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum, auto
 from typing import Any
 
 from ..config import ObjectiveConfig
 from ..models import Rubric
-
-
-class SelectionStrategy(Enum):
-    """Parent selection strategies for evolutionary search."""
-
-    RANK = auto()  # Original: rank-based selection
-    TOURNAMENT = auto()  # Tournament selection (configurable size)
-    TOP_K = auto()  # Top-K with diversity protection
-
-    @classmethod
-    def from_string(cls, s: str) -> SelectionStrategy:
-        """Create from string (case-insensitive)."""
-        mapping = {
-            "rank": cls.RANK,
-            "tournament": cls.TOURNAMENT,
-            "top_k": cls.TOP_K,
-        }
-        return mapping.get(s.lower(), cls.RANK)
-
-
-class AdaptiveMutationSchedule(Enum):
-    """Schedules for adaptive mutation weight adjustment."""
-
-    FIXED = auto()  # Original: fixed cycle through modes
-    SUCCESS_FEEDBACK = auto()  # Adapt based on mutation success rate
-    EXPLORATION_DECAY = auto()  # High exploration early, exploitation later
-    DIVERSITY_DRIVEN = auto()  # Increase weight for modes that improve diversity
-
-    @classmethod
-    def from_string(cls, s: str) -> AdaptiveMutationSchedule:
-        """Create from string (case-insensitive)."""
-        mapping = {
-            "fixed": cls.FIXED,
-            "success_feedback": cls.SUCCESS_FEEDBACK,
-            "exploration_decay": cls.EXPLORATION_DECAY,
-            "diversity_driven": cls.DIVERSITY_DRIVEN,
-        }
-        return mapping.get(s.lower(), cls.FIXED)
+from ..types import AdaptiveMutationSchedule, SelectionStrategy
 
 
 @dataclass(slots=True)
@@ -88,9 +50,15 @@ class EvolutionaryConfig:
     def __post_init__(self) -> None:
         # Convert string to enum if needed
         if isinstance(self.selection_strategy, str):
-            self.selection_strategy = SelectionStrategy.from_string(self.selection_strategy)
+            try:
+                self.selection_strategy = SelectionStrategy.from_string(self.selection_strategy)
+            except ValueError:
+                self.selection_strategy = SelectionStrategy.RANK
         if isinstance(self.adaptive_mutation, str):
-            self.adaptive_mutation = AdaptiveMutationSchedule.from_string(self.adaptive_mutation)
+            try:
+                self.adaptive_mutation = AdaptiveMutationSchedule.from_string(self.adaptive_mutation)
+            except ValueError:
+                self.adaptive_mutation = AdaptiveMutationSchedule.FIXED
 
         if self.population_size < 2:
             raise ValueError("population_size must be >= 2")

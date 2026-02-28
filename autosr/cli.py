@@ -23,7 +23,12 @@ from .config import (
     SearchAlgorithmConfig,
     VerifierConfig,
 )
-from .types import BackendType, LLMRole
+from .types import (
+    AdaptiveMutationSchedule,
+    BackendType,
+    LLMRole,
+    SelectionStrategy,
+)
 from .evaluator import RubricEvaluator
 from .factory import ComponentFactory
 from .run_records.use_cases import build_reproducible_script, build_run_manifest
@@ -36,6 +41,8 @@ from .models import PromptExample, Rubric
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "stepfun/step-3.5-flash:free"
+SELECTION_STRATEGY_CHOICES = [strategy.value for strategy in SelectionStrategy]
+ADAPTIVE_MUTATION_CHOICES = [schedule.value for schedule in AdaptiveMutationSchedule]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -98,8 +105,8 @@ def build_parser() -> argparse.ArgumentParser:
     selection_group = parser.add_argument_group("Selection Strategy Options (Evolutionary)")
     selection_group.add_argument(
         "--selection-strategy",
-        choices=["rank", "tournament", "top_k"],
-        default="rank",
+        choices=SELECTION_STRATEGY_CHOICES,
+        default=SelectionStrategy.RANK.value,
         help="Parent selection strategy (default: rank)",
     )
     selection_group.add_argument(
@@ -131,8 +138,8 @@ def build_parser() -> argparse.ArgumentParser:
     mutation_group = parser.add_argument_group("Adaptive Mutation Options (Evolutionary)")
     mutation_group.add_argument(
         "--adaptive-mutation",
-        choices=["fixed", "success_feedback", "exploration_decay", "diversity_driven"],
-        default="fixed",
+        choices=ADAPTIVE_MUTATION_CHOICES,
+        default=AdaptiveMutationSchedule.FIXED.value,
         help="Adaptive mutation schedule (default: fixed)",
     )
     mutation_group.add_argument(

@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from ..types import MutationMode
+from ..types import AdaptiveMutationSchedule, MutationMode
 
 if TYPE_CHECKING:
     from .config import EvolutionaryConfig
@@ -87,13 +87,13 @@ class AdaptiveMutationSelector:
         """
         schedule = self.config.adaptive_mutation
 
-        if schedule.name == "FIXED":
+        if schedule is AdaptiveMutationSchedule.FIXED:
             return self._select_fixed()
-        if schedule.name == "SUCCESS_FEEDBACK":
+        if schedule is AdaptiveMutationSchedule.SUCCESS_FEEDBACK:
             return self._select_success_feedback()
-        if schedule.name == "EXPLORATION_DECAY":
+        if schedule is AdaptiveMutationSchedule.EXPLORATION_DECAY:
             return self._select_exploration_decay()
-        if schedule.name == "DIVERSITY_DRIVEN":
+        if schedule is AdaptiveMutationSchedule.DIVERSITY_DRIVEN:
             return self._select_diversity_driven(diversity_score or 0.5)
 
         # Fallback to fixed

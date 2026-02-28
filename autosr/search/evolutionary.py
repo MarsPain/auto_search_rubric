@@ -370,7 +370,7 @@ class EvolutionaryRTDSearcher:
         num_parents_needed = target_size - len(new_population)
         if num_parents_needed > 0 and scored_existing:
             selected = select_parents(
-                strategy=self.config.selection_strategy.name.lower(),
+                strategy=self.config.selection_strategy,
                 scored_population=scored_existing,
                 num_parents=num_parents_needed,
                 rng=self.rng,

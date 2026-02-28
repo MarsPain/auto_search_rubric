@@ -15,12 +15,14 @@ from .search import (
     SearchResult,
 )
 from .types import (
+    AdaptiveMutationSchedule,
     BackendType,
     ExtractionStrategy,
     InitializerStrategy,
     LLMRole,
     MutationMode,
     SearchMode,
+    SelectionStrategy,
 )
 
 __all__ = [
@@ -45,6 +47,8 @@ __all__ = [
     "SearchResult",
     # Types/Enums
     "BackendType",
+    "SelectionStrategy",
+    "AdaptiveMutationSchedule",
     "ExtractionStrategy",
     "InitializerStrategy",
     "LLMRole",

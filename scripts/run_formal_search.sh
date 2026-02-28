@@ -7,6 +7,17 @@ DATASET_PATH="${1:-examples/call_summary_dataset_with_rank_single.json}"
 MODE="${2:-evolutionary}"
 OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_call_summary.json}"
 
+if command -v uv >/dev/null 2>&1; then
+  PYTHON_CMD=(uv run python)
+  PYTHON_DESC="uv run python"
+elif [[ -n "${VIRTUAL_ENV:-}" && -x "${VIRTUAL_ENV}/bin/python" ]]; then
+  PYTHON_CMD=("${VIRTUAL_ENV}/bin/python")
+  PYTHON_DESC="${VIRTUAL_ENV}/bin/python"
+else
+  PYTHON_CMD=("${PYTHON_BIN:-python3}")
+  PYTHON_DESC="${PYTHON_CMD[0]}"
+fi
+
 if [[ -z "${LLM_API_KEY:-}" ]]; then
   echo "LLM_API_KEY is not set. Export it before running formal search." >&2
   exit 1
@@ -80,7 +91,7 @@ DIVERSITY_THRESHOLD="${DIVERSITY_THRESHOLD:-0.05}"
 # =============================================================================
 
 cmd=(
-  python3 -u -m autosr.cli
+  "${PYTHON_CMD[@]}" -u -m autosr.cli
   --dataset "${DATASET_PATH}"
   --mode "${MODE}"
   --output "${OUTPUT_PATH}"
@@ -150,5 +161,5 @@ if [[ -n "${EXTRACT_TAG:-}" ]]; then
   cmd+=(--extract-tag "${EXTRACT_TAG}")
 fi
 
-echo "Running command: ${cmd[*]}"
+echo "Running command (${PYTHON_DESC}): ${cmd[*]}"
 "${cmd[@]}"

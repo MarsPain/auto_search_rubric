@@ -9,7 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .types import BackendType, ExtractionStrategy, InitializerStrategy, LLMRole, SearchMode
+from .types import (
+    AdaptiveMutationSchedule,
+    BackendType,
+    ExtractionStrategy,
+    InitializerStrategy,
+    LLMRole,
+    SearchMode,
+    SelectionStrategy,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +103,9 @@ class SearchAlgorithmConfig:
     # "rank" - Original rank-based selection
     # "tournament" - Tournament selection with configurable size
     # "top_k" - Top-K with diversity protection
-    selection_strategy: str = "rank"
+    selection_strategy: SelectionStrategy = field(
+        default_factory=lambda: SelectionStrategy.RANK
+    )
     tournament_size: int = 3  # For tournament selection
     tournament_p: float = 0.8  # Probability of selecting best from tournament
     top_k_ratio: float = 0.3  # Ratio of population as elite pool
@@ -106,7 +116,9 @@ class SearchAlgorithmConfig:
     # "success_feedback" - Adapt based on mutation success rate
     # "exploration_decay" - High exploration early, exploitation later
     # "diversity_driven" - Increase weight for modes that improve diversity
-    adaptive_mutation: str = "fixed"
+    adaptive_mutation: AdaptiveMutationSchedule = field(
+        default_factory=lambda: AdaptiveMutationSchedule.FIXED
+    )
     mutation_window_size: int = 10  # History window for tracking
     min_mutation_weight: float = 0.1  # Minimum weight for any mode
     exploration_phase_ratio: float = 0.3  # Ratio of generations for exploration
@@ -123,9 +135,24 @@ class SearchAlgorithmConfig:
         if self.mutations_per_round < 1:
             raise ValueError("mutations_per_round must be >= 1")
         
+        if isinstance(self.selection_strategy, str):
+            object.__setattr__(
+                self,
+                "selection_strategy",
+                SelectionStrategy.from_string(self.selection_strategy),
+            )
+        if isinstance(self.adaptive_mutation, str):
+            object.__setattr__(
+                self,
+                "adaptive_mutation",
+                AdaptiveMutationSchedule.from_string(self.adaptive_mutation),
+            )
+
         # Validate new selection strategy parameters
-        if self.selection_strategy not in ("rank", "tournament", "top_k"):
-            raise ValueError("selection_strategy must be 'rank', 'tournament', or 'top_k'")
+        if not isinstance(self.selection_strategy, SelectionStrategy):
+            raise ValueError(
+                "selection_strategy must be a SelectionStrategy or its string value"
+            )
         if self.tournament_size < 2:
             raise ValueError("tournament_size must be >= 2")
         if not 0 < self.tournament_p <= 1:
@@ -136,8 +163,10 @@ class SearchAlgorithmConfig:
             raise ValueError("diversity_weight must be in [0, 1]")
         
         # Validate new adaptive mutation parameters
-        if self.adaptive_mutation not in ("fixed", "success_feedback", "exploration_decay", "diversity_driven"):
-            raise ValueError("adaptive_mutation must be 'fixed', 'success_feedback', 'exploration_decay', or 'diversity_driven'")
+        if not isinstance(self.adaptive_mutation, AdaptiveMutationSchedule):
+            raise ValueError(
+                "adaptive_mutation must be an AdaptiveMutationSchedule or its string value"
+            )
         if self.mutation_window_size < 1:
             raise ValueError("mutation_window_size must be >= 1")
         if not 0 < self.min_mutation_weight <= 1:

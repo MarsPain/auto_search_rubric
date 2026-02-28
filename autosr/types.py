@@ -80,6 +80,53 @@ class SearchMode(Enum):
             ) from e
 
 
+class SelectionStrategy(Enum):
+    """Parent selection strategies for evolutionary search."""
+
+    RANK = "rank"
+    TOURNAMENT = "tournament"
+    TOP_K = "top_k"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a SelectionStrategy from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown selection strategy: {value!r}. "
+                f"Valid strategies are: {valid_values}"
+            ) from e
+
+
+class AdaptiveMutationSchedule(Enum):
+    """Schedules for adaptive mutation mode selection."""
+
+    FIXED = "fixed"
+    SUCCESS_FEEDBACK = "success_feedback"
+    EXPLORATION_DECAY = "exploration_decay"
+    DIVERSITY_DRIVEN = "diversity_driven"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an AdaptiveMutationSchedule from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown adaptive mutation schedule: {value!r}. "
+                f"Valid schedules are: {valid_values}"
+            ) from e
+
+
 class BackendType(Enum):
     """Backend implementation types for component creation."""
     AUTO = "auto"      # Automatically select based on configuration
