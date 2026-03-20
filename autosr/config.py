@@ -12,6 +12,7 @@ from typing import Any
 from .types import (
     AdaptiveMutationSchedule,
     BackendType,
+    CandidateExtractionStrategy,
     ExtractionStrategy,
     InitializerStrategy,
     LLMRole,
@@ -272,6 +273,23 @@ class ContentExtractionConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class CandidateTextExtractionConfig:
+    """Configuration for extraction from candidate response text."""
+    strategy: CandidateExtractionStrategy = field(
+        default_factory=lambda: CandidateExtractionStrategy.ANSWER
+    )
+    join_separator: str = "\n\n"
+
+    def __post_init__(self) -> None:
+        if isinstance(self.strategy, str):
+            object.__setattr__(
+                self,
+                "strategy",
+                CandidateExtractionStrategy.from_string(self.strategy),
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class VerifierConfig:
     """Configuration for verifier behavior."""
     noise: float = 0.08  # Noise level for heuristic verifier
@@ -289,6 +307,9 @@ class RuntimeConfig:
     objective: ObjectiveConfig = field(default_factory=ObjectiveConfig)
     initializer: InitializerStrategyConfig = field(default_factory=InitializerStrategyConfig)
     extraction: ContentExtractionConfig = field(default_factory=ContentExtractionConfig)
+    candidate_extraction: CandidateTextExtractionConfig = field(
+        default_factory=CandidateTextExtractionConfig
+    )
     verifier: VerifierConfig = field(default_factory=VerifierConfig)
     
     def __post_init__(self) -> None:

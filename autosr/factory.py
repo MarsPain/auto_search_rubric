@@ -204,9 +204,7 @@ class ComponentFactory:
 
         verifier = self.create_verifier()
         ext_cfg = self.config.extraction
-        
-        if ext_cfg.strategy is ExtractionStrategy.IDENTITY:
-            return verifier
+        candidate_ext_cfg = self.config.candidate_extraction
         
         extraction_kwargs = {"join_multiple": ext_cfg.join_separator}
         
@@ -218,6 +216,8 @@ class ComponentFactory:
         return create_verifier_with_extraction(
             verifier,
             ext_cfg.strategy.value,
+            candidate_strategy=candidate_ext_cfg.strategy.value,
+            candidate_join_multiple=candidate_ext_cfg.join_separator,
             **extraction_kwargs,
         )
     

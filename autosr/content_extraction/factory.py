@@ -4,6 +4,7 @@ import re
 
 from ..interfaces import Verifier
 from .strategies import (
+    AnswerExtractor,
     ContentExtractor,
     RegexExtractor,
     TagExtractor,
@@ -51,9 +52,38 @@ def create_content_extractor(
 def create_verifier_with_extraction(
     verifier: Verifier,
     strategy: str | None,
+    *,
+    candidate_strategy: str | None = None,
+    candidate_join_multiple: str = "\n\n",
     **kwargs,
 ) -> Verifier:
-    if strategy is None or strategy == "identity":
+    prompt_extractor = create_content_extractor(strategy, **kwargs)
+    candidate_extractor = create_candidate_text_extractor(
+        candidate_strategy,
+        join_multiple=candidate_join_multiple,
+    )
+
+    if prompt_extractor is identity_extractor and candidate_extractor is identity_extractor:
         return verifier
-    extractor = create_content_extractor(strategy, **kwargs)
-    return ContentExtractingVerifier(verifier, extractor)
+    return ContentExtractingVerifier(
+        verifier,
+        prompt_extractor,
+        candidate_extractor=candidate_extractor,
+    )
+
+
+def create_candidate_text_extractor(
+    strategy: str | None,
+    **kwargs,
+) -> ContentExtractor:
+    if strategy is None or strategy == "identity":
+        return identity_extractor
+
+    strategy = strategy.lower()
+    if strategy == "answer":
+        return AnswerExtractor(join_multiple=kwargs.get("join_multiple", "\n\n"))
+
+    raise ValueError(
+        f"Unknown candidate extraction strategy: {strategy}. "
+        f"Supported: 'answer', 'identity'"
+    )

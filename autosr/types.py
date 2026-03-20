@@ -171,7 +171,7 @@ class InitializerStrategy(Enum):
 
 
 class ExtractionStrategy(Enum):
-    """Content extraction strategies for verifier output processing."""
+    """Content extraction strategies for verifier prompt preprocessing."""
     IDENTITY = "identity"  # No transformation, pass through as-is
     TAG = "tag"            # Extract content from XML-style tags
     REGEX = "regex"        # Extract content using regex pattern
@@ -188,6 +188,27 @@ class ExtractionStrategy(Enum):
             valid_strategies = [s.value for s in cls]
             raise ValueError(
                 f"Unknown extraction strategy: {value!r}. "
+                f"Valid strategies are: {valid_strategies}"
+            ) from e
+
+
+class CandidateExtractionStrategy(Enum):
+    """Candidate text extraction strategies for verifier candidate processing."""
+    IDENTITY = "identity"   # No transformation, pass through as-is
+    ANSWER = "answer"       # Prefer <answer> blocks, else strip <think> blocks
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a CandidateExtractionStrategy from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_strategies = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown candidate extraction strategy: {value!r}. "
                 f"Valid strategies are: {valid_strategies}"
             ) from e
 

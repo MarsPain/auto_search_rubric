@@ -51,6 +51,8 @@ class TestCliReproducibility(unittest.TestCase):
             extract_tag = "content"
             extract_pattern = None
             extract_join_separator = "\n\n"
+            candidate_extract_strategy = "answer"
+            candidate_extract_join_separator = "\n\n"
             verbose = False
 
         args = _Args()
@@ -71,6 +73,10 @@ class TestCliReproducibility(unittest.TestCase):
         self.assertEqual(manifest["seed"], 7)
         self.assertIn("dataset_sha256", manifest["dataset"])
         self.assertIn("normalized_argv", manifest["command"])
+        self.assertEqual(
+            manifest["config_snapshot"]["candidate_extraction"]["strategy"],
+            "answer",
+        )
 
     def test_build_reproducible_script_requires_key_for_llm(self) -> None:
         manifest = {

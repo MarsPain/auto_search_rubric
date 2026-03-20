@@ -5,4 +5,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 artifacts/
-
+examples/call_summary*
+data/
+AGENTS.md
+.codex/

@@ -15,6 +15,7 @@ import sys
 from typing import Any
 
 from .config import (
+    CandidateTextExtractionConfig,
     ContentExtractionConfig,
     InitializerStrategyConfig,
     LLMBackendConfig,
@@ -209,6 +210,20 @@ def build_parser() -> argparse.ArgumentParser:
         default="\n\n",
         help="Separator for joining multiple extractions",
     )
+
+    # === Candidate text extraction ===
+    candidate_extract_group = parser.add_argument_group("Candidate Text Extraction Options")
+    candidate_extract_group.add_argument(
+        "--candidate-extract-strategy",
+        choices=["answer", "identity"],
+        default="answer",
+        help="Candidate text extraction strategy (answer = prefer <answer>, else strip <think>)",
+    )
+    candidate_extract_group.add_argument(
+        "--candidate-extract-join-separator",
+        default="\n\n",
+        help="Separator when multiple <answer> segments are present",
+    )
     
     # === Logging ===
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
@@ -272,6 +287,10 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             tag_name=args.extract_tag,
             pattern=args.extract_pattern,
             join_separator=args.extract_join_separator,
+        ),
+        candidate_extraction=CandidateTextExtractionConfig(
+            strategy=args.candidate_extract_strategy,
+            join_separator=args.candidate_extract_join_separator,
         ),
         verifier=VerifierConfig(noise=args.noise),
     )

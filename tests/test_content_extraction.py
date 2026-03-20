@@ -6,10 +6,12 @@ import re
 import unittest
 
 from autosr.content_extraction import (
+    AnswerExtractor,
     ContentExtractingVerifier,
     IdentityExtractor,
     RegexExtractor,
     TagExtractor,
+    create_candidate_text_extractor,
     create_content_extractor,
     create_verifier_with_extraction,
 )
@@ -167,6 +169,28 @@ class TestIdentityExtractor(unittest.TestCase):
         self.assertEqual(result, "")
 
 
+class TestAnswerExtractor(unittest.TestCase):
+    """Test cases for AnswerExtractor strategy."""
+
+    def test_prefers_answer_tag_when_present(self) -> None:
+        extractor = AnswerExtractor()
+        text = "<think>private</think><answer>Final answer</answer>"
+        result = extractor.extract(text)
+        self.assertEqual(result, "Final answer")
+
+    def test_falls_back_to_stripping_think_tags(self) -> None:
+        extractor = AnswerExtractor()
+        text = "<think>private reasoning</think>\nVisible answer"
+        result = extractor.extract(text)
+        self.assertEqual(result, "Visible answer")
+
+    def test_returns_original_when_no_visible_answer_found(self) -> None:
+        extractor = AnswerExtractor()
+        text = "<think>private reasoning only</think>"
+        result = extractor.extract(text)
+        self.assertEqual(result, text)
+
+
 class TestContentExtractingVerifier(unittest.TestCase):
     """Test cases for ContentExtractingVerifier."""
 
@@ -243,6 +267,27 @@ class TestContentExtractingVerifier(unittest.TestCase):
 
         self.assertEqual(self.mock_verifier.last_prompt, "Important data")
 
+    def test_extracts_candidate_text_before_grading(self) -> None:
+        """Test that candidate text can be extracted before verification."""
+        prompt_extractor = IdentityExtractor()
+        candidate_extractor = AnswerExtractor()
+        verifier = ContentExtractingVerifier(
+            self.mock_verifier,
+            prompt_extractor,
+            candidate_extractor=candidate_extractor,
+        )
+        candidate = ResponseCandidate(
+            candidate_id="test_2",
+            text="<think>internal</think>\nPublic answer",
+            source="test",
+        )
+
+        verifier.grade("prompt", candidate, self.rubric, seed=42)
+
+        self.assertIsNotNone(self.mock_verifier.last_candidate)
+        self.assertEqual(self.mock_verifier.last_candidate.text, "Public answer")
+        self.assertIsNot(self.mock_verifier.last_candidate, candidate)
+
 
 class TestCreateContentExtractor(unittest.TestCase):
     """Test cases for create_content_extractor factory function."""
@@ -293,6 +338,23 @@ class TestCreateContentExtractor(unittest.TestCase):
         self.assertIn("Unknown extraction strategy", str(ctx.exception))
 
 
+class TestCreateCandidateTextExtractor(unittest.TestCase):
+    """Test cases for candidate text extractor factory function."""
+
+    def test_default_returns_identity_extractor(self) -> None:
+        result = create_candidate_text_extractor(None)
+        self.assertIsInstance(result, IdentityExtractor)
+
+    def test_creates_answer_extractor(self) -> None:
+        result = create_candidate_text_extractor("answer")
+        self.assertIsInstance(result, AnswerExtractor)
+
+    def test_unknown_strategy_raises_error(self) -> None:
+        with self.assertRaises(ValueError) as ctx:
+            create_candidate_text_extractor("unknown")
+        self.assertIn("Unknown candidate extraction strategy", str(ctx.exception))
+
+
 class TestCreateVerifierWithExtraction(unittest.TestCase):
     """Test cases for create_verifier_with_extraction convenience function."""
 
@@ -319,6 +381,16 @@ class TestCreateVerifierWithExtraction(unittest.TestCase):
         """Test that wrapped verifier is returned for regex strategy."""
         mock = MockVerifier()
         result = create_verifier_with_extraction(mock, "regex", pattern=r"test")
+        self.assertIsInstance(result, ContentExtractingVerifier)
+
+    def test_returns_wrapped_verifier_for_candidate_answer_strategy(self) -> None:
+        """Test that candidate answer extraction alone can activate wrapping."""
+        mock = MockVerifier()
+        result = create_verifier_with_extraction(
+            mock,
+            "identity",
+            candidate_strategy="answer",
+        )
         self.assertIsInstance(result, ContentExtractingVerifier)
 
 

@@ -1,8 +1,10 @@
 from .content_extraction import (
+    AnswerExtractor,
     ContentExtractingVerifier,
     IdentityExtractor,
     RegexExtractor,
     TagExtractor,
+    create_candidate_text_extractor,
     create_content_extractor,
     create_verifier_with_extraction,
 )
@@ -17,6 +19,7 @@ from .search import (
 from .types import (
     AdaptiveMutationSchedule,
     BackendType,
+    CandidateExtractionStrategy,
     ExtractionStrategy,
     InitializerStrategy,
     LLMRole,
@@ -27,10 +30,12 @@ from .types import (
 
 __all__ = [
     # Content extraction strategies
+    "AnswerExtractor",
     "ContentExtractingVerifier",
     "IdentityExtractor",
     "RegexExtractor",
     "TagExtractor",
+    "create_candidate_text_extractor",
     "create_content_extractor",
     "create_verifier_with_extraction",
     # Models
@@ -49,6 +54,7 @@ __all__ = [
     "BackendType",
     "SelectionStrategy",
     "AdaptiveMutationSchedule",
+    "CandidateExtractionStrategy",
     "ExtractionStrategy",
     "InitializerStrategy",
     "LLMRole",

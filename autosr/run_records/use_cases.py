@@ -125,6 +125,7 @@ def build_run_manifest(
         "objective": _to_jsonable(config.objective),
         "initializer": _to_jsonable(config.initializer),
         "extraction": _to_jsonable(config.extraction),
+        "candidate_extraction": _to_jsonable(config.candidate_extraction),
         "verifier": _to_jsonable(config.verifier),
     }
     llm_snapshot = {

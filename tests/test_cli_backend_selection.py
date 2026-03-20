@@ -14,6 +14,7 @@ class TestCliBackendSelection(unittest.TestCase):
         parser = build_parser()
         args = parser.parse_args(["--dataset", "d.json", "--output", "o.json"])
         self.assertEqual(args.model_default, "stepfun/step-3.5-flash:free")
+        self.assertEqual(args.candidate_extract_strategy, "answer")
 
     def test_auto_uses_mock_without_key(self) -> None:
         config = RuntimeConfig(backend="auto", llm=LLMBackendConfig(api_key=None))
