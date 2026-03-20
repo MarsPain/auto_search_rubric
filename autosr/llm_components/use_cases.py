@@ -4,7 +4,8 @@ import json
 import random
 from typing import Any
 
-from ..exceptions import LLMParseError
+from ..exceptions import LLMCallError, LLMParseError
+from ..mock_components import HeuristicRubricInitializer
 from ..data_models import GradingProtocol, PromptExample, ResponseCandidate, Rubric
 from ..prompts import constants as prompt_constants
 from ..prompts.loader import PromptRepository
@@ -27,14 +28,18 @@ class LLMRubricInitializer(LLMComponentBase):
         *,
         model: str,
         max_retries: int,
+        fail_soft: bool = False,
+        fallback_initializer: HeuristicRubricInitializer | None = None,
         prompt_repository: PromptRepository | None = None,
     ) -> None:
         super().__init__(
             requester,
             model=model,
             max_retries=max_retries,
+            fail_soft=fail_soft,
             prompt_repository=prompt_repository,
         )
+        self._fallback_initializer = fallback_initializer or HeuristicRubricInitializer()
 
     def initialize(self, item: PromptExample, *, rng: random.Random) -> Rubric:
         candidate_samples = [candidate_snapshot(c) for c in item.candidates[:4]]
@@ -52,15 +57,23 @@ class LLMRubricInitializer(LLMComponentBase):
         )
 
         fallback_id = f"{item.prompt_id}_llm_init_{rng.randint(0, 9999)}"
-        return self._request_validated(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            parser=lambda payload: payload_to_rubric(
-                payload,
-                fallback_rubric_id=fallback_id,
-                fallback_protocol=GradingProtocol(num_votes=1, allow_na=True, vote_method="majority"),
-            ),
-        )
+        try:
+            return self._request_validated(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                parser=lambda payload: payload_to_rubric(
+                    payload,
+                    fallback_rubric_id=fallback_id,
+                    fallback_protocol=GradingProtocol(num_votes=1, allow_na=True, vote_method="majority"),
+                ),
+            )
+        except (LLMCallError, LLMParseError) as exc:
+            self._handle_fail_soft_or_raise(
+                error=exc,
+                operation="initializer",
+                fallback_note="falling back to heuristic initializer",
+            )
+            return self._fallback_initializer.initialize(item, rng=rng)
 
 
 class LLMRubricProposer(LLMComponentBase):
@@ -72,12 +85,14 @@ class LLMRubricProposer(LLMComponentBase):
         *,
         model: str,
         max_retries: int,
+        fail_soft: bool = False,
         prompt_repository: PromptRepository | None = None,
     ) -> None:
         super().__init__(
             requester,
             model=model,
             max_retries=max_retries,
+            fail_soft=fail_soft,
             prompt_repository=prompt_repository,
         )
 
@@ -108,15 +123,23 @@ class LLMRubricProposer(LLMComponentBase):
         )
 
         fallback_id = f"{rubric.rubric_id}_{mode.value}_{rng.randint(0, 9999)}"
-        return self._request_validated(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            parser=lambda payload: payload_to_rubric(
-                payload,
-                fallback_rubric_id=fallback_id,
-                fallback_protocol=rubric.grading_protocol,
-            ),
-        )
+        try:
+            return self._request_validated(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                parser=lambda payload: payload_to_rubric(
+                    payload,
+                    fallback_rubric_id=fallback_id,
+                    fallback_protocol=rubric.grading_protocol,
+                ),
+            )
+        except (LLMCallError, LLMParseError) as exc:
+            self._handle_fail_soft_or_raise(
+                error=exc,
+                operation="proposer",
+                fallback_note="keeping current rubric unchanged",
+            )
+            return rubric
 
 
 class LLMVerifier(LLMComponentBase):
@@ -128,12 +151,14 @@ class LLMVerifier(LLMComponentBase):
         *,
         model: str,
         max_retries: int,
+        fail_soft: bool = False,
         prompt_repository: PromptRepository | None = None,
     ) -> None:
         super().__init__(
             requester,
             model=model,
             max_retries=max_retries,
+            fail_soft=fail_soft,
             prompt_repository=prompt_repository,
         )
 
@@ -173,11 +198,19 @@ class LLMVerifier(LLMComponentBase):
                 out[criterion.criterion_id] = normalize_grade(raw_value)
             return out
 
-        return self._request_validated(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            parser=parse,
-        )
+        try:
+            return self._request_validated(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                parser=parse,
+            )
+        except (LLMCallError, LLMParseError) as exc:
+            self._handle_fail_soft_or_raise(
+                error=exc,
+                operation="verifier",
+                fallback_note="returning N/A grades for all criteria",
+            )
+            return {criterion.criterion_id: None for criterion in rubric.criteria}
 
 
 class LLMPreferenceJudge(LLMComponentBase):
@@ -189,12 +222,14 @@ class LLMPreferenceJudge(LLMComponentBase):
         *,
         model: str,
         max_retries: int,
+        fail_soft: bool = False,
         prompt_repository: PromptRepository | None = None,
     ) -> None:
         super().__init__(
             requester,
             model=model,
             max_retries=max_retries,
+            fail_soft=fail_soft,
             prompt_repository=prompt_repository,
         )
 
@@ -222,8 +257,16 @@ class LLMPreferenceJudge(LLMComponentBase):
                 raise LLMParseError("judge payload must include 'preference'")
             return normalize_preference(payload["preference"])
 
-        return self._request_validated(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            parser=parse,
-        )
+        try:
+            return self._request_validated(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                parser=parse,
+            )
+        except (LLMCallError, LLMParseError) as exc:
+            self._handle_fail_soft_or_raise(
+                error=exc,
+                operation="judge",
+                fallback_note="returning tie preference",
+            )
+            return 0

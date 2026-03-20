@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any, Callable, Protocol
 
-from ..exceptions import LLMParseError
+from ..exceptions import LLMCallError, LLMFatalCallError, LLMParseError
 from ..prompts.loader import ConstantPromptRepository, PromptRepository
 
 logger = logging.getLogger("autosr.llm_components")
@@ -29,6 +29,7 @@ class LLMComponentBase:
         *,
         model: str,
         max_retries: int,
+        fail_soft: bool = False,
         prompt_repository: PromptRepository | None = None,
     ) -> None:
         if not model.strip():
@@ -38,6 +39,7 @@ class LLMComponentBase:
         self.requester = requester
         self.model = model
         self.max_retries = max_retries
+        self.fail_soft = fail_soft
         self._repository = prompt_repository or ConstantPromptRepository()
 
     def _request_validated(
@@ -62,6 +64,25 @@ class LLMComponentBase:
                 if attempt == attempts - 1:
                     raise
         raise LLMParseError(f"failed to parse payload after retries: {last_error}")
+
+    def _handle_fail_soft_or_raise(
+        self,
+        *,
+        error: LLMCallError | LLMParseError,
+        operation: str,
+        fallback_note: str,
+    ) -> None:
+        if isinstance(error, LLMFatalCallError):
+            raise error
+        if not self.fail_soft:
+            raise error
+        logger.warning(
+            "LLM %s failed after retries for model=%s; fail_soft enabled (%s): %s",
+            operation,
+            self.model,
+            fallback_note,
+            error,
+        )
 
     def _get_prompt_config(self, template_id: str, version: str | None = None):
         return self._repository.get(template_id, version)

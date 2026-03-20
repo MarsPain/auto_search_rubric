@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import random
-import unittest
 from typing import Any
+import unittest
 
-from autosr.exceptions import LLMParseError
+from autosr.exceptions import LLMCallError, LLMFatalCallError, LLMParseError
 from autosr.llm_components import (
     LLMPreferenceJudge,
     LLMRubricInitializer,
@@ -33,6 +33,17 @@ class _StubRequester:
         idx = min(self.calls, len(self._responses) - 1)
         self.calls += 1
         return self._responses[idx]
+
+
+class _RaisingRequester:
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+        self.calls = 0
+
+    def request_json(self, *, model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+        del model, system_prompt, user_prompt
+        self.calls += 1
+        raise self.error
 
 
 def _build_item() -> PromptExample:
@@ -192,6 +203,101 @@ class TestLLMComponents(unittest.TestCase):
             ["criterion_id", "text", "weight"],
         )
         self.assertTrue(output_requirements["must_return_full_rubric"])
+
+    def test_initializer_fail_soft_falls_back_to_heuristic(self) -> None:
+        requester = _RaisingRequester(LLMCallError("timeout"))
+        component = LLMRubricInitializer(
+            requester,
+            model="openai/gpt-4o-mini",
+            max_retries=0,
+            fail_soft=True,
+        )
+
+        rubric = component.initialize(_build_item(), rng=random.Random(1))
+
+        self.assertEqual(rubric.metadata.get("origin"), "heuristic_initializer")
+        self.assertGreater(len(rubric.criteria), 0)
+        self.assertEqual(requester.calls, 1)
+
+    def test_proposer_fail_soft_returns_current_rubric(self) -> None:
+        requester = _RaisingRequester(LLMCallError("timeout"))
+        component = LLMRubricProposer(
+            requester,
+            model="openai/gpt-4o-mini",
+            max_retries=0,
+            fail_soft=True,
+        )
+        current = _build_rubric()
+
+        mutated = component.propose(
+            _build_item().prompt,
+            _build_item().candidates[0],
+            _build_item().candidates[1],
+            current,
+            mode=MutationMode.RAISE_BAR,
+            rng=random.Random(1),
+        )
+
+        self.assertIs(mutated, current)
+        self.assertEqual(requester.calls, 1)
+
+    def test_verifier_fail_soft_returns_na_grades(self) -> None:
+        requester = _RaisingRequester(LLMCallError("timeout"))
+        component = LLMVerifier(
+            requester,
+            model="openai/gpt-4o-mini",
+            max_retries=0,
+            fail_soft=True,
+        )
+        rubric = _build_rubric()
+
+        grades = component.grade(
+            prompt="prompt",
+            candidate=ResponseCandidate(candidate_id="a", text="hello"),
+            rubric=rubric,
+            seed=42,
+        )
+
+        self.assertEqual(grades, {"c1": None, "c2": None})
+        self.assertEqual(requester.calls, 1)
+
+    def test_judge_fail_soft_returns_tie(self) -> None:
+        requester = _RaisingRequester(LLMCallError("timeout"))
+        component = LLMPreferenceJudge(
+            requester,
+            model="openai/gpt-4o-mini",
+            max_retries=0,
+            fail_soft=True,
+        )
+
+        pref = component.compare(
+            prompt="prompt",
+            left=ResponseCandidate(candidate_id="a", text="left"),
+            right=ResponseCandidate(candidate_id="b", text="right"),
+        )
+
+        self.assertEqual(pref, 0)
+        self.assertEqual(requester.calls, 1)
+
+    def test_fail_soft_does_not_swallow_fatal_call_error(self) -> None:
+        requester = _RaisingRequester(LLMFatalCallError("invalid api key"))
+        component = LLMRubricProposer(
+            requester,
+            model="openai/gpt-4o-mini",
+            max_retries=0,
+            fail_soft=True,
+        )
+
+        with self.assertRaises(LLMFatalCallError):
+            component.propose(
+                _build_item().prompt,
+                _build_item().candidates[0],
+                _build_item().candidates[1],
+                _build_rubric(),
+                mode=MutationMode.RAISE_BAR,
+                rng=random.Random(1),
+            )
+        self.assertEqual(requester.calls, 1)
 
 
 if __name__ == "__main__":

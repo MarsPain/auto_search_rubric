@@ -88,6 +88,29 @@ def build_parser() -> argparse.ArgumentParser:
     llm_group.add_argument("--llm-timeout", type=float, default=30.0, help="Request timeout (s)")
     llm_group.add_argument("--llm-max-retries", type=int, default=2, help="Retry count")
     llm_group.add_argument(
+        "--llm-retry-backoff-base",
+        type=float,
+        default=0.5,
+        help="Base seconds for exponential retry backoff",
+    )
+    llm_group.add_argument(
+        "--llm-retry-backoff-max",
+        type=float,
+        default=8.0,
+        help="Maximum seconds for exponential retry backoff",
+    )
+    llm_group.add_argument(
+        "--llm-retry-jitter",
+        type=float,
+        default=0.2,
+        help="Relative jitter ratio applied to retry delay (0 disables jitter)",
+    )
+    llm_group.add_argument(
+        "--llm-fail-soft",
+        action="store_true",
+        help="Keep search running by applying role-specific fallbacks when an LLM call exhausts retries",
+    )
+    llm_group.add_argument(
         "--prompt-language",
         default="zh",
         help="Language for LLM prompt templates (loads from prompts/<lang>/, fallback prompts/; default: constants)",
@@ -245,6 +268,10 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             api_key=api_key,
             timeout=args.llm_timeout,
             max_retries=args.llm_max_retries,
+            retry_backoff_base=getattr(args, "llm_retry_backoff_base", 0.5),
+            retry_backoff_max=getattr(args, "llm_retry_backoff_max", 8.0),
+            retry_jitter=getattr(args, "llm_retry_jitter", 0.2),
+            fail_soft=getattr(args, "llm_fail_soft", False),
             default_model=args.model_default,
             initializer_model=args.model_initializer,
             proposer_model=args.model_proposer,

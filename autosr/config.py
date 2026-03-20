@@ -35,6 +35,10 @@ class LLMBackendConfig:
     timeout: float = 30.0
     max_retries: int = 2
     temperature: float = 0.0
+    retry_backoff_base: float = 0.5
+    retry_backoff_max: float = 8.0
+    retry_jitter: float = 0.2
+    fail_soft: bool = False
     
     # Model configuration
     default_model: str = "stepfun/step-3.5-flash:free"
@@ -51,6 +55,18 @@ class LLMBackendConfig:
     prompt_language: str | None = None
 
     def __post_init__(self) -> None:
+        if self.timeout <= 0:
+            raise ValueError("timeout must be > 0")
+        if self.max_retries < 0:
+            raise ValueError("max_retries must be >= 0")
+        if self.retry_backoff_base < 0:
+            raise ValueError("retry_backoff_base must be >= 0")
+        if self.retry_backoff_max < 0:
+            raise ValueError("retry_backoff_max must be >= 0")
+        if self.retry_backoff_max < self.retry_backoff_base:
+            raise ValueError("retry_backoff_max must be >= retry_backoff_base")
+        if self.retry_jitter < 0:
+            raise ValueError("retry_jitter must be >= 0")
         if self.prompt_language is None:
             return
         if not self.prompt_language.strip():

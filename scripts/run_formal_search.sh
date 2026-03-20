@@ -24,7 +24,7 @@ if [[ -z "${LLM_API_KEY:-}" ]]; then
 fi
 
 BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
-LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
+# LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
 LLM_MODEL="${LLM_MODEL:-stepfun/step-3.5-flash:free}"
 MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
@@ -32,6 +32,7 @@ MODEL_VERIFIER="${MODEL_VERIFIER:-}"
 MODEL_JUDGE="${MODEL_JUDGE:-}"
 LLM_TIMEOUT="${LLM_TIMEOUT:-30}"
 LLM_MAX_RETRIES="${LLM_MAX_RETRIES:-0}"
+LLM_FAIL_SOFT="${LLM_FAIL_SOFT:-true}"
 
 # Initial rubric configuration
 INITIALIZER_STRATEGY="${INITIALIZER_STRATEGY:-preset}"
@@ -159,6 +160,9 @@ if [[ "${PRESET_STRICT:-}" == "true" ]]; then
 fi
 if [[ -n "${EXTRACT_TAG:-}" ]]; then
   cmd+=(--extract-tag "${EXTRACT_TAG}")
+fi
+if [[ "${LLM_FAIL_SOFT}" == "true" ]]; then
+  cmd+=(--llm-fail-soft)
 fi
 
 echo "Running command (${PYTHON_DESC}): ${cmd[*]}"

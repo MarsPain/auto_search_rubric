@@ -78,6 +78,9 @@ class ComponentFactory:
                 timeout=llm_cfg.timeout,
                 max_retries=llm_cfg.max_retries,
                 temperature=llm_cfg.temperature,
+                retry_backoff_base=llm_cfg.retry_backoff_base,
+                retry_backoff_max=llm_cfg.retry_backoff_max,
+                retry_jitter=llm_cfg.retry_jitter,
             )
             self._llm_client = LLMClient(llm_config)
         return self._llm_client
@@ -126,6 +129,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.PROPOSER),
             max_retries=llm_cfg.max_retries,
+            fail_soft=llm_cfg.fail_soft,
             prompt_repository=self._get_prompt_repository(),
         )
     
@@ -139,6 +143,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.VERIFIER),
             max_retries=llm_cfg.max_retries,
+            fail_soft=llm_cfg.fail_soft,
             prompt_repository=self._get_prompt_repository(),
         )
     
@@ -160,6 +165,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.JUDGE),
             max_retries=llm_cfg.max_retries,
+            fail_soft=llm_cfg.fail_soft,
             prompt_repository=self._get_prompt_repository(),
         )
     
@@ -173,6 +179,7 @@ class ComponentFactory:
             self._get_llm_client(),
             model=llm_cfg.get_model_for_role(LLMRole.INITIALIZER),
             max_retries=llm_cfg.max_retries,
+            fail_soft=llm_cfg.fail_soft,
             prompt_repository=self._get_prompt_repository(),
         )
     
