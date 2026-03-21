@@ -45,7 +45,8 @@ RUBRIC_PROPOSER_SYSTEM = (
     "You mutate rubrics for ranking response quality. Return ONLY one JSON rubric object. "
     "Required top-level keys: rubric_id, criteria; grading_protocol is optional. "
     "Each criterion object MUST include non-empty criterion_id and text, plus weight. "
-    "Return a full rubric, not a delta/patch. Keep criteria precise and scoreable."
+    "Return a full rubric, not a delta/patch. Keep criteria precise and scoreable. "
+    "You MUST strictly follow output_requirements.mode_requirements for the selected mode."
 )
 
 RUBRIC_PROPOSER_USER_TEMPLATE = """{{
@@ -58,7 +59,39 @@ RUBRIC_PROPOSER_USER_TEMPLATE = """{{
     "output_requirements": {{
         "must_return_full_rubric": true,
         "criterion_required_fields": {required_fields_json},
-        "preserve_criterion_text_even_if_unchanged": true
+        "preserve_criterion_text_even_if_unchanged": true,
+        "weights_must_sum_to_one": true,
+        "mode_requirements": {{
+            "raise_bar": {{
+                "must_tighten_existing_criterion": true,
+                "must_raise_target_weight_min_ratio": 1.1,
+                "should_keep_criteria_count_delta_within": 1
+            }},
+            "decompose": {{
+                "must_split_one_criterion": true,
+                "split_min_children": 2,
+                "must_keep_semantic_coverage": true,
+                "split_weight_sum_tolerance": 0.05
+            }},
+            "factual_focus": {{
+                "must_increase_factual_or_reasoning_weight": true,
+                "must_decrease_or_keep_non_factual_weight": true,
+                "must_keep_criteria_count_delta_within": 1
+            }},
+            "anti_fluff": {{
+                "must_add_or_strengthen_anti_fluff_criterion": true,
+                "must_include_negative_examples": true
+            }},
+            "counterexample_trigger": {{
+                "must_add_or_strengthen_counterexample_criterion": true,
+                "must_require_limitations_or_tradeoffs": true
+            }},
+            "weight_perturb": {{
+                "must_preserve_criterion_text": true,
+                "must_keep_criterion_set_stable": true,
+                "weight_change_ratio_range": [0.8, 1.2]
+            }}
+        }}
     }}
 }}"""
 

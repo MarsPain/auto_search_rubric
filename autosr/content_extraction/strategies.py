@@ -89,7 +89,9 @@ class AnswerExtractor:
         if answer_segments:
             return self._join_multiple.join(answer_segments)
 
+        # print(f"text == {text[:50]}......")
         stripped = self._think_pattern.sub("", text).strip()
+        # print(f"stripped == {stripped[:50]}......")
         if stripped:
             return stripped
         return text

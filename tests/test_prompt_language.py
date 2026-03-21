@@ -75,6 +75,9 @@ class TestPromptLanguage(unittest.TestCase):
         self.assertIs(initializer.requester, requester)  # type: ignore[attr-defined]
         prompt_config = initializer._get_prompt_config("rubric_initializer")  # type: ignore[attr-defined]
         self.assertIn("你是 rubric 设计师", prompt_config.system)
+        proposer_config = initializer._get_prompt_config("rubric_proposer")  # type: ignore[attr-defined]
+        self.assertIn('"mode_requirements"', proposer_config.user_template)
+        self.assertIn('"decompose"', proposer_config.user_template)
 
     def test_factory_falls_back_to_default_prompts_dir(self) -> None:
         requester = _DummyRequester()
@@ -92,6 +95,9 @@ class TestPromptLanguage(unittest.TestCase):
         self.assertIs(initializer.requester, requester)  # type: ignore[attr-defined]
         prompt_config = initializer._get_prompt_config("rubric_initializer")  # type: ignore[attr-defined]
         self.assertIn("You are a rubric designer", prompt_config.system)
+        proposer_config = initializer._get_prompt_config("rubric_proposer")  # type: ignore[attr-defined]
+        self.assertIn('"mode_requirements"', proposer_config.user_template)
+        self.assertIn('"weight_perturb"', proposer_config.user_template)
 
     def test_factory_uses_injected_prompt_repository(self) -> None:
         config = RuntimeConfig(

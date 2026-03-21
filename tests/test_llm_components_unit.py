@@ -204,6 +204,42 @@ class TestLLMComponents(unittest.TestCase):
         )
         self.assertTrue(output_requirements["must_return_full_rubric"])
 
+    def test_proposer_prompt_includes_mode_requirements_contract(self) -> None:
+        requester = _StubRequester(
+            [
+                {
+                    "rubric_id": "r3",
+                    "criteria": [{"criterion_id": "c1", "text": "Task fit", "weight": 1.0}],
+                }
+            ]
+        )
+        component = LLMRubricProposer(requester, model="openai/gpt-4o-mini", max_retries=0)
+
+        component.propose(
+            _build_item().prompt,
+            _build_item().candidates[0],
+            _build_item().candidates[1],
+            _build_rubric(),
+            mode=MutationMode.DECOMPOSE,
+            rng=random.Random(1),
+        )
+
+        payload = json.loads(requester.requests[0]["user_prompt"])
+        output_requirements = payload["output_requirements"]
+        self.assertIn("mode_requirements", output_requirements)
+        mode_requirements = output_requirements["mode_requirements"]
+        expected_modes = {
+            "raise_bar",
+            "decompose",
+            "factual_focus",
+            "anti_fluff",
+            "counterexample_trigger",
+            "weight_perturb",
+        }
+        self.assertEqual(set(mode_requirements.keys()), expected_modes)
+        self.assertTrue(mode_requirements["decompose"]["must_split_one_criterion"])
+        self.assertTrue(mode_requirements["weight_perturb"]["must_preserve_criterion_text"])
+
     def test_initializer_fail_soft_falls_back_to_heuristic(self) -> None:
         requester = _RaisingRequester(LLMCallError("timeout"))
         component = LLMRubricInitializer(
