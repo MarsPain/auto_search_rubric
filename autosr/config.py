@@ -13,6 +13,7 @@ from .types import (
     AdaptiveMutationSchedule,
     BackendType,
     CandidateExtractionStrategy,
+    EvolutionIterationScope,
     ExtractionStrategy,
     InitializerStrategy,
     LLMRole,
@@ -112,6 +113,11 @@ class SearchAlgorithmConfig:
     population_size: int = 8
     mutations_per_round: int = 6
     batch_size: int = 3
+    iteration_scope: EvolutionIterationScope = field(
+        default_factory=lambda: EvolutionIterationScope.GLOBAL_BATCH
+    )
+    stop_when_distinguished: bool = True
+    distinguish_margin: float | None = None
     survival_fraction: float = 0.2
     elitism_count: int = 2
     stagnation_generations: int = 6
@@ -158,6 +164,12 @@ class SearchAlgorithmConfig:
                 "selection_strategy",
                 SelectionStrategy.from_string(self.selection_strategy),
             )
+        if isinstance(self.iteration_scope, str):
+            object.__setattr__(
+                self,
+                "iteration_scope",
+                EvolutionIterationScope.from_string(self.iteration_scope),
+            )
         if isinstance(self.adaptive_mutation, str):
             object.__setattr__(
                 self,
@@ -169,6 +181,10 @@ class SearchAlgorithmConfig:
         if not isinstance(self.selection_strategy, SelectionStrategy):
             raise ValueError(
                 "selection_strategy must be a SelectionStrategy or its string value"
+            )
+        if not isinstance(self.iteration_scope, EvolutionIterationScope):
+            raise ValueError(
+                "iteration_scope must be an EvolutionIterationScope or its string value"
             )
         if self.tournament_size < 2:
             raise ValueError("tournament_size must be >= 2")
@@ -192,6 +208,8 @@ class SearchAlgorithmConfig:
             raise ValueError("exploration_phase_ratio must be in (0, 1]")
         if not 0 <= self.diversity_threshold <= 1:
             raise ValueError("diversity_threshold must be in [0, 1]")
+        if self.distinguish_margin is not None and self.distinguish_margin < 0:
+            raise ValueError("distinguish_margin must be >= 0 when provided")
 
     def to_iterative_kwargs(self) -> dict[str, Any]:
         """Return kwargs for IterativeConfig."""
@@ -204,6 +222,9 @@ class SearchAlgorithmConfig:
             "population_size": self.population_size,
             "mutations_per_round": self.mutations_per_round,
             "batch_size": self.batch_size,
+            "iteration_scope": self.iteration_scope,
+            "stop_when_distinguished": self.stop_when_distinguished,
+            "distinguish_margin": self.distinguish_margin,
             "survival_fraction": self.survival_fraction,
             "elitism_count": self.elitism_count,
             "stagnation_generations": self.stagnation_generations,

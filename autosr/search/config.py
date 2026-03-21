@@ -5,7 +5,7 @@ from typing import Any
 
 from ..config import ObjectiveConfig
 from ..data_models import Rubric
-from ..types import AdaptiveMutationSchedule, SelectionStrategy
+from ..types import AdaptiveMutationSchedule, EvolutionIterationScope, SelectionStrategy
 
 
 @dataclass(slots=True)
@@ -24,6 +24,11 @@ class EvolutionaryConfig:
     mutations_per_round: int = 6
     survival_fraction: float = 0.2
     batch_size: int = 4
+    iteration_scope: EvolutionIterationScope = field(
+        default_factory=lambda: EvolutionIterationScope.GLOBAL_BATCH
+    )
+    stop_when_distinguished: bool = True
+    distinguish_margin: float | None = None
     elitism_count: int = 2
     objective: ObjectiveConfig = field(default_factory=ObjectiveConfig)
     stagnation_generations: int = 6
@@ -54,6 +59,11 @@ class EvolutionaryConfig:
                 self.selection_strategy = SelectionStrategy.from_string(self.selection_strategy)
             except ValueError:
                 self.selection_strategy = SelectionStrategy.RANK
+        if isinstance(self.iteration_scope, str):
+            try:
+                self.iteration_scope = EvolutionIterationScope.from_string(self.iteration_scope)
+            except ValueError:
+                self.iteration_scope = EvolutionIterationScope.GLOBAL_BATCH
         if isinstance(self.adaptive_mutation, str):
             try:
                 self.adaptive_mutation = AdaptiveMutationSchedule.from_string(self.adaptive_mutation)
@@ -80,6 +90,10 @@ class EvolutionaryConfig:
             raise ValueError("top_k_ratio must be in (0, 1]")
         if not 0 <= self.diversity_weight <= 1:
             raise ValueError("diversity_weight must be in [0, 1]")
+        if not isinstance(self.iteration_scope, EvolutionIterationScope):
+            raise ValueError(
+                "iteration_scope must be an EvolutionIterationScope or its string value"
+            )
         if self.mutation_window_size < 1:
             raise ValueError("mutation_window_size must be >= 1")
         if not 0 < self.min_mutation_weight <= 1:
@@ -88,6 +102,8 @@ class EvolutionaryConfig:
             raise ValueError("exploration_phase_ratio must be in (0, 1]")
         if not 0 <= self.diversity_threshold <= 1:
             raise ValueError("diversity_threshold must be in [0, 1]")
+        if self.distinguish_margin is not None and self.distinguish_margin < 0:
+            raise ValueError("distinguish_margin must be >= 0 when provided")
 
 
 @dataclass(slots=True)

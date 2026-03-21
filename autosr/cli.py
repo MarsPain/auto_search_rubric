@@ -27,6 +27,7 @@ from .config import (
 from .types import (
     AdaptiveMutationSchedule,
     BackendType,
+    EvolutionIterationScope,
     LLMRole,
     SelectionStrategy,
 )
@@ -44,6 +45,7 @@ DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "stepfun/step-3.5-flash:free"
 SELECTION_STRATEGY_CHOICES = [strategy.value for strategy in SelectionStrategy]
 ADAPTIVE_MUTATION_CHOICES = [schedule.value for schedule in AdaptiveMutationSchedule]
+EVOLUTION_ITERATION_SCOPE_CHOICES = [scope.value for scope in EvolutionIterationScope]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -124,6 +126,24 @@ def build_parser() -> argparse.ArgumentParser:
     search_group.add_argument("--population-size", type=int, default=8, help="[Evolutionary] population")
     search_group.add_argument("--mutations-per-round", type=int, default=6, help="Mutations per round")
     search_group.add_argument("--batch-size", type=int, default=3, help="Prompts per generation")
+    search_group.add_argument(
+        "--evolution-iteration-scope",
+        choices=EVOLUTION_ITERATION_SCOPE_CHOICES,
+        default=EvolutionIterationScope.GLOBAL_BATCH.value,
+        help="Evolution scheduling scope: global_batch selects hard prompts per generation, prompt_local evolves each prompt independently",
+    )
+    search_group.add_argument(
+        "--stop-when-distinguished",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="In prompt_local scope, stop a prompt early once top candidates are separated by margin",
+    )
+    search_group.add_argument(
+        "--distinguish-margin",
+        type=float,
+        default=None,
+        help="Override top-margin threshold for early stop in prompt_local scope (default: objective tie tolerance)",
+    )
     
     # === Selection Strategy Options ===
     selection_group = parser.add_argument_group("Selection Strategy Options (Evolutionary)")
@@ -287,6 +307,9 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             population_size=args.population_size,
             mutations_per_round=args.mutations_per_round,
             batch_size=args.batch_size,
+            iteration_scope=args.evolution_iteration_scope,
+            stop_when_distinguished=args.stop_when_distinguished,
+            distinguish_margin=args.distinguish_margin,
             selection_strategy=args.selection_strategy,
             tournament_size=args.tournament_size,
             tournament_p=args.tournament_p,

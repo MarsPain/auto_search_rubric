@@ -153,6 +153,59 @@ class TestSearch(unittest.TestCase):
         self.assertIn("generation=1/2", logs)
         self.assertIn("best_score", logs)
 
+    def test_evolutionary_prompt_local_scope_decouples_from_batch_size(self) -> None:
+        class CountingProposer(TemplateProposer):
+            def __init__(self) -> None:
+                super().__init__()
+                self.call_count = 0
+
+            def propose(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+                self.call_count += 1
+                return super().propose(*args, **kwargs)
+
+        prompts = self.prompts[:2]
+        shared_kwargs = dict(
+            generations=2,
+            population_size=4,
+            mutations_per_round=2,
+            batch_size=1,
+            seed=42,
+            stagnation_generations=8,
+            stop_when_distinguished=False,
+        )
+
+        global_proposer = CountingProposer()
+        EvolutionaryRTDSearcher(
+            global_proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=EvolutionaryConfig(
+                **shared_kwargs,
+                iteration_scope="global_batch",
+            ),
+        ).search(prompts)
+
+        local_proposer = CountingProposer()
+        EvolutionaryRTDSearcher(
+            local_proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=EvolutionaryConfig(
+                **shared_kwargs,
+                iteration_scope="prompt_local",
+            ),
+        ).search(prompts)
+
+        expected_extra_calls = len(prompts) * shared_kwargs["generations"] * shared_kwargs["mutations_per_round"]
+        expected_global_calls = shared_kwargs["generations"] * shared_kwargs["mutations_per_round"]
+        self.assertEqual(
+            local_proposer.call_count - global_proposer.call_count,
+            expected_extra_calls - expected_global_calls,
+        )
+        self.assertGreater(local_proposer.call_count, global_proposer.call_count)
+
 
 if __name__ == "__main__":
     unittest.main()

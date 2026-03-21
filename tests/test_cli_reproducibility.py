@@ -29,6 +29,9 @@ class TestCliReproducibility(unittest.TestCase):
             population_size = 8
             mutations_per_round = 6
             batch_size = 3
+            evolution_iteration_scope = "global_batch"
+            stop_when_distinguished = True
+            distinguish_margin = None
             selection_strategy = "rank"
             tournament_size = 3
             tournament_p = 0.8

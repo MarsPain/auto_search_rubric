@@ -4,7 +4,11 @@ import unittest
 
 from autosr.cli import build_parser, build_runtime_config
 from autosr.config import SearchAlgorithmConfig
-from autosr.search import AdaptiveMutationSchedule, SelectionStrategy
+from autosr.search import (
+    AdaptiveMutationSchedule,
+    EvolutionIterationScope,
+    SelectionStrategy,
+)
 
 
 class TestSearchConfigEnumUnification(unittest.TestCase):
@@ -29,6 +33,16 @@ class TestSearchConfigEnumUnification(unittest.TestCase):
             AdaptiveMutationSchedule.DIVERSITY_DRIVEN,
         )
 
+    def test_search_algorithm_config_accepts_iteration_scope_enum(self) -> None:
+        config = SearchAlgorithmConfig(
+            iteration_scope=EvolutionIterationScope.PROMPT_LOCAL
+        )
+        self.assertIs(config.iteration_scope, EvolutionIterationScope.PROMPT_LOCAL)
+        self.assertIs(
+            config.to_evolutionary_kwargs()["iteration_scope"],
+            EvolutionIterationScope.PROMPT_LOCAL,
+        )
+
     def test_cli_string_values_remain_compatible_and_normalized_to_enums(self) -> None:
         parser = build_parser()
         args = parser.parse_args(
@@ -41,6 +55,8 @@ class TestSearchConfigEnumUnification(unittest.TestCase):
                 "top_k",
                 "--adaptive-mutation",
                 "diversity_driven",
+                "--evolution-iteration-scope",
+                "prompt_local",
             ]
         )
 
@@ -49,6 +65,10 @@ class TestSearchConfigEnumUnification(unittest.TestCase):
         self.assertIs(
             runtime.search.adaptive_mutation,
             AdaptiveMutationSchedule.DIVERSITY_DRIVEN,
+        )
+        self.assertIs(
+            runtime.search.iteration_scope,
+            EvolutionIterationScope.PROMPT_LOCAL,
         )
 
 

@@ -43,6 +43,7 @@ PRESET_STRICT="${PRESET_STRICT:-}"
 # The call_summary dataset wraps conversation content in <通话内容> tags
 EXTRACT_STRATEGY="${EXTRACT_STRATEGY:-tag}"
 EXTRACT_TAG="${EXTRACT_TAG:-通话内容}"
+EVOLUTION_ITERATION_SCOPE="${EVOLUTION_ITERATION_SCOPE:-prompt_local}"
 
 # =============================================================================
 # SELECTION STRATEGY & ADAPTIVE MUTATION CONFIGURATION
@@ -107,6 +108,7 @@ cmd=(
   --population-size 4
   --mutations-per-round 2
   --batch-size 2
+  --evolution-iteration-scope "${EVOLUTION_ITERATION_SCOPE}"
 )
 
 # Add selection strategy parameters if specified

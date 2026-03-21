@@ -80,6 +80,28 @@ class SearchMode(Enum):
             ) from e
 
 
+class EvolutionIterationScope(Enum):
+    """Iteration scope for evolutionary search scheduling."""
+
+    GLOBAL_BATCH = "global_batch"
+    PROMPT_LOCAL = "prompt_local"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an EvolutionIterationScope from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [scope.value for scope in cls]
+            raise ValueError(
+                f"Unknown evolutionary iteration scope: {value!r}. "
+                f"Valid scopes are: {valid_values}"
+            ) from e
+
+
 class SelectionStrategy(Enum):
     """Parent selection strategies for evolutionary search."""
 
