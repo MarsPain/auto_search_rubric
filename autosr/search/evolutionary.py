@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 import math
 import random
@@ -26,6 +27,11 @@ from .strategies import (
 
 logger = logging.getLogger("autosr.search")
 
+CheckpointCallback = Callable[
+    [dict[str, Rubric], dict[str, float], dict[str, list[float]]],
+    None,
+]
+
 
 class EvolutionaryRTDSearcher:
     def __init__(
@@ -37,6 +43,7 @@ class EvolutionaryRTDSearcher:
         config: EvolutionaryConfig | None = None,
         mutation_scheduler: MutationScheduler | None = None,
         diversity_metric: DiversityMetric | None = None,
+        checkpoint_callback: CheckpointCallback | None = None,
     ) -> None:
         self.proposer = proposer
         self.judge = judge
@@ -52,6 +59,7 @@ class EvolutionaryRTDSearcher:
             self.rng,
         )
         self.diversity_metric = diversity_metric or create_diversity_metric()
+        self._checkpoint_callback = checkpoint_callback
 
         # Track diversity history for diagnostics
         self.diversity_history: list[float] = []
@@ -226,6 +234,12 @@ class EvolutionaryRTDSearcher:
             best_scores[item.prompt_id] = best_score
             best_rubrics[item.prompt_id] = best_rubric
             mutation_diagnostics[item.prompt_id] = scheduler.get_diagnostics()
+            if self._checkpoint_callback is not None:
+                self._checkpoint_callback(
+                    dict(best_rubrics),
+                    dict(best_scores),
+                    {prompt_id: list(scores) for prompt_id, scores in history.items()},
+                )
 
         diagnostics = {
             "mode": "evolutionary",

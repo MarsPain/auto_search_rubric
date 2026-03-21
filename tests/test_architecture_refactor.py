@@ -6,6 +6,7 @@ import unittest
 from autosr.config import ObjectiveFunctionConfig, RuntimeConfig, SearchAlgorithmConfig
 from autosr.factory import ComponentFactory
 from autosr.models import PromptExample, ResponseCandidate
+from autosr.search import EvolutionaryRTDSearcher, IterativeRTDSearcher
 
 
 def _build_prompt() -> PromptExample:
@@ -53,6 +54,25 @@ class TestArchitectureRefactor(unittest.TestCase):
             with self.subTest(module=name):
                 imported = importlib.import_module(name)
                 self.assertIsNotNone(imported)
+
+    def test_factory_accepts_checkpoint_callback_and_wires_evolutionary_searcher(self) -> None:
+        config = RuntimeConfig(search=SearchAlgorithmConfig(mode="evolutionary"))
+        factory = ComponentFactory(config)
+        callback = lambda _r, _s, _h: None  # noqa: E731
+
+        searcher = factory.create_searcher([_build_prompt()], checkpoint_callback=callback)
+
+        self.assertIsInstance(searcher, EvolutionaryRTDSearcher)
+        self.assertIs(searcher._checkpoint_callback, callback)
+
+    def test_factory_accepts_checkpoint_callback_for_iterative_without_wiring(self) -> None:
+        config = RuntimeConfig(search=SearchAlgorithmConfig(mode="iterative"))
+        factory = ComponentFactory(config)
+        callback = lambda _r, _s, _h: None  # noqa: E731
+
+        searcher = factory.create_searcher([_build_prompt()], checkpoint_callback=callback)
+
+        self.assertIsInstance(searcher, IterativeRTDSearcher)
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # DATASET_PATH="${1:-examples/single_case_with_rank.json}"
-# DATASET_PATH="${1:-examples/call_summary_dataset_with_rank.json}"
-DATASET_PATH="${1:-examples/call_summary_dataset_with_rank_single.json}"
+DATASET_PATH="${1:-examples/call_summary_dataset_with_rank.json}"
+# DATASET_PATH="${1:-examples/call_summary_dataset_with_rank_single.json}"
 MODE="${2:-evolutionary}"
 OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_call_summary.json}"
 

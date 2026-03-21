@@ -206,6 +206,43 @@ class TestSearch(unittest.TestCase):
         )
         self.assertGreater(local_proposer.call_count, global_proposer.call_count)
 
+    def test_evolutionary_prompt_local_emits_checkpoint_per_prompt(self) -> None:
+        prompts = self.prompts[:2]
+        snapshots: list[set[str]] = []
+
+        def checkpoint_callback(  # type: ignore[no-untyped-def]
+            best_rubrics,
+            best_scores,
+            history,
+        ) -> None:
+            self.assertEqual(set(best_rubrics.keys()), set(best_scores.keys()))
+            self.assertEqual(set(best_rubrics.keys()), set(history.keys()))
+            snapshots.append(set(best_rubrics.keys()))
+
+        searcher = EvolutionaryRTDSearcher(
+            self.proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=EvolutionaryConfig(
+                generations=2,
+                population_size=4,
+                mutations_per_round=2,
+                batch_size=1,
+                seed=42,
+                stagnation_generations=3,
+                iteration_scope="prompt_local",
+                stop_when_distinguished=False,
+            ),
+            checkpoint_callback=checkpoint_callback,
+        )
+
+        searcher.search(prompts)
+        self.assertEqual(len(snapshots), len(prompts))
+        self.assertEqual(len(snapshots[0]), 1)
+        self.assertEqual(len(snapshots[1]), 2)
+        self.assertTrue(snapshots[0].issubset(snapshots[1]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Callable
 
 from .config import (
     CandidateTextExtractionConfig,
@@ -447,18 +447,6 @@ def main() -> None:
     prompts = load_dataset(args.dataset)
     factory = ComponentFactory(config)
     
-    # Create searcher and run search
-    searcher = factory.create_searcher(prompts)
-    result = searcher.search(prompts)
-    
-    # Compute best candidates
-    best_candidates, candidate_scores = compute_best_candidates(
-        prompts=prompts,
-        rubrics=result.best_rubrics,
-        factory=factory,
-        seed=config.search.seed,
-    )
-
     run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
     run_manifest = build_run_manifest(
         args=args,
@@ -469,7 +457,40 @@ def main() -> None:
         run_id=run_id,
     )
     reproducible_script = build_reproducible_script(run_manifest)
+
+    checkpoint_callback: (
+        Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None] | None
+    ) = None
+    if (
+        config.search.is_evolutionary()
+        and config.search.iteration_scope is EvolutionIterationScope.PROMPT_LOCAL
+    ):
+        def _checkpoint_callback(
+            best_rubrics: dict[str, Rubric],
+            best_scores: dict[str, float],
+            _history: dict[str, list[float]],
+        ) -> None:
+            save_rubrics(
+                args.output,
+                best_rubrics,
+                best_scores,
+                run_manifest=run_manifest,
+            )
+
+        checkpoint_callback = _checkpoint_callback
     
+    # Create searcher and run search
+    searcher = factory.create_searcher(prompts, checkpoint_callback=checkpoint_callback)
+    result = searcher.search(prompts)
+    
+    # Compute best candidates
+    best_candidates, candidate_scores = compute_best_candidates(
+        prompts=prompts,
+        rubrics=result.best_rubrics,
+        factory=factory,
+        seed=config.search.seed,
+    )
+
     # Save results
     save_rubrics(
         args.output,

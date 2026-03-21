@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import tempfile
 from typing import Any
 
 from .data_models import PromptExample, Rubric
@@ -114,10 +115,23 @@ def save_rubrics(
     }
     if run_manifest is not None:
         output["run_manifest"] = run_manifest
-    file_path.write_text(
-        json.dumps(output, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    output_text = json.dumps(output, indent=2, ensure_ascii=False)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=file_path.parent,
+            prefix=f"{file_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_file.write(output_text)
+            temp_path = Path(temp_file.name)
+        temp_path.replace(file_path)
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
 
 
 def save_run_record_files(

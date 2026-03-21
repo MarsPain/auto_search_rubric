@@ -266,6 +266,23 @@ class TestSaveRubrics(unittest.TestCase):
             )
             self.assertEqual(script_path.read_text(encoding="utf-8"), script_text)
 
+    def test_save_rubrics_atomic_write_is_always_parseable(self) -> None:
+        item = load_dataset("examples/demo_dataset.json")[0]
+        rubric = HeuristicRubricInitializer().initialize(item, rng=random.Random(123))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "out.json"
+            for score in (0.25, 0.5, 0.75):
+                save_rubrics(
+                    output_path,
+                    best_rubrics={item.prompt_id: rubric},
+                    best_scores={item.prompt_id: score},
+                )
+                payload = json.loads(output_path.read_text(encoding="utf-8"))
+                self.assertEqual(payload["best_objective_scores"][item.prompt_id], score)
+
+            self.assertEqual(list(output_path.parent.glob("out.json.*.tmp")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

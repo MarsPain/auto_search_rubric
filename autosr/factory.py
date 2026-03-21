@@ -6,6 +6,7 @@ and other entry points to remain agnostic of implementation details.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,7 +29,7 @@ from .mock_components import (
     RankPreferenceJudge,
     TemplateProposer,
 )
-from .data_models import PromptExample
+from .data_models import PromptExample, Rubric
 from .search import EvolutionaryConfig, EvolutionaryRTDSearcher, IterativeConfig, IterativeRTDSearcher
 from .types import BackendType, InitializerStrategy, LLMRole, SearchMode
 
@@ -38,6 +39,8 @@ if TYPE_CHECKING:
     from .prompts.loader import PromptRepository
 
 logger = logging.getLogger(__name__)
+
+CheckpointCallback = Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None]
 
 
 class ComponentFactory:
@@ -229,7 +232,9 @@ class ComponentFactory:
         )
     
     def create_searcher(
-        self, prompts: list[PromptExample]
+        self,
+        prompts: list[PromptExample],
+        checkpoint_callback: CheckpointCallback | None = None,
     ) -> IterativeRTDSearcher | EvolutionaryRTDSearcher:
         """Create the search algorithm component with all dependencies."""
         # Create all runtime components
@@ -252,7 +257,14 @@ class ComponentFactory:
                 **search_cfg.to_evolutionary_kwargs(),
                 objective=objective,
             )
-            return EvolutionaryRTDSearcher(proposer, verifier, judge, initializer, config=config)
+            return EvolutionaryRTDSearcher(
+                proposer,
+                verifier,
+                judge,
+                initializer,
+                config=config,
+                checkpoint_callback=checkpoint_callback,
+            )
 
 
 def create_components_for_dataset(
