@@ -15,6 +15,7 @@ This repository keeps `iterative` as a baseline and uses `evolutionary` as the d
 - Search extensibility:
   - Parent selection: `rank`, `tournament`, `top_k`
   - Adaptive mutation: `fixed`, `success_feedback`, `exploration_decay`, `diversity_driven`
+  - Iteration scope: `global_batch` (dataset-level) and `prompt_local` (prompt-level independent evolution)
 - LLM architecture split into transport config (`autosr.llm_config`) and runtime config (`autosr.config`)
 - Reproducibility outputs:
   - `run_manifest` embedded in output JSON
@@ -45,7 +46,7 @@ This repository keeps `iterative` as a baseline and uses `evolutionary` as the d
   - Low-level LLM transport/model config (`LLMConfig`, `RoleModelConfig`)
 - `autosr/types.py`
   - Shared enums:
-    - `BackendType`, `SearchMode`, `SelectionStrategy`
+    - `BackendType`, `SearchMode`, `EvolutionIterationScope`, `SelectionStrategy`
     - `AdaptiveMutationSchedule`, `InitializerStrategy`, `ExtractionStrategy`, `LLMRole`
 
 ### Domain and Shared Modules
@@ -167,6 +168,11 @@ export LLM_API_KEY="..."
   artifacts/best_rubrics_formal_call_summary.json
 ```
 
+Note:
+- `scripts/run_formal_search.sh` now defaults to `--evolution-iteration-scope prompt_local`
+- Override with environment variable if needed:
+  - `EVOLUTION_ITERATION_SCOPE=global_batch ./scripts/run_formal_search.sh`
+
 ## Search Objective and Controls
 
 Objective:
@@ -180,6 +186,19 @@ Common flags:
 - `--pair-confidence-prior` (pairwise confidence shrinkage; set `0` to disable)
 - `--selection-strategy {rank,tournament,top_k}`
 - `--adaptive-mutation {fixed,success_feedback,exploration_decay,diversity_driven}`
+- `--evolution-iteration-scope {global_batch,prompt_local}`
+- `--stop-when-distinguished` / `--no-stop-when-distinguished` (prompt-local early stop)
+- `--distinguish-margin` (override top-margin threshold; default uses objective tie tolerance)
+
+Iteration behavior:
+
+- `global_batch`:
+  - Original dataset-level generations
+  - each generation evolves only the selected hard prompts (`batch_size`)
+- `prompt_local`:
+  - each prompt evolves independently for up to `generations`
+  - no cross-prompt batching dependency
+  - can stop early per prompt when top candidates are already distinguished
 
 ## Dataset Format
 

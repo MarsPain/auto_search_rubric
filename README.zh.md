@@ -15,6 +15,7 @@
 - 搜索策略可扩展：
   - 父代选择：`rank`、`tournament`、`top_k`
   - 自适应变异：`fixed`、`success_feedback`、`exploration_decay`、`diversity_driven`
+  - 迭代范围：`global_batch`（数据集级）与 `prompt_local`（按 prompt 独立进化）
 - LLM 架构分离为传输配置（`autosr.llm_config`）与运行时配置（`autosr.config`）
 - 可复现实验产物：
   - 输出 JSON 内嵌 `run_manifest`
@@ -45,7 +46,7 @@
   - LLM 传输/模型底层配置（`LLMConfig`、`RoleModelConfig`）
 - `autosr/types.py`
   - 共享枚举：
-    - `BackendType`、`SearchMode`、`SelectionStrategy`
+    - `BackendType`、`SearchMode`、`EvolutionIterationScope`、`SelectionStrategy`
     - `AdaptiveMutationSchedule`、`InitializerStrategy`、`ExtractionStrategy`、`LLMRole`
 
 ### 领域与共享模块
@@ -167,6 +168,11 @@ export LLM_API_KEY="..."
   artifacts/best_rubrics_formal_call_summary.json
 ```
 
+说明：
+- `scripts/run_formal_search.sh` 现默认使用 `--evolution-iteration-scope prompt_local`
+- 如需改回数据集级迭代，可通过环境变量覆盖：
+  - `EVOLUTION_ITERATION_SCOPE=global_batch ./scripts/run_formal_search.sh`
+
 ## 搜索目标与常用控制参数
 
 目标函数：
@@ -180,6 +186,19 @@ export LLM_API_KEY="..."
 - `--pair-confidence-prior`（pairwise 置信收缩，设为 `0` 可关闭）
 - `--selection-strategy {rank,tournament,top_k}`
 - `--adaptive-mutation {fixed,success_feedback,exploration_decay,diversity_driven}`
+- `--evolution-iteration-scope {global_batch,prompt_local}`
+- `--stop-when-distinguished` / `--no-stop-when-distinguished`（prompt-local 的提前停止开关）
+- `--distinguish-margin`（覆盖 top-margin 阈值；默认使用 objective 的 tie tolerance）
+
+迭代行为说明：
+
+- `global_batch`：
+  - 保留原有数据集级代际迭代
+  - 每一代只进化被选中的 hard prompts（由 `batch_size` 控制）
+- `prompt_local`：
+  - 每个 prompt 独立迭代，最多 `generations`
+  - 不依赖跨 prompt 的批次调度
+  - 当候选可区分时可按 prompt 提前停止
 
 ## 数据格式
 
