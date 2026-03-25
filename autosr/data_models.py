@@ -3,13 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from hashlib import sha256
 import json
+import math
 from typing import Any, Mapping
 
 
-def _clamp_binary(value: int | float | None) -> int | None:
+def _normalize_grade_unit(value: int | float | None) -> float | None:
     if value is None:
         return None
-    return 1 if float(value) >= 0.5 else 0
+    grade = float(value)
+    if not math.isfinite(grade):
+        return None
+    if grade <= 0:
+        return 0.0
+    # Backward compatibility: retain support for legacy binary/normalized 0-1 grades.
+    if grade <= 1:
+        return grade
+    # Rich grading: support 0-5 scale and clamp overflow.
+    return min(grade, 5.0) / 5.0
 
 
 @dataclass(slots=True)
@@ -123,11 +133,11 @@ class Rubric:
         numerator = 0.0
         denominator = 0.0
         for criterion in self.criteria:
-            grade = _clamp_binary(grades.get(criterion.criterion_id))
+            grade = _normalize_grade_unit(grades.get(criterion.criterion_id))
             if grade is None:
                 if self.grading_protocol.allow_na:
                     continue
-                grade = 0
+                grade = 0.0
             weight = weights[criterion.criterion_id]
             numerator += weight * float(grade)
             denominator += weight
@@ -220,4 +230,3 @@ class PromptExample:
             candidates=[ResponseCandidate.from_dict(x) for x in raw["candidates"]],
             metadata=dict(raw.get("metadata", {})),
         )
-

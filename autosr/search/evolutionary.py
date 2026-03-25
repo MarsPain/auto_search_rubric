@@ -375,22 +375,41 @@ class EvolutionaryRTDSearcher:
         del population_for_prompt  # Reserved for future prompt-local stateful strategies.
         best_current = scored[0][0]
         best_current_score = scored[0][1].total
-        left, right = _build_top2_pair(item=item, rubric=best_current, evaluator=self.evaluator)
+        parent_count = min(len(scored), self.config.mutation_parent_count)
+        selected_parents = select_parents(
+            strategy=self.config.selection_strategy,
+            scored_population=scored,
+            num_parents=max(1, parent_count),
+            rng=self.rng,
+            config=self.config,
+        )
+        parent_pool: list[Rubric] = []
+        seen_parent_fps: set[str] = set()
+        _append_unique(parent_pool, best_current, seen_parent_fps)
+        for parent in selected_parents:
+            _append_unique(parent_pool, parent, seen_parent_fps)
+
+        if not parent_pool:
+            parent_pool.append(best_current)
+
         new_candidates: list[Rubric] = []
         mutation_modes_used: list[MutationMode] = []
 
-        for _idx in range(self.config.mutations_per_round):
+        for idx in range(self.config.mutations_per_round):
+            parent = parent_pool[idx % len(parent_pool)]
+            left, right = _build_top2_pair(item=item, rubric=parent, evaluator=self.evaluator)
             # Use adaptive mutation selection
             mode = scheduler.select_mode(diversity_score=diversity_score)
             mutation_modes_used.append(mode)
             mutated = self.proposer.propose(
-                item.prompt, left, right, best_current, mode=mode, rng=self.rng
+                item.prompt, left, right, parent, mode=mode, rng=self.rng
             )
             new_candidates.append(mutated)
 
         logger.debug(
-            "prompt=%s mutation_modes=%s",
+            "prompt=%s parent_pool_size=%d mutation_modes=%s",
             item.prompt_id,
+            len(parent_pool),
             [m.name for m in mutation_modes_used],
         )
 

@@ -21,7 +21,7 @@ from autosr.models import Criterion, GradingProtocol, ResponseCandidate, Rubric
 class MockVerifier:
     """Mock verifier for testing that records the prompt it receives."""
 
-    def __init__(self, fixed_grades: dict[str, int | None] | None = None) -> None:
+    def __init__(self, fixed_grades: dict[str, float | None] | None = None) -> None:
         self.last_prompt: str | None = None
         self.last_candidate: ResponseCandidate | None = None
         self.fixed_grades = fixed_grades or {"c1": 1}
@@ -33,7 +33,7 @@ class MockVerifier:
         rubric: Rubric,
         *,
         seed: int,
-    ) -> dict[str, int | None]:
+    ) -> dict[str, float | None]:
         self.last_prompt = prompt
         self.last_candidate = candidate
         return dict(self.fixed_grades)

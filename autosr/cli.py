@@ -125,6 +125,12 @@ def build_parser() -> argparse.ArgumentParser:
     search_group.add_argument("--generations", type=int, default=12, help="[Evolutionary] generations")
     search_group.add_argument("--population-size", type=int, default=8, help="[Evolutionary] population")
     search_group.add_argument("--mutations-per-round", type=int, default=6, help="Mutations per round")
+    search_group.add_argument(
+        "--mutation-parent-count",
+        type=int,
+        default=3,
+        help="Number of parent rubrics to mutate per generation",
+    )
     search_group.add_argument("--batch-size", type=int, default=3, help="Prompts per generation")
     search_group.add_argument(
         "--evolution-iteration-scope",
@@ -306,6 +312,7 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             generations=args.generations,
             population_size=args.population_size,
             mutations_per_round=args.mutations_per_round,
+            mutation_parent_count=getattr(args, "mutation_parent_count", 3),
             batch_size=args.batch_size,
             iteration_scope=args.evolution_iteration_scope,
             stop_when_distinguished=args.stop_when_distinguished,

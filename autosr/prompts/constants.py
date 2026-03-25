@@ -101,7 +101,8 @@ RUBRIC_PROPOSER_USER_TEMPLATE = """{{
 
 VERIFIER_SYSTEM = (
     'You are a strict evaluator. Return ONLY JSON: '
-    '{{"grades": {{"criterion_id": 0|1|null, ...}}}}.'
+    '{{"grades": {{"criterion_id": score|null, ...}}}}. '
+    "Use continuous scores in [0, 5] (or [0,1] if needed)."
 )
 
 VERIFIER_USER_TEMPLATE = """{{
@@ -109,7 +110,8 @@ VERIFIER_USER_TEMPLATE = """{{
     "prompt": {prompt_json},
     "candidate": {candidate_json},
     "criteria": {criteria_json},
-    "allow_na": {allow_na}
+    "allow_na": {allow_na},
+    "grade_scale_max": {grade_scale_max}
 }}"""
 
 # =============================================================================
@@ -151,7 +153,14 @@ TEMPLATE_REGISTRY: dict[str, dict[str, list[str]]] = {
         "user_template": RUBRIC_PROPOSER_USER_TEMPLATE,
     },
     "verifier": {
-        "variables": ["seed", "prompt_json", "candidate_json", "criteria_json", "allow_na"],
+        "variables": [
+            "seed",
+            "prompt_json",
+            "candidate_json",
+            "criteria_json",
+            "allow_na",
+            "grade_scale_max",
+        ],
         "system": VERIFIER_SYSTEM,
         "user_template": VERIFIER_USER_TEMPLATE,
     },

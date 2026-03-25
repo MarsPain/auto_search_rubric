@@ -104,9 +104,9 @@ class HeuristicVerifier:
         rubric: Rubric,
         *,
         seed: int,
-    ) -> dict[str, int | None]:
+    ) -> dict[str, float | None]:
         text = candidate.text.lower()
-        out: dict[str, int | None] = {}
+        out: dict[str, float | None] = {}
         rng = random.Random(seed)
         for criterion in rubric.criteria:
             value = self._grade_criterion(text, criterion)

@@ -22,6 +22,7 @@ class EvolutionaryConfig:
     population_size: int = 8
     generations: int = 20
     mutations_per_round: int = 6
+    mutation_parent_count: int = 3
     survival_fraction: float = 0.2
     batch_size: int = 4
     iteration_scope: EvolutionIterationScope = field(
@@ -76,6 +77,10 @@ class EvolutionaryConfig:
             raise ValueError("generations must be >= 1")
         if self.mutations_per_round < 1:
             raise ValueError("mutations_per_round must be >= 1")
+        if self.mutation_parent_count < 1:
+            raise ValueError("mutation_parent_count must be >= 1")
+        if self.mutation_parent_count > self.population_size:
+            raise ValueError("mutation_parent_count must be <= population_size")
         if not 0 < self.survival_fraction <= 1:
             raise ValueError("survival_fraction must be in (0, 1]")
         if self.elitism_count < 1:

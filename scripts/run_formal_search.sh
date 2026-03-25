@@ -107,8 +107,10 @@ cmd=(
   --generations 4
   --population-size 4
   --mutations-per-round 2
+  --mutation-parent-count "${MUTATION_PARENT_COUNT:-3}"
   --batch-size 2
   --evolution-iteration-scope "${EVOLUTION_ITERATION_SCOPE}"
+  --distinguish-margin "${DISTINGUISH_MARGIN:-0.4}"
 )
 
 # Add selection strategy parameters if specified

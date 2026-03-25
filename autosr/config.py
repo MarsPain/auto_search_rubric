@@ -112,6 +112,7 @@ class SearchAlgorithmConfig:
     generations: int = 12
     population_size: int = 8
     mutations_per_round: int = 6
+    mutation_parent_count: int = 3
     batch_size: int = 3
     iteration_scope: EvolutionIterationScope = field(
         default_factory=lambda: EvolutionIterationScope.GLOBAL_BATCH
@@ -157,6 +158,10 @@ class SearchAlgorithmConfig:
             raise ValueError("generations must be >= 1")
         if self.mutations_per_round < 1:
             raise ValueError("mutations_per_round must be >= 1")
+        if self.mutation_parent_count < 1:
+            raise ValueError("mutation_parent_count must be >= 1")
+        if self.mutation_parent_count > self.population_size:
+            raise ValueError("mutation_parent_count must be <= population_size")
         
         if isinstance(self.selection_strategy, str):
             object.__setattr__(
@@ -221,6 +226,7 @@ class SearchAlgorithmConfig:
             "generations": self.generations,
             "population_size": self.population_size,
             "mutations_per_round": self.mutations_per_round,
+            "mutation_parent_count": self.mutation_parent_count,
             "batch_size": self.batch_size,
             "iteration_scope": self.iteration_scope,
             "stop_when_distinguished": self.stop_when_distinguished,

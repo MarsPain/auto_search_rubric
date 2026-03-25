@@ -24,7 +24,7 @@ class ContentExtractingVerifier:
         rubric: Rubric,
         *,
         seed: int,
-    ) -> dict[str, int | None]:
+    ) -> dict[str, float | None]:
         extracted = self._extractor.extract(prompt)
         extracted_candidate = self._extract_candidate(candidate)
         return self._inner.grade(extracted, extracted_candidate, rubric, seed=seed)

@@ -127,6 +127,17 @@ class TestLLMComponents(unittest.TestCase):
         )
         self.assertEqual(grades, {"c1": 1, "c2": None})
 
+    def test_verifier_supports_continuous_scores(self) -> None:
+        requester = _StubRequester([{"grades": {"c1": 4.5, "c2": "0.2"}}])
+        component = LLMVerifier(requester, model="openai/gpt-4o-mini", max_retries=1)
+        grades = component.grade(
+            prompt="prompt",
+            candidate=ResponseCandidate(candidate_id="a", text="hello"),
+            rubric=_build_rubric(),
+            seed=42,
+        )
+        self.assertEqual(grades, {"c1": 4.5, "c2": 0.2})
+
     def test_judge_invalid_output_retries_then_fails(self) -> None:
         requester = _StubRequester([{"preference": 2}, {"preference": 9}])
         component = LLMPreferenceJudge(requester, model="openai/gpt-4o-mini", max_retries=1)

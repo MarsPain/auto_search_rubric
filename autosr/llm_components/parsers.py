@@ -103,21 +103,33 @@ def candidate_snapshot(candidate) -> dict[str, Any]:
     }
 
 
-def normalize_grade(value: Any) -> int | None:
+def normalize_grade(value: Any) -> float | None:
     if value is None:
         return None
     if isinstance(value, bool):
-        return 1 if value else 0
+        return 1.0 if value else 0.0
     if isinstance(value, (int, float)):
-        return 1 if float(value) >= 0.5 else 0
+        score = float(value)
+        if score < 0:
+            score = 0.0
+        if score <= 1:
+            return score
+        if score <= 5:
+            return score
+        raise LLMParseError(f"grade value out of range [0,5]: {value!r}")
     if isinstance(value, str):
         token = value.strip().lower()
         if token in {"n/a", "na", "none", "null"}:
             return None
-        if token in {"1", "true", "yes", "pass"}:
-            return 1
-        if token in {"0", "false", "no", "fail"}:
-            return 0
+        if token in {"true", "yes", "pass"}:
+            return 1.0
+        if token in {"false", "no", "fail"}:
+            return 0.0
+        try:
+            parsed = float(token)
+            return normalize_grade(parsed)
+        except ValueError:
+            pass
     raise LLMParseError(f"unsupported grade value: {value!r}")
 
 

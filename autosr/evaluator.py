@@ -18,7 +18,7 @@ class CandidateEvaluation:
     candidate_id: str
     score: float
     variance: float
-    majority_grades: dict[str, int | None]
+    majority_grades: dict[str, float | None]
     vote_scores: list[float]
 
 
@@ -78,7 +78,7 @@ class RubricEvaluator:
         votes: int,
     ) -> CandidateEvaluation:
         candidate = next(c for c in item.candidates if c.candidate_id == candidate_id)
-        per_vote_grades: list[dict[str, int | None]] = []
+        per_vote_grades: list[dict[str, float | None]] = []
         vote_scores: list[float] = []
         for vote_idx in range(votes):
             seed = self._vote_seed(item.prompt_id, candidate.candidate_id, rubric, vote_idx)
@@ -86,7 +86,7 @@ class RubricEvaluator:
             per_vote_grades.append(grades)
             vote_scores.append(rubric.score_from_grades(grades))
 
-        majority: dict[str, int | None] = {}
+        majority: dict[str, float | None] = {}
         for criterion in rubric.criteria:
             votes_for_criterion = [
                 grades.get(criterion.criterion_id)
@@ -96,9 +96,7 @@ class RubricEvaluator:
             if not votes_for_criterion:
                 majority[criterion.criterion_id] = None
                 continue
-            positives = sum(1 for value in votes_for_criterion if int(value) >= 1)
-            negatives = len(votes_for_criterion) - positives
-            majority[criterion.criterion_id] = 1 if positives > negatives else 0
+            majority[criterion.criterion_id] = float(sum(votes_for_criterion) / len(votes_for_criterion))
 
         final_score = rubric.score_from_grades(majority)
         variance = statistics.pvariance(vote_scores) if len(vote_scores) > 1 else 0.0

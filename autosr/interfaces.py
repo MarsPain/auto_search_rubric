@@ -15,8 +15,8 @@ class Verifier(Protocol):
         rubric: Rubric,
         *,
         seed: int,
-    ) -> dict[str, int | None]:
-        """Return per-criterion binary grades (0/1 or None for N/A)."""
+    ) -> dict[str, float | None]:
+        """Return per-criterion grades (0-5, 0-1, or None for N/A)."""
 
 
 class PreferenceJudge(Protocol):
@@ -63,4 +63,3 @@ class RubricProposer(Protocol):
 class RubricInitializer(Protocol):
     def initialize(self, item: PromptExample, *, rng: random.Random) -> Rubric:
         """Build an initial rubric for a prompt."""
-

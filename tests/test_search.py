@@ -243,6 +243,40 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(len(snapshots[1]), 2)
         self.assertTrue(snapshots[0].issubset(snapshots[1]))
 
+    def test_evolutionary_uses_multiple_parents_for_mutation(self) -> None:
+        class ParentTrackingProposer(TemplateProposer):
+            def __init__(self) -> None:
+                super().__init__()
+                self.parent_rubric_ids: list[str] = []
+
+            def propose(self, prompt, left, right, rubric, *, mode, rng):  # type: ignore[no-untyped-def]
+                self.parent_rubric_ids.append(rubric.rubric_id)
+                return super().propose(prompt, left, right, rubric, mode=mode, rng=rng)
+
+        proposer = ParentTrackingProposer()
+        config = EvolutionaryConfig(
+            generations=1,
+            population_size=4,
+            mutations_per_round=4,
+            mutation_parent_count=3,
+            batch_size=1,
+            seed=42,
+            stagnation_generations=3,
+            iteration_scope="prompt_local",
+            stop_when_distinguished=False,
+        )
+
+        EvolutionaryRTDSearcher(
+            proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=config,
+        ).search(self.prompts[:1])
+
+        mutation_parent_ids = proposer.parent_rubric_ids[-config.mutations_per_round :]
+        self.assertGreaterEqual(len(set(mutation_parent_ids)), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

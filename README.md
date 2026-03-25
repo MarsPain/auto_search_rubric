@@ -182,6 +182,7 @@ Objective:
 Common flags:
 
 - `--generations`, `--population-size`, `--mutations-per-round`, `--batch-size`
+- `--mutation-parent-count` (number of parent rubrics used for mutation each generation)
 - `--tail-fraction`, `--lambda-var`, `--mu-diverse`
 - `--pair-confidence-prior` (pairwise confidence shrinkage; set `0` to disable)
 - `--selection-strategy {rank,tournament,top_k}`
@@ -189,6 +190,11 @@ Common flags:
 - `--evolution-iteration-scope {global_batch,prompt_local}`
 - `--stop-when-distinguished` / `--no-stop-when-distinguished` (prompt-local early stop)
 - `--distinguish-margin` (override top-margin threshold; default uses objective tie tolerance)
+
+Verifier grading scale:
+
+- Supports continuous criterion scores in `0-5` (preferred) and `0-1` (compatible).
+- Final rubric score is normalized to `0-1` before objective computation.
 
 Iteration behavior:
 

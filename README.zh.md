@@ -182,6 +182,7 @@ export LLM_API_KEY="..."
 常用参数：
 
 - `--generations`、`--population-size`、`--mutations-per-round`、`--batch-size`
+- `--mutation-parent-count`（每代用于变异的 parent rubric 数量）
 - `--tail-fraction`、`--lambda-var`、`--mu-diverse`
 - `--pair-confidence-prior`（pairwise 置信收缩，设为 `0` 可关闭）
 - `--selection-strategy {rank,tournament,top_k}`
@@ -189,6 +190,11 @@ export LLM_API_KEY="..."
 - `--evolution-iteration-scope {global_batch,prompt_local}`
 - `--stop-when-distinguished` / `--no-stop-when-distinguished`（prompt-local 的提前停止开关）
 - `--distinguish-margin`（覆盖 top-margin 阈值；默认使用 objective 的 tie tolerance）
+
+Verifier 评分尺度：
+
+- 支持连续分 `0-5`（推荐）和 `0-1`（兼容）。
+- rubric 最终得分会先归一化到 `0-1`，再进入目标函数计算。
 
 迭代行为说明：
 

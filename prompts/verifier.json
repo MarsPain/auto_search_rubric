@@ -3,14 +3,15 @@
     {
       "version": "1.0.0",
       "description": "Grade candidate response using rubric criteria",
-      "system": "You are a strict evaluator. Return ONLY JSON: {\"grades\": {\"criterion_id\": 0|1|null, ...}}.",
-      "user_template": "{{\n    \"seed\": {seed},\n    \"prompt\": {prompt_json},\n    \"candidate\": {candidate_json},\n    \"criteria\": {criteria_json},\n    \"allow_na\": {allow_na}\n}}",
+      "system": "You are a strict evaluator. Return ONLY JSON: {\"grades\": {\"criterion_id\": score|null, ...}}. Use continuous scores in [0, 5] (or [0,1] if needed).",
+      "user_template": "{{\n    \"seed\": {seed},\n    \"prompt\": {prompt_json},\n    \"candidate\": {candidate_json},\n    \"criteria\": {criteria_json},\n    \"allow_na\": {allow_na},\n    \"grade_scale_max\": {grade_scale_max}\n}}",
       "variables": [
         "seed",
         "prompt_json",
         "candidate_json",
         "criteria_json",
-        "allow_na"
+        "allow_na",
+        "grade_scale_max"
       ]
     }
   ]

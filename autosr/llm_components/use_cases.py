@@ -169,7 +169,7 @@ class LLMVerifier(LLMComponentBase):
         rubric: Rubric,
         *,
         seed: int,
-    ) -> dict[str, int | None]:
+    ) -> dict[str, float | None]:
         criteria_data = [criterion.to_dict() for criterion in rubric.criteria]
         allow_na = "true" if rubric.grading_protocol.allow_na else "false"
 
@@ -179,6 +179,7 @@ class LLMVerifier(LLMComponentBase):
             "candidate_json": json.dumps(candidate_snapshot(candidate), ensure_ascii=False),
             "criteria_json": json.dumps(criteria_data, ensure_ascii=False),
             "allow_na": allow_na,
+            "grade_scale_max": 5,
         }
 
         system_prompt, user_prompt = self._render_with_fallback(
@@ -188,11 +189,11 @@ class LLMVerifier(LLMComponentBase):
             fallback_template=prompt_constants.VERIFIER_USER_TEMPLATE,
         )
 
-        def parse(payload: dict[str, Any]) -> dict[str, int | None]:
+        def parse(payload: dict[str, Any]) -> dict[str, float | None]:
             grades_payload = payload.get("grades", payload)
             if not isinstance(grades_payload, dict):
                 raise LLMParseError("verifier payload must include an object under 'grades'")
-            out: dict[str, int | None] = {}
+            out: dict[str, float | None] = {}
             for criterion in rubric.criteria:
                 raw_value = grades_payload.get(criterion.criterion_id)
                 out[criterion.criterion_id] = normalize_grade(raw_value)
