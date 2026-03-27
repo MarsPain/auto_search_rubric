@@ -240,6 +240,45 @@ class TestSaveRubrics(unittest.TestCase):
             self.assertIn("run_manifest", payload)
             self.assertEqual(payload["run_manifest"]["run_id"], "20260222T100000_000000Z")
 
+    def test_save_rubrics_writes_search_diagnostics(self) -> None:
+        """Test that search diagnostics are included when provided."""
+        item = load_dataset("examples/demo_dataset.json")[0]
+        rubric = HeuristicRubricInitializer().initialize(item, rng=random.Random(123))
+        diagnostics = {
+            "mode": "iterative",
+            "margin_improvement": {
+                "global": {
+                    "total_prompts": 1,
+                    "improved_prompts": 1,
+                    "improvement_rate": 1.0,
+                },
+                "per_prompt": {
+                    item.prompt_id: {
+                        "initial_margin": 0.1,
+                        "final_margin": 0.2,
+                        "margin_delta": 0.1,
+                        "improved": True,
+                    }
+                },
+            },
+        }
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "out.json"
+            save_rubrics(
+                output_path,
+                best_rubrics={item.prompt_id: rubric},
+                best_scores={item.prompt_id: 1.0},
+                search_diagnostics=diagnostics,
+            )
+            payload = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertIn("search_diagnostics", payload)
+            self.assertEqual(payload["search_diagnostics"]["mode"], "iterative")
+            self.assertEqual(
+                payload["search_diagnostics"]["margin_improvement"]["global"]["improved_prompts"],
+                1,
+            )
+
     def test_save_run_record_files_writes_manifest_and_script(self) -> None:
         """Test per-run reproducibility files are archived in run_records."""
         run_manifest = {

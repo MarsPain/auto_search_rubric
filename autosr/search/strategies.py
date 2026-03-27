@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ..config import ObjectiveConfig
 from ..evaluator import ObjectiveBreakdown, RubricEvaluator, compute_objective, top2_under_rubric
 from ..interfaces import PreferenceJudge
@@ -58,3 +60,34 @@ def _build_top2_pair(
 ) -> tuple[ResponseCandidate, ResponseCandidate]:
     left_id, right_id = top2_under_rubric(item, rubric, evaluator)
     return _lookup_candidate(item, left_id), _lookup_candidate(item, right_id)
+
+
+def _build_margin_entry(
+    *,
+    initial_margin: float,
+    final_margin: float,
+    tolerance: float,
+) -> dict[str, float | bool]:
+    margin_delta = final_margin - initial_margin
+    return {
+        "initial_margin": initial_margin,
+        "final_margin": final_margin,
+        "margin_delta": margin_delta,
+        "improved": final_margin > (initial_margin + tolerance),
+    }
+
+
+def _summarize_margin_improvement(
+    per_prompt: dict[str, dict[str, float | bool]],
+) -> dict[str, Any]:
+    total_prompts = len(per_prompt)
+    improved_prompts = sum(1 for stats in per_prompt.values() if bool(stats.get("improved")))
+    improvement_rate = (improved_prompts / total_prompts) if total_prompts > 0 else 0.0
+    return {
+        "global": {
+            "total_prompts": total_prompts,
+            "improved_prompts": improved_prompts,
+            "improvement_rate": improvement_rate,
+        },
+        "per_prompt": per_prompt,
+    }

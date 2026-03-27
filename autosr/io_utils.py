@@ -76,6 +76,7 @@ def save_rubrics(
     best_candidates: dict[str, str] | None = None,
     candidate_scores: dict[str, dict[str, float]] | None = None,
     run_manifest: dict[str, Any] | None = None,
+    search_diagnostics: dict[str, Any] | None = None,
 ) -> None:
     """Save rubrics and scores to JSON file.
 
@@ -86,6 +87,7 @@ def save_rubrics(
         best_candidates: Optional dict mapping prompt_id to best candidate_id.
         candidate_scores: Optional dict mapping prompt_id to dict of candidate_id -> score.
         run_manifest: Optional reproducibility metadata for this run.
+        search_diagnostics: Optional search diagnostics emitted by the searcher.
     """
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -115,6 +117,8 @@ def save_rubrics(
     }
     if run_manifest is not None:
         output["run_manifest"] = run_manifest
+    if search_diagnostics is not None:
+        output["search_diagnostics"] = search_diagnostics
     output_text = json.dumps(output, indent=2, ensure_ascii=False)
     temp_path: Path | None = None
     try:

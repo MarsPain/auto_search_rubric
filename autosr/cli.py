@@ -506,6 +506,7 @@ def main() -> None:
         best_candidates=best_candidates,
         candidate_scores=candidate_scores,
         run_manifest=run_manifest,
+        search_diagnostics=result.diagnostics,
     )
     run_manifest_path, reproducible_script_path = save_run_record_files(
         args.output,

@@ -20,9 +20,11 @@ from .selection_strategies import select_parents
 from .strategies import (
     MUTATION_MODES,
     _append_unique,
+    _build_margin_entry,
     _build_top2_pair,
     _evaluate_rubric,
     _fingerprint,
+    _summarize_margin_improvement,
 )
 
 logger = logging.getLogger("autosr.search")
@@ -80,12 +82,12 @@ class EvolutionaryRTDSearcher:
         return self._search_global_batch(prompts)
 
     def _search_global_batch(self, prompts: list[PromptExample]) -> SearchResult:
-        population, history, best_rubrics, best_scores = self._init_global_state(prompts)
+        population, history, best_rubrics, best_scores, initial_margins = self._init_global_state(prompts)
         stale_rounds = 0
 
         for generation in range(self.config.generations):
             scored_population = self._score_generation(prompts, population)
-            self._log_generation_progress(generation, scored_population)
+            self._log_generation_progress(generation, scored_population, initial_margins)
 
             # Compute and track diversity
             diversity_scores: dict[str, float] = {}
@@ -138,6 +140,11 @@ class EvolutionaryRTDSearcher:
             best_rubrics=best_rubrics,
             best_scores=best_scores,
         )
+        margin_improvement = self._collect_margin_improvement(
+            prompts=prompts,
+            best_rubrics=best_rubrics,
+            initial_margins=initial_margins,
+        )
 
         diagnostics = {
             "mode": "evolutionary",
@@ -147,6 +154,7 @@ class EvolutionaryRTDSearcher:
             "mutation_diagnostics": self.mutation_scheduler.get_diagnostics(),
             "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
             if self.diversity_history else 0.0,
+            "margin_improvement": margin_improvement,
         }
 
         return SearchResult(
@@ -161,11 +169,14 @@ class EvolutionaryRTDSearcher:
         best_rubrics: dict[str, Rubric] = {}
         best_scores: dict[str, float] = {}
         mutation_diagnostics: dict[str, dict[str, object]] = {}
+        per_prompt_margin_stats: dict[str, dict[str, float | bool]] = {}
+        improved_prompts = 0
 
         for item in prompts:
             logger.info("prompt-local init prompt=%s", item.prompt_id)
             scheduler = self._build_prompt_scheduler()
             population = self._init_population(item)
+            initial_margin = self._score_population(item, [population[0]])[0][1].top_margin
             best_score = -math.inf
             best_rubric = population[0]
             local_history: list[float] = []
@@ -183,12 +194,13 @@ class EvolutionaryRTDSearcher:
                     improved = True
 
                 logger.info(
-                    "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f",
+                    "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f delta_vs_init=%.6f",
                     item.prompt_id,
                     generation + 1,
                     self.config.generations,
                     best_breakdown.total,
                     best_breakdown.top_margin,
+                    best_breakdown.top_margin - initial_margin,
                 )
 
                 diversity = self.diversity_metric.compute(population, rng=self.rng)
@@ -234,6 +246,29 @@ class EvolutionaryRTDSearcher:
             best_scores[item.prompt_id] = best_score
             best_rubrics[item.prompt_id] = best_rubric
             mutation_diagnostics[item.prompt_id] = scheduler.get_diagnostics()
+            best_margin = self._score_population(item, [best_rubric])[0][1].top_margin
+            margin_stats = _build_margin_entry(
+                initial_margin=initial_margin,
+                final_margin=best_margin,
+                tolerance=self.config.objective.tie_tolerance,
+            )
+            per_prompt_margin_stats[item.prompt_id] = margin_stats
+            if bool(margin_stats.get("improved")):
+                improved_prompts += 1
+            processed = len(per_prompt_margin_stats)
+            improvement_rate = (improved_prompts / processed) if processed > 0 else 0.0
+            logger.info(
+                "prompt-local margin-progress processed=%d/%d improved=%d rate=%.2f%% "
+                "prompt=%s initial_margin=%.6f final_margin=%.6f delta=%.6f",
+                processed,
+                len(prompts),
+                improved_prompts,
+                improvement_rate * 100.0,
+                item.prompt_id,
+                float(margin_stats["initial_margin"]),
+                float(margin_stats["final_margin"]),
+                float(margin_stats["margin_delta"]),
+            )
             if self._checkpoint_callback is not None:
                 self._checkpoint_callback(
                     dict(best_rubrics),
@@ -241,6 +276,7 @@ class EvolutionaryRTDSearcher:
                     {prompt_id: list(scores) for prompt_id, scores in history.items()},
                 )
 
+        margin_improvement = _summarize_margin_improvement(per_prompt_margin_stats)
         diagnostics = {
             "mode": "evolutionary",
             "iteration_scope": self.config.iteration_scope.value,
@@ -249,6 +285,7 @@ class EvolutionaryRTDSearcher:
             "mutation_diagnostics": mutation_diagnostics,
             "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
             if self.diversity_history else 0.0,
+            "margin_improvement": margin_improvement,
         }
         return SearchResult(
             best_rubrics=best_rubrics,
@@ -260,8 +297,15 @@ class EvolutionaryRTDSearcher:
     def _init_global_state(
         self,
         prompts: list[PromptExample],
-    ) -> tuple[dict[str, list[Rubric]], dict[str, list[float]], dict[str, Rubric], dict[str, float]]:
+    ) -> tuple[
+        dict[str, list[Rubric]],
+        dict[str, list[float]],
+        dict[str, Rubric],
+        dict[str, float],
+        dict[str, float],
+    ]:
         population: dict[str, list[Rubric]] = {}
+        initial_margins: dict[str, float] = {}
         for item in prompts:
             logger.info(
                 "initializing population prompt=%s target_size=%d",
@@ -269,26 +313,62 @@ class EvolutionaryRTDSearcher:
                 self.config.population_size,
             )
             population[item.prompt_id] = self._init_population(item)
+            initial_margins[item.prompt_id] = self._score_population(
+                item,
+                [population[item.prompt_id][0]],
+            )[0][1].top_margin
         history = {item.prompt_id: [] for item in prompts}
         best_rubrics: dict[str, Rubric] = {}
         best_scores = {item.prompt_id: -math.inf for item in prompts}
-        return population, history, best_rubrics, best_scores
+        return population, history, best_rubrics, best_scores, initial_margins
 
     def _log_generation_progress(
         self,
         generation: int,
         scored_population: dict[str, list[tuple[Rubric, ObjectiveBreakdown]]],
+        initial_margins: dict[str, float],
     ) -> None:
         per_prompt = []
+        improved_prompts = 0
         for prompt_id, scored in sorted(scored_population.items()):
             best_score = scored[0][1].total
-            per_prompt.append(f"{prompt_id}:best_score={best_score:.4f}")
+            best_margin = scored[0][1].top_margin
+            initial_margin = initial_margins.get(prompt_id, 0.0)
+            margin_delta = best_margin - initial_margin
+            if best_margin > (initial_margin + self.config.objective.tie_tolerance):
+                improved_prompts += 1
+            per_prompt.append(
+                f"{prompt_id}:best_score={best_score:.4f},top_margin={best_margin:.6f},"
+                f"delta_vs_init={margin_delta:.6f}"
+            )
         logger.info(
-            "generation=%d/%d %s",
+            "generation=%d/%d margin_improved_prompts=%d/%d %s",
             generation + 1,
             self.config.generations,
+            improved_prompts,
+            len(scored_population),
             "; ".join(per_prompt),
         )
+
+    def _collect_margin_improvement(
+        self,
+        *,
+        prompts: list[PromptExample],
+        best_rubrics: dict[str, Rubric],
+        initial_margins: dict[str, float],
+    ) -> dict[str, object]:
+        per_prompt: dict[str, dict[str, float | bool]] = {}
+        for item in prompts:
+            rubric = best_rubrics.get(item.prompt_id)
+            if rubric is None:
+                continue
+            final_margin = self._score_population(item, [rubric])[0][1].top_margin
+            per_prompt[item.prompt_id] = _build_margin_entry(
+                initial_margin=initial_margins.get(item.prompt_id, 0.0),
+                final_margin=final_margin,
+                tolerance=self.config.objective.tie_tolerance,
+            )
+        return _summarize_margin_improvement(per_prompt)
 
     def _score_generation(
         self,

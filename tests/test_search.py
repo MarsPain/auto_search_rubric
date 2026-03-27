@@ -41,6 +41,44 @@ class TestSearch(unittest.TestCase):
             self.assertEqual(len(history), 3)
             self.assertIn(prompt_id, result.best_scores)
 
+    def test_iterative_reports_margin_improvement_diagnostics(self) -> None:
+        prompts = self.prompts[:2]
+        searcher = IterativeRTDSearcher(
+            self.proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=IterativeConfig(iterations=3, seed=42),
+        )
+        result = searcher.search(prompts)
+
+        stats = result.diagnostics["margin_improvement"]
+        self.assertEqual(stats["global"]["total_prompts"], len(prompts))
+        self.assertEqual(set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts})
+
+        improved_count = sum(
+            1 for item in stats["per_prompt"].values() if item["improved"]
+        )
+        self.assertEqual(stats["global"]["improved_prompts"], improved_count)
+        for item in stats["per_prompt"].values():
+            self.assertAlmostEqual(
+                item["margin_delta"],
+                item["final_margin"] - item["initial_margin"],
+            )
+
+    def test_iterative_emits_margin_progress_logs(self) -> None:
+        searcher = IterativeRTDSearcher(
+            self.proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=IterativeConfig(iterations=2, seed=42),
+        )
+        with self.assertLogs("autosr.search", level="INFO") as captured:
+            searcher.search(self.prompts[:2])
+        logs = "\n".join(captured.output)
+        self.assertIn("margin-progress processed=", logs)
+
     def test_iterative_deterministic_outputs(self) -> None:
         config = IterativeConfig(iterations=3, seed=42, accept_only_if_improve=True)
         first = IterativeRTDSearcher(
@@ -152,6 +190,34 @@ class TestSearch(unittest.TestCase):
         logs = "\n".join(captured.output)
         self.assertIn("generation=1/2", logs)
         self.assertIn("best_score", logs)
+        self.assertIn("margin_improved_prompts", logs)
+
+    def test_evolutionary_reports_margin_improvement_diagnostics(self) -> None:
+        prompts = self.prompts[:2]
+        searcher = EvolutionaryRTDSearcher(
+            self.proposer,
+            self.verifier,
+            self.judge,
+            self.initializer,
+            config=EvolutionaryConfig(
+                generations=2,
+                population_size=4,
+                mutations_per_round=2,
+                batch_size=1,
+                seed=42,
+                stagnation_generations=2,
+                stop_when_distinguished=False,
+            ),
+        )
+        result = searcher.search(prompts)
+
+        stats = result.diagnostics["margin_improvement"]
+        self.assertEqual(stats["global"]["total_prompts"], len(prompts))
+        self.assertEqual(set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts})
+        improved_count = sum(
+            1 for item in stats["per_prompt"].values() if item["improved"]
+        )
+        self.assertEqual(stats["global"]["improved_prompts"], improved_count)
 
     def test_evolutionary_prompt_local_scope_decouples_from_batch_size(self) -> None:
         class CountingProposer(TemplateProposer):
