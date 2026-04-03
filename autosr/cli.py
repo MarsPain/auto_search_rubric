@@ -40,6 +40,7 @@ from .io_utils import (
     save_rubrics,
 )
 from .data_models import PromptExample, Rubric
+from .harness import SearchSession, StateManager
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "stepfun/step-3.5-flash:free"
@@ -274,6 +275,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Separator when multiple <answer> segments are present",
     )
     
+    # === Checkpoint/Resume options ===
+    checkpoint_group = parser.add_argument_group("Checkpoint and Resume Options")
+    checkpoint_group.add_argument(
+        "--checkpoint-dir",
+        default="./checkpoints",
+        help="Directory for storing checkpoints (default: ./checkpoints)",
+    )
+    checkpoint_group.add_argument(
+        "--checkpoint-every-generation",
+        action="store_true",
+        help="Save checkpoint after each generation (evolutionary mode only)",
+    )
+    checkpoint_group.add_argument(
+        "--checkpoint-interval-seconds",
+        type=float,
+        default=None,
+        help="Minimum seconds between checkpoints",
+    )
+    checkpoint_group.add_argument(
+        "--resume-from",
+        default=None,
+        help="Resume from session_id or checkpoint path",
+    )
+    
     # === Logging ===
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     
@@ -411,6 +436,7 @@ def print_summary(
     *,
     run_manifest_path: Path | None = None,
     reproducible_script_path: Path | None = None,
+    session_info: dict[str, Any] | None = None,
 ) -> None:
     """Print execution summary."""
     print(f"Mode: {mode}")
@@ -424,6 +450,15 @@ def print_summary(
         print(f"  - proposer: {config.llm.get_model_for_role(LLMRole.PROPOSER)}")
         print(f"  - verifier: {config.llm.get_model_for_role(LLMRole.VERIFIER)}")
         print(f"  - judge: {config.llm.get_model_for_role(LLMRole.JUDGE)}")
+    
+    # Print session info if using harness
+    if session_info:
+        print("Session:")
+        print(f"  - session_id: {session_info.get('session_id', 'unknown')}")
+        if session_info.get('is_resumed'):
+            print(f"  - resumed_from: {session_info.get('resume_source', 'unknown')}")
+        if session_info.get('checkpoint_enabled'):
+            print(f"  - checkpoint_enabled: true")
     
     print("Best objective scores per prompt:")
     for prompt_id, score in sorted(scores.items()):
@@ -465,30 +500,74 @@ def main() -> None:
     )
     reproducible_script = build_reproducible_script(run_manifest)
 
-    checkpoint_callback: (
-        Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None] | None
-    ) = None
-    if (
-        config.search.is_evolutionary()
-        and config.search.iteration_scope is EvolutionIterationScope.PROMPT_LOCAL
-    ):
-        def _checkpoint_callback(
-            best_rubrics: dict[str, Rubric],
-            best_scores: dict[str, float],
-            _history: dict[str, list[float]],
-        ) -> None:
-            save_rubrics(
-                args.output,
-                best_rubrics,
-                best_scores,
-                run_manifest=run_manifest,
-            )
-
-        checkpoint_callback = _checkpoint_callback
+    # Determine whether to use harness session with checkpointing
+    use_harness = (
+        args.checkpoint_every_generation
+        or args.resume_from
+        or args.checkpoint_interval_seconds is not None
+    )
     
-    # Create searcher and run search
-    searcher = factory.create_searcher(prompts, checkpoint_callback=checkpoint_callback)
-    result = searcher.search(prompts)
+    result: SearchResult | None = None
+    session_info: dict[str, Any] = {}
+    
+    if use_harness and config.search.is_evolutionary():
+        # Use harness session with checkpointing support
+        state_manager = StateManager(base_dir=args.checkpoint_dir)
+        
+        if args.resume_from:
+            # Resume from checkpoint
+            dataset_path = Path(args.dataset)
+            session = SearchSession.resume(
+                resume_from=args.resume_from,
+                config=config,
+                factory=factory,
+                state_manager=state_manager,
+                prompts=prompts,
+                dataset_path=dataset_path,
+                checkpoint_every_generation=args.checkpoint_every_generation,
+                checkpoint_interval_seconds=args.checkpoint_interval_seconds,
+            )
+        else:
+            # Create new session
+            session = SearchSession.create(
+                prompts=prompts,
+                config=config,
+                factory=factory,
+                session_id=run_id.rstrip('Z').replace('T', '_'),
+                state_manager=state_manager,
+                checkpoint_every_generation=args.checkpoint_every_generation,
+                checkpoint_interval_seconds=args.checkpoint_interval_seconds,
+                dataset_path=Path(args.dataset),
+            )
+        
+        result = session.run_to_completion()
+        session_info = session.get_session_info()
+    else:
+        # Use traditional searcher path
+        checkpoint_callback: (
+            Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None] | None
+        ) = None
+        if (
+            config.search.is_evolutionary()
+            and config.search.iteration_scope is EvolutionIterationScope.PROMPT_LOCAL
+        ):
+            def _checkpoint_callback(
+                best_rubrics: dict[str, Rubric],
+                best_scores: dict[str, float],
+                _history: dict[str, list[float]],
+            ) -> None:
+                save_rubrics(
+                    args.output,
+                    best_rubrics,
+                    best_scores,
+                    run_manifest=run_manifest,
+                )
+
+            checkpoint_callback = _checkpoint_callback
+        
+        # Create searcher and run search
+        searcher = factory.create_searcher(prompts, checkpoint_callback=checkpoint_callback)
+        result = searcher.search(prompts)
     
     # Compute best candidates
     best_candidates, candidate_scores = compute_best_candidates(
@@ -521,6 +600,7 @@ def main() -> None:
         config,
         run_manifest_path=run_manifest_path,
         reproducible_script_path=reproducible_script_path,
+        session_info=session_info,
     )
 
 
