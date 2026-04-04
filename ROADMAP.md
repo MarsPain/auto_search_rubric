@@ -2,7 +2,7 @@
 
 将 `autosr` 从“单次运行的 rubric 搜索器”演进为“可用于 RL 训练与评测的 Reward Harness”。
 
-## 当前状态（截至 2026-04-03）
+## 当前状态（截至 2026-04-04）
 
 ### 已经完成且建议保留
 - ✅ `SearchSession` 生命周期管理（创建、执行、恢复）
@@ -10,6 +10,8 @@
 - ✅ `StateManager` 原子持久化
 - ✅ CLI 的 `--resume-from` / `--checkpoint-every-generation`
 - ✅ evolutionary + `global_batch` scope 的 step-wise 执行
+- ✅ Harness 阶段 A 收尾：RNG 恢复、interval checkpoint、生效 resume 语义、scheduler state 恢复
+- ✅ RMArtifact 阶段 B 核心落地：schema v1、导出命令、校验器（含 hash 一致性）
 
 ### 这批改动的定位
 - 它们是“**工程底座**”，不是“RM/RL 主业务闭环”。
@@ -42,15 +44,15 @@
 
 ## 阶段划分（面向目标重排）
 
-## 阶段 A：Harness 底座稳定化（已完成，持续修缮）
+## 阶段 A：Harness 底座稳定化（已完成）
 
 目标：让搜索阶段可长时运行、可恢复、可复盘，作为上层 RM/RL 的可信输入。
 
 ### 必做收尾
-- [ ] 修复 RNG 状态恢复逻辑（避免“恢复后轨迹漂移”）
-- [ ] 实现 `checkpoint_interval_seconds` 的真实生效逻辑
-- [ ] 明确 resume 行为契约（什么场景是真正续跑，什么场景退化为重跑）
-- [ ] 完善 scheduler 可恢复状态（不仅 diagnostics）
+- [x] 修复 RNG 状态恢复逻辑（避免“恢复后轨迹漂移”）
+- [x] 实现 `checkpoint_interval_seconds` 的真实生效逻辑
+- [x] 明确 resume 行为契约（`continue_from_checkpoint` / `reseed_from_checkpoint`）
+- [x] 完善 scheduler 可恢复状态（不仅 diagnostics）
 
 ### Go/No-Go
 - [ ] 同一 checkpoint 多次恢复结果偏差可解释且在阈值内
@@ -63,11 +65,11 @@
 目标：把“best rubric JSON”升级为可部署、可追溯的 RM artifact。
 
 ### 关键任务
-- [ ] 定义 `RMArtifact` schema（建议 v1）
+- [x] 定义 `RMArtifact` schema（建议 v1）
   - `artifact_id`, `created_at`, `source_session_id`, `dataset_hash`, `config_hash`
   - `rubric`, `scoring_policy`, `normalization`, `compatibility`
-- [ ] 新增 artifact 导出能力（由 search 输出生成 RM artifact）
-- [ ] 增加 artifact 校验器（schema + 必填字段 + hash 一致性）
+- [x] 新增 artifact 导出能力（由 search 输出生成 RM artifact）
+- [x] 增加 artifact 校验器（schema + 必填字段 + hash 一致性）
 - [ ] 定义 RM 发布记录（deploy manifest）：谁在何时发布了哪个 artifact
 
 ### 交付物
@@ -154,8 +156,8 @@
 
 | 任务 | 用户价值 | 技术难度 | 优先级 | 状态 |
 |------|----------|----------|--------|------|
-| Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | 🚧 进行中 |
-| RMArtifact 契约与导出 | 高 | 中 | P0 | 📋 待开始 |
+| Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | ✅ 已完成 |
+| RMArtifact 契约与导出 | 高 | 中 | P0 | 🚧 进行中（deploy manifest 待补） |
 | RM Server MVP | 高 | 中高 | P0 | 📋 待开始 |
 | RL 训练接入与实验编排 | 高 | 中高 | P0 | 📋 待开始 |
 | 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 待开始 |
@@ -187,7 +189,7 @@
 # 1) 搜索并得到 best rubrics（已有）
 uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
 
-# 2) 导出可部署 RM artifact（规划）
+# 2) 导出可部署 RM artifact（已实现）
 uv run python -m autosr.rm.export --search-output ... --out-artifact ...
 
 # 3) 启动 RM server（规划）
@@ -201,15 +203,19 @@ uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manif
 
 ## 建议的近期执行顺序（4-8 周）
 
-1. 完成阶段 A 收尾（先修复可恢复一致性问题）
-2. 落地阶段 B（RM artifact 契约 + 导出 + 校验）
-3. 落地阶段 C（RM server MVP + 基础监控）
-4. 落地阶段 D（RL 训练接入 + 实验 manifest）
-5. 在真实训练中验证阶段 E 指标体系
+1. 完成阶段 B 剩余项（deploy manifest + 发布追溯）
+2. 落地阶段 C（RM server MVP + 基础监控）
+3. 落地阶段 D（RL 训练接入 + 实验 manifest）
+4. 在真实训练中验证阶段 E 指标体系
 
 ---
 
 ## 变更日志
+
+### 2026-04-04
+- 阶段 A 收尾完成：RNG state 恢复修复、`checkpoint_interval_seconds` 生效、resume 语义落地、scheduler state 可恢复。
+- 阶段 B 核心能力落地：新增 `autosr.rm` 子包，包含 `RMArtifact` schema v1、导出命令 `autosr.rm.export`、artifact 校验器。
+- `run_manifest` 新增 harness 会话信息回写（用于 artifact 的 `source_session_id` 追溯）。
 
 ### 2026-04-03
 - 路线图主线从“通用 Harness 扩展”重定向为“RM+RL 闭环”。

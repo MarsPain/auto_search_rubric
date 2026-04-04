@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+import json
+from typing import Any, Mapping
+
+from ..data_models import Rubric
+
+
+class ArtifactValidationError(Exception):
+    """Raised when RM artifact data fails validation."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(f"RMArtifact validation failed for '{field}': {message}")
+        self.field = field
+        self.validation_message = message
+
+
+@dataclass(slots=True)
+class RMArtifact:
+    """Schema v1 for deployable reward-model artifacts."""
+
+    artifact_id: str
+    source_session_id: str
+    source_run_id: str
+    dataset_hash: str
+    config_hash: str
+    rubric: dict[str, Rubric]
+    scoring_policy: dict[str, Any]
+    normalization: dict[str, Any]
+    compatibility: dict[str, Any]
+    created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    schema_version: str = "1.0"
+
+    def __post_init__(self) -> None:
+        if not self.artifact_id.strip():
+            raise ArtifactValidationError("artifact_id", "must not be empty")
+        if not self.source_run_id.strip():
+            raise ArtifactValidationError("source_run_id", "must not be empty")
+        if not self.dataset_hash.strip():
+            raise ArtifactValidationError("dataset_hash", "must not be empty")
+        if not self.config_hash.strip():
+            raise ArtifactValidationError("config_hash", "must not be empty")
+        if not self.rubric:
+            raise ArtifactValidationError("rubric", "must include at least one prompt rubric")
+        if self.schema_version != "1.0":
+            raise ArtifactValidationError(
+                "schema_version",
+                f"unsupported schema_version={self.schema_version}, expected 1.0",
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "artifact_id": self.artifact_id,
+            "created_at_utc": self.created_at_utc,
+            "source_session_id": self.source_session_id,
+            "source_run_id": self.source_run_id,
+            "dataset_hash": self.dataset_hash,
+            "config_hash": self.config_hash,
+            "rubric": {
+                prompt_id: prompt_rubric.to_dict()
+                for prompt_id, prompt_rubric in self.rubric.items()
+            },
+            "scoring_policy": self.scoring_policy,
+            "normalization": self.normalization,
+            "compatibility": self.compatibility,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "RMArtifact":
+        schema_version = str(data.get("schema_version", "1.0"))
+        if schema_version != "1.0":
+            raise ArtifactValidationError(
+                "schema_version",
+                f"unsupported schema_version={schema_version}, expected 1.0",
+            )
+        rubric_raw = data.get("rubric", {})
+        if not isinstance(rubric_raw, Mapping):
+            raise ArtifactValidationError("rubric", "must be a mapping from prompt_id to rubric")
+        return cls(
+            artifact_id=str(data.get("artifact_id", "")),
+            created_at_utc=str(data.get("created_at_utc", datetime.now(timezone.utc).isoformat())),
+            source_session_id=str(data.get("source_session_id", "unknown")),
+            source_run_id=str(data.get("source_run_id", "unknown_run")),
+            dataset_hash=str(data.get("dataset_hash", "")),
+            config_hash=str(data.get("config_hash", "")),
+            rubric={
+                str(prompt_id): Rubric.from_dict(rubric_payload)
+                for prompt_id, rubric_payload in rubric_raw.items()
+            },
+            scoring_policy=dict(data.get("scoring_policy", {})),
+            normalization=dict(data.get("normalization", {})),
+            compatibility=dict(data.get("compatibility", {})),
+            schema_version=schema_version,
+        )
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
+
+    @classmethod
+    def from_json(cls, payload: str) -> "RMArtifact":
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ArtifactValidationError("json", f"invalid JSON: {exc}") from exc
+        return cls.from_dict(data)

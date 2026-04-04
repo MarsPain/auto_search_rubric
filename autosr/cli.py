@@ -577,6 +577,16 @@ def main() -> None:
         seed=config.search.seed,
     )
 
+    if session_info:
+        run_manifest["harness"] = {
+            "session_id": session_info.get("session_id"),
+            "is_resumed": session_info.get("is_resumed"),
+            "resume_source": session_info.get("resume_source"),
+            "resume_semantics": session_info.get("resume_semantics"),
+            "checkpoint_every_generation": session_info.get("checkpoint_every_generation"),
+            "checkpoint_interval_seconds": session_info.get("checkpoint_interval_seconds"),
+        }
+
     # Save results
     save_rubrics(
         args.output,

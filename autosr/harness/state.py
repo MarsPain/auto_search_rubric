@@ -65,6 +65,7 @@ class SearchCheckpoint:
     rng_state: dict[str, Any]
     config_hash: str
     dataset_hash: str
+    algorithm_state: dict[str, Any] = field(default_factory=dict)
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     schema_version: str = "1.0"
     
@@ -93,6 +94,7 @@ class SearchCheckpoint:
             "history": self.history,
             "scheduler_state": self.scheduler_state,
             "rng_state": self.rng_state,
+            "algorithm_state": self.algorithm_state,
             "config_hash": self.config_hash,
             "dataset_hash": self.dataset_hash,
             "created_at_utc": self.created_at_utc,
@@ -123,6 +125,7 @@ class SearchCheckpoint:
             history=data.get("history", {}),
             scheduler_state=data.get("scheduler_state", {}),
             rng_state=data.get("rng_state", {}),
+            algorithm_state=data.get("algorithm_state", {}),
             config_hash=data["config_hash"],
             dataset_hash=data["dataset_hash"],
             created_at_utc=data.get("created_at_utc", datetime.now(timezone.utc).isoformat()),

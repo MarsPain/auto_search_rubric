@@ -6,6 +6,22 @@
 
 ---
 
+## 0. 当前落地（截至 2026-04-04）
+
+- ✅ Harness 阶段 A 收尾完成：
+  - RNG state 恢复修复
+  - `checkpoint_interval_seconds` 真实生效
+  - resume 语义契约（`continue_from_checkpoint` / `reseed_from_checkpoint`）
+  - scheduler state 可恢复（不再仅 diagnostics）
+- ✅ 阶段 B 核心能力已落地：
+  - `autosr.rm.data_models.RMArtifact`（schema v1）
+  - `autosr.rm.use_cases`（build/export/validate）
+  - `autosr.rm.export` CLI 导出入口
+  - hash 一致性校验（dataset/config）与 rubric 指纹一致性校验
+- 🚧 阶段 B 待补：deploy manifest（发布记录）
+
+---
+
 ## 1. 当前架构（保留）
 
 ```
@@ -117,11 +133,7 @@
 
 目标：稳固 Harness 底座。
 
-重点修缮：
-- RNG 状态恢复正确性
-- `checkpoint_interval_seconds` 真正生效
-- resume 语义与一致性契约
-- scheduler state 可恢复性增强
+当前状态：✅ 已完成（进入维护期）
 
 ## 阶段 B（RM Artifact）
 
@@ -130,6 +142,8 @@
 ```
 Search Output -> RM Artifact Builder -> Artifact Store
 ```
+
+当前状态：🚧 进行中（schema/导出/校验已完成，deploy manifest 待补）
 
 ## 阶段 C（RM Server）
 
@@ -164,7 +178,7 @@ uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
 ## 5.2 下一步 API（建议）
 
 ```bash
-# 导出 RM artifact
+# 导出 RM artifact（已实现）
 uv run python -m autosr.rm.export --search-output artifacts/best_rubrics.json --out-artifact artifacts/rm_artifacts/rm_v1.json
 
 # 启动 RM server
@@ -175,6 +189,7 @@ uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --manifest 
 ```
 
 说明：以上为目标接口草案，不代表当前已实现。
+其中 `autosr.rm.export` 已实现，`autosr.rm.server` 和 `autosr.rl.train` 仍为规划项。
 
 ---
 
@@ -231,3 +246,11 @@ Monitoring Regression Trigger -> Search Refresh -> Canary Deploy -> Promote/Roll
 - 保留阶段 A（现有 Harness）作为底座，而非最终目标。
 - 后续阶段主线统一为 `Artifact -> RM Server -> RL -> Monitoring -> Closed Loop`。
 - 分布式与 benchmark 扩展明确降级为后置项，不抢占主线资源。
+
+---
+
+## 9. 更新记录
+
+### 2026-04-04
+- 同步阶段 A 实际完成状态（RNG/interval/resume/scheduler）。
+- 同步阶段 B 已交付项（RMArtifact schema、导出、校验）与待办项（deploy manifest）。

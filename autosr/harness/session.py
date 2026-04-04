@@ -129,6 +129,7 @@ class SearchSession:
         self._result: SearchResult | None = None
         self._is_resumed = False
         self._resume_source: str | None = None
+        self._resume_semantics: str | None = None
         self._last_checkpoint_time: datetime | None = None
         
         # For step-wise execution (Stage 1)
@@ -286,15 +287,11 @@ class SearchSession:
         
         # Create searcher
         searcher = factory.create_searcher(prompts)
-        
-        # Restore RNG state if available
-        if checkpoint.rng_state and hasattr(searcher, 'rng'):
-            try:
-                import random
-                searcher.rng.setstate(tuple(checkpoint.rng_state.get('state', ())))
-            except Exception as e:
-                logger.warning("Failed to restore RNG state: %s", e)
-        
+
+        # Restore checkpoint-dependent runtime state as best effort.
+        rng_restored = _restore_rng_state(searcher, checkpoint.rng_state)
+        scheduler_restored = _restore_scheduler_state(searcher, checkpoint.scheduler_state)
+
         # Create session
         session = cls(
             session_id=checkpoint.session_id,
@@ -312,45 +309,72 @@ class SearchSession:
         session._current_generation = checkpoint.generation
         session._is_resumed = True
         session._resume_source = str(resume_from)
-        
-        # Initialize step state for continued execution
-        # For evolutionary mode, we need to re-initialize populations
-        if (hasattr(searcher, 'config') and 
-            hasattr(searcher.config, 'iteration_scope')):
-            # Re-initialize global state from checkpoint
-            population, history, best_rubrics, best_scores, initial_margins = searcher._init_global_state(prompts)
-            
-            # Override with checkpoint values
-            best_rubrics.update(checkpoint.best_rubrics)
-            best_scores.update(checkpoint.best_scores)
-            for pid, scores in checkpoint.history.items():
-                if pid in history:
-                    history[pid] = list(scores)
-            
-            session._step_state = {
-                "population": population,
-                "history": history,
-                "best_rubrics": best_rubrics,
-                "best_scores": best_scores,
-                "initial_margins": initial_margins,
-                "stale_rounds": 0,
-                "should_stop": False,
-            }
-            session._initialized = True
+        session._last_checkpoint_time = _parse_checkpoint_timestamp(checkpoint.created_at_utc)
+
+        resume_semantics = "reseed_from_checkpoint"
+
+        # Initialize step state for continued execution.
+        if (
+            hasattr(searcher, "config")
+            and hasattr(searcher.config, "iteration_scope")
+            and searcher.config.iteration_scope is EvolutionIterationScope.GLOBAL_BATCH
+        ):
+            restored_step_state = _restore_global_step_state(
+                checkpoint=checkpoint,
+                expected_prompt_ids=[item.prompt_id for item in prompts],
+            )
+            if restored_step_state is not None:
+                session._step_state = restored_step_state
+                session._initialized = True
+                resume_semantics = "continue_from_checkpoint"
+                diversity_history = checkpoint.algorithm_state.get("diversity_history", [])
+                if isinstance(diversity_history, list) and hasattr(searcher, "diversity_history"):
+                    searcher.diversity_history = [float(item) for item in diversity_history]
+            else:
+                # Legacy checkpoint fallback (no algorithm_state): re-seed state from scratch.
+                population, history, best_rubrics, best_scores, initial_margins = searcher._init_global_state(prompts)
+                best_rubrics.update(checkpoint.best_rubrics)
+                best_scores.update(checkpoint.best_scores)
+                for pid, scores in checkpoint.history.items():
+                    if pid in history:
+                        history[pid] = list(scores)
+                session._step_state = {
+                    "population": population,
+                    "history": history,
+                    "best_rubrics": best_rubrics,
+                    "best_scores": best_scores,
+                    "initial_margins": initial_margins,
+                    "stale_rounds": 0,
+                    "should_stop": False,
+                }
+                session._initialized = True
         else:
-            # Fallback for other modes
             session._step_state = {
                 "best_rubrics": checkpoint.best_rubrics,
                 "best_scores": checkpoint.best_scores,
                 "history": checkpoint.history,
             }
             session._initialized = False
-        
+
+        if not rng_restored:
+            logger.warning(
+                "RNG state was not fully restored for session_id=%s; resumed path may drift",
+                checkpoint.session_id,
+            )
+        if not scheduler_restored:
+            logger.warning(
+                "Scheduler state was not fully restored for session_id=%s; resumed path may drift",
+                checkpoint.session_id,
+            )
+
+        session._resume_semantics = resume_semantics
+
         logger.info(
-            "SearchSession resumed session_id=%s generation=%d source=%s",
+            "SearchSession resumed session_id=%s generation=%d source=%s semantics=%s",
             checkpoint.session_id,
             checkpoint.generation,
             resume_from,
+            resume_semantics,
         )
         
         return session
@@ -379,7 +403,7 @@ class SearchSession:
         # If checkpointing is enabled and we're using evolutionary mode,
         # use step-wise execution
         if (self._state_manager is not None and 
-            self._checkpoint_every_generation and
+            (self._checkpoint_every_generation or self._checkpoint_interval_seconds is not None) and
             hasattr(self._searcher, 'config') and
             hasattr(self._searcher.config, 'iteration_scope')):
             
@@ -456,8 +480,8 @@ class SearchSession:
         
         # Save checkpoint if enabled
         checkpoint_path: Path | None = None
-        should_checkpoint = self._checkpoint_every_generation
-        
+        should_checkpoint = self._should_checkpoint()
+
         if should_checkpoint and self._state_manager is not None:
             checkpoint_path = self._save_checkpoint(self._dataset_path)
         
@@ -495,6 +519,21 @@ class SearchSession:
         self._initialized = True
         
         logger.debug("Global step state initialized session_id=%s", self._session_id)
+
+    def _should_checkpoint(self) -> bool:
+        """Decide whether current step should emit a checkpoint."""
+        if self._state_manager is None:
+            return False
+        if self._checkpoint_every_generation:
+            return True
+        if self._checkpoint_interval_seconds is None:
+            return False
+        if self._checkpoint_interval_seconds <= 0:
+            return True
+        if self._last_checkpoint_time is None:
+            return True
+        elapsed = (datetime.now(timezone.utc) - self._last_checkpoint_time).total_seconds()
+        return elapsed >= self._checkpoint_interval_seconds
     
     def _execute_global_generation(self, generation: int) -> None:
         """Execute a single generation for global_batch mode."""
@@ -631,17 +670,21 @@ class SearchSession:
             # Serialize RNG state
             rng_state: dict[str, Any] = {}
             if hasattr(self._searcher, 'rng'):
-                import random
                 state = self._searcher.rng.getstate()
                 rng_state = {
-                    "version": state[0],
-                    "state": list(state[1]) if isinstance(state[1], tuple) else state[1],
+                    "random_state": _serialize_rng_state(state),
                 }
             
             # Serialize scheduler state
             scheduler_state: dict[str, Any] = {}
             if hasattr(self._searcher, 'mutation_scheduler'):
-                scheduler_state = self._searcher.mutation_scheduler.get_diagnostics()
+                mutation_scheduler = self._searcher.mutation_scheduler
+                if hasattr(mutation_scheduler, "get_state"):
+                    scheduler_state = mutation_scheduler.get_state()
+                else:
+                    scheduler_state = mutation_scheduler.get_diagnostics()
+
+            algorithm_state = _serialize_global_step_state(self._step_state, self._searcher)
             
             # Compute dataset hash if path provided
             dataset_hash = "unknown"
@@ -656,6 +699,7 @@ class SearchSession:
                 history=self._step_state.get("history", {}),
                 scheduler_state=scheduler_state,
                 rng_state=rng_state,
+                algorithm_state=algorithm_state,
                 config_hash=compute_config_hash(_config_to_dict(self._config)),
                 dataset_hash=dataset_hash,
             )
@@ -709,6 +753,7 @@ class SearchSession:
             "session_id": self._session_id,
             "is_resumed": self._is_resumed,
             "resume_source": self._resume_source,
+            "resume_semantics": self._resume_semantics,
             "current_generation": self._current_generation,
             "finished": self._finished,
             "checkpoint_enabled": self._state_manager is not None,
@@ -752,3 +797,151 @@ def _config_to_dict(config: RuntimeConfig) -> dict[str, Any]:
             "default_model": config.llm.default_model,
         },
     }
+
+
+def _serialize_rng_state(value: Any) -> Any:
+    """Convert RNG state tuple into JSON-compatible lists."""
+    if isinstance(value, tuple):
+        return [_serialize_rng_state(item) for item in value]
+    if isinstance(value, list):
+        return [_serialize_rng_state(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _serialize_rng_state(item) for key, item in value.items()}
+    return value
+
+
+def _deserialize_rng_state(value: Any) -> Any:
+    """Convert JSON-compatible RNG payload back into tuple state."""
+    if isinstance(value, list):
+        return tuple(_deserialize_rng_state(item) for item in value)
+    if isinstance(value, dict):
+        return {key: _deserialize_rng_state(item) for key, item in value.items()}
+    return value
+
+
+def _restore_rng_state(searcher: Any, rng_state: dict[str, Any]) -> bool:
+    """Restore RNG state from checkpoint payload."""
+    if not rng_state or not hasattr(searcher, "rng"):
+        return True
+    try:
+        if "random_state" in rng_state:
+            searcher.rng.setstate(_deserialize_rng_state(rng_state["random_state"]))
+            return True
+
+        # Backward compatibility for Stage 1 checkpoints.
+        if "version" in rng_state and "state" in rng_state:
+            version = int(rng_state["version"])
+            raw_state = rng_state["state"]
+            if isinstance(raw_state, list):
+                searcher.rng.setstate((version, tuple(raw_state), None))
+                return True
+        return False
+    except Exception as exc:
+        logger.warning("Failed to restore RNG state: %s", exc)
+        return False
+
+
+def _restore_scheduler_state(searcher: Any, scheduler_state: dict[str, Any]) -> bool:
+    """Restore mutation scheduler state from checkpoint payload."""
+    if not scheduler_state or not hasattr(searcher, "mutation_scheduler"):
+        return True
+    scheduler = searcher.mutation_scheduler
+    try:
+        if hasattr(scheduler, "set_state"):
+            scheduler.set_state(scheduler_state)
+            return True
+
+        # Backward-compatible fallback for schedulers exposing generation_count.
+        generation = scheduler_state.get("generation")
+        if (
+            isinstance(generation, int)
+            and hasattr(scheduler, "history")
+            and hasattr(scheduler.history, "generation_count")
+        ):
+            scheduler.history.generation_count = generation
+            return True
+        return False
+    except Exception as exc:
+        logger.warning("Failed to restore scheduler state: %s", exc)
+        return False
+
+
+def _serialize_global_step_state(step_state: dict[str, Any] | None, searcher: Any) -> dict[str, Any]:
+    """Serialize global-batch step state into checkpoint algorithm_state payload."""
+    if step_state is None:
+        return {}
+    population = step_state.get("population")
+    if not isinstance(population, dict):
+        return {}
+
+    serialized_population: dict[str, list[dict[str, Any]]] = {}
+    for prompt_id, rubrics in population.items():
+        if not isinstance(prompt_id, str) or not isinstance(rubrics, list):
+            continue
+        serialized_population[prompt_id] = [rubric.to_dict() for rubric in rubrics]
+
+    return {
+        "population": serialized_population,
+        "initial_margins": {
+            key: float(value) for key, value in step_state.get("initial_margins", {}).items()
+        },
+        "stale_rounds": int(step_state.get("stale_rounds", 0)),
+        "should_stop": bool(step_state.get("should_stop", False)),
+        "diversity_history": list(getattr(searcher, "diversity_history", [])),
+    }
+
+
+def _restore_global_step_state(
+    checkpoint: SearchCheckpoint,
+    expected_prompt_ids: list[str],
+) -> dict[str, Any] | None:
+    """Restore global-batch step state from checkpoint algorithm_state payload."""
+    state = checkpoint.algorithm_state
+    population_raw = state.get("population")
+    if not isinstance(population_raw, dict):
+        return None
+
+    population: dict[str, list[Rubric]] = {}
+    for prompt_id in expected_prompt_ids:
+        raw_rubrics = population_raw.get(prompt_id)
+        if not isinstance(raw_rubrics, list):
+            return None
+        restored_rubrics: list[Rubric] = []
+        for payload in raw_rubrics:
+            if not isinstance(payload, dict):
+                return None
+            restored_rubrics.append(Rubric.from_dict(payload))
+        population[prompt_id] = restored_rubrics
+
+    initial_margins_raw = state.get("initial_margins", {})
+    if not isinstance(initial_margins_raw, dict):
+        initial_margins_raw = {}
+
+    initial_margins = {
+        prompt_id: float(initial_margins_raw.get(prompt_id, 0.0))
+        for prompt_id in expected_prompt_ids
+    }
+
+    return {
+        "population": population,
+        "history": {
+            prompt_id: list(checkpoint.history.get(prompt_id, []))
+            for prompt_id in expected_prompt_ids
+        },
+        "best_rubrics": dict(checkpoint.best_rubrics),
+        "best_scores": dict(checkpoint.best_scores),
+        "initial_margins": initial_margins,
+        "stale_rounds": int(state.get("stale_rounds", 0)),
+        "should_stop": bool(state.get("should_stop", False)),
+    }
+
+
+def _parse_checkpoint_timestamp(timestamp: str) -> datetime | None:
+    """Parse checkpoint timestamp into aware datetime."""
+    try:
+        parsed = datetime.fromisoformat(timestamp)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed

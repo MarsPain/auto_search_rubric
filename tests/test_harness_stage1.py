@@ -432,6 +432,44 @@ class TestSearchSessionStepExecution(unittest.TestCase):
         checkpoints = state_manager.list_checkpoints(session.session_id)
         self.assertGreater(len(checkpoints), 0)
 
+    def test_checkpoint_interval_seconds_triggers_checkpoint_without_every_generation(self) -> None:
+        """Test that interval-based checkpointing works even when per-generation checkpointing is disabled."""
+        state_manager = StateManager(base_dir=self.temp_dir)
+
+        session = SearchSession.create(
+            prompts=self.prompts,
+            config=self.config,
+            factory=self.factory,
+            state_manager=state_manager,
+            checkpoint_every_generation=False,
+            checkpoint_interval_seconds=3600.0,
+        )
+
+        # Run one step: first interval-based checkpoint should still be emitted.
+        result = session.run_step()
+        self.assertFalse(result.is_finished)
+        self.assertIsNotNone(result.checkpoint_path)
+
+        checkpoints = state_manager.list_checkpoints(session.session_id)
+        self.assertEqual(len(checkpoints), 1)
+
+    def test_run_to_completion_uses_step_path_when_only_interval_checkpoint_enabled(self) -> None:
+        """Test that run_to_completion honors interval-based checkpointing."""
+        state_manager = StateManager(base_dir=self.temp_dir)
+
+        session = SearchSession.create(
+            prompts=self.prompts,
+            config=self.config,
+            factory=self.factory,
+            state_manager=state_manager,
+            checkpoint_every_generation=False,
+            checkpoint_interval_seconds=3600.0,
+        )
+        session.run_to_completion()
+
+        checkpoints = state_manager.list_checkpoints(session.session_id)
+        self.assertGreaterEqual(len(checkpoints), 1)
+
 
 class TestSearchSessionResume(unittest.TestCase):
     """Test SearchSession resume functionality."""
@@ -566,8 +604,100 @@ class TestSearchSessionResume(unittest.TestCase):
                 state_manager=self.state_manager,
                 prompts=None,  # type: ignore
             )
-        
+
         self.assertIn("prompts", str(ctx.exception).lower())
+
+    def test_resume_restores_rng_state(self) -> None:
+        """Test that resume restores RNG state from checkpoint."""
+        def _to_tuple(value: object) -> object:
+            if isinstance(value, list):
+                return tuple(_to_tuple(item) for item in value)
+            return value
+
+        session1 = SearchSession.create(
+            prompts=self.prompts,
+            config=self.config,
+            factory=self.factory,
+            state_manager=self.state_manager,
+            checkpoint_every_generation=True,
+            session_id="resume_rng_state",
+        )
+
+        first = session1.run_step()
+        self.assertIsNotNone(first.checkpoint_path)
+        checkpoint = self.state_manager.load_checkpoint(session_id="resume_rng_state")
+        self.assertIn("random_state", checkpoint.rng_state)
+
+        session2 = SearchSession.resume(
+            resume_from="resume_rng_state",
+            config=self.config,
+            factory=self.factory,
+            state_manager=self.state_manager,
+            prompts=self.prompts,
+        )
+
+        resumed_rng_state = session2._searcher.rng.getstate()  # type: ignore[attr-defined]
+        self.assertEqual(resumed_rng_state, _to_tuple(checkpoint.rng_state["random_state"]))
+
+    def test_resume_restores_scheduler_generation(self) -> None:
+        """Test that scheduler generation state is restored from checkpoint."""
+        session1 = SearchSession.create(
+            prompts=self.prompts,
+            config=self.config,
+            factory=self.factory,
+            state_manager=self.state_manager,
+            checkpoint_every_generation=True,
+            session_id="resume_scheduler_state",
+        )
+
+        session1.run_step()
+        session1.run_step()
+
+        checkpoint = self.state_manager.load_checkpoint(session_id="resume_scheduler_state")
+        expected_generation = checkpoint.scheduler_state.get("generation")
+        self.assertIsNotNone(expected_generation)
+
+        session2 = SearchSession.resume(
+            resume_from="resume_scheduler_state",
+            config=self.config,
+            factory=self.factory,
+            state_manager=self.state_manager,
+            prompts=self.prompts,
+        )
+        diagnostics = session2._searcher.mutation_scheduler.get_diagnostics()  # type: ignore[attr-defined]
+        self.assertEqual(diagnostics.get("generation"), expected_generation)
+
+    def test_resume_contract_marks_reseed_for_legacy_checkpoint(self) -> None:
+        """Test resume contract metadata for legacy checkpoints without algorithm state."""
+        from autosr.data_models import Criterion, GradingProtocol, Rubric
+
+        rubric = Rubric(
+            rubric_id="legacy_rubric",
+            criteria=[Criterion(criterion_id="c1", text="legacy", weight=1.0)],
+            grading_protocol=GradingProtocol(),
+        )
+        legacy_checkpoint = SearchCheckpoint(
+            session_id="legacy_resume_contract",
+            generation=1,
+            best_rubrics={"p1": rubric},
+            best_scores={"p1": 0.6},
+            history={"p1": [0.6]},
+            scheduler_state={},
+            rng_state={},
+            config_hash="legacy_cfg_hash",
+            dataset_hash="legacy_data_hash",
+        )
+        self.state_manager.save_checkpoint(legacy_checkpoint)
+
+        resumed = SearchSession.resume(
+            resume_from="legacy_resume_contract",
+            config=self.config,
+            factory=self.factory,
+            state_manager=self.state_manager,
+            prompts=self.prompts,
+        )
+        info = resumed.get_session_info()
+        self.assertEqual(info.get("resume_semantics"), "reseed_from_checkpoint")
 
 
 class TestIntegrationCheckpointResume(unittest.TestCase):

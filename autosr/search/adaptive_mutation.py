@@ -95,6 +95,40 @@ class MutationHistory:
         """Increment generation counter."""
         self.generation_count += 1
 
+    def to_state(self) -> dict[str, object]:
+        """Serialize mutation history into JSON-compatible state."""
+        return {
+            "generation_count": self.generation_count,
+            "mode_history": {
+                mode.value: [[success, improvement] for success, improvement in entries]
+                for mode, entries in self.mode_history.items()
+            },
+        }
+
+    @classmethod
+    def from_state(cls, state: dict[str, object]) -> "MutationHistory":
+        """Restore mutation history from serialized state."""
+        history = cls()
+        generation_count = state.get("generation_count")
+        if isinstance(generation_count, int) and generation_count >= 0:
+            history.generation_count = generation_count
+
+        mode_history_raw = state.get("mode_history")
+        if isinstance(mode_history_raw, dict):
+            for mode in MutationMode:
+                entries_raw = mode_history_raw.get(mode.value, [])
+                if not isinstance(entries_raw, list):
+                    continue
+                restored_entries: deque[tuple[bool, float]] = deque(maxlen=100)
+                for entry in entries_raw:
+                    if not isinstance(entry, list | tuple) or len(entry) != 2:
+                        continue
+                    success, improvement = entry
+                    restored_entries.append((bool(success), float(improvement)))
+                history.mode_history[mode] = restored_entries
+
+        return history
+
 
 class AdaptiveMutationSelector:
     """Selects mutation modes adaptively based on schedule and history."""
@@ -309,6 +343,37 @@ class AdaptiveMutationSelector:
                 for mode in MutationMode
             },
         }
+
+    def get_state(self) -> dict[str, object]:
+        """Get full scheduler state for checkpoint/resume."""
+        diagnostics = self.get_diagnostics()
+        return {
+            "scheduler_type": "AdaptiveMutationSelector",
+            "generation": diagnostics["generation"],
+            "success_rates": diagnostics["success_rates"],
+            "avg_improvements": diagnostics["avg_improvements"],
+            "history": self.history.to_state(),
+            "weights": {
+                mode.value: weight for mode, weight in self._weights.items()
+            },
+        }
+
+    def set_state(self, state: dict[str, object]) -> None:
+        """Restore scheduler state from checkpoint payload."""
+        history_state = state.get("history")
+        if isinstance(history_state, dict):
+            self.history = MutationHistory.from_state(history_state)
+        else:
+            generation = state.get("generation")
+            if isinstance(generation, int) and generation >= 0:
+                self.history.generation_count = generation
+
+        weights_state = state.get("weights")
+        if isinstance(weights_state, dict):
+            for mode in MutationMode:
+                value = weights_state.get(mode.value)
+                if isinstance(value, int | float):
+                    self._weights[mode] = float(value)
 
 
 class FingerprintDiversityMetric:
