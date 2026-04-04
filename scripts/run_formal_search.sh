@@ -104,7 +104,7 @@ cmd=(
   --llm-max-retries "${LLM_MAX_RETRIES}"
   --initializer-strategy "${INITIALIZER_STRATEGY}"
   --extract-strategy "${EXTRACT_STRATEGY}"
-  --generations 4
+  --generations 2
   --population-size 4
   --mutations-per-round 2
   --mutation-parent-count "${MUTATION_PARENT_COUNT:-3}"

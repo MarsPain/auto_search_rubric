@@ -194,13 +194,15 @@ class EvolutionaryRTDSearcher:
                     improved = True
 
                 logger.info(
-                    "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f delta_vs_init=%.6f",
+                    "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f signed_margin=%.6f delta_vs_init=%.6f signed_delta=%.6f",
                     item.prompt_id,
                     generation + 1,
                     self.config.generations,
                     best_breakdown.total,
                     best_breakdown.top_margin,
+                    best_breakdown.signed_top_margin,
                     best_breakdown.top_margin - initial_margin,
+                    best_breakdown.signed_top_margin - initial_margin,
                 )
 
                 diversity = self.diversity_metric.compute(population, rng=self.rng)
@@ -208,10 +210,11 @@ class EvolutionaryRTDSearcher:
 
                 if self._is_prompt_distinguished(best_breakdown):
                     logger.info(
-                        "prompt=%s stopping early at generation=%d reason=distinguished margin=%.6f",
+                        "prompt=%s stopping early at generation=%d reason=distinguished margin=%.6f signed_margin=%.6f",
                         item.prompt_id,
                         generation + 1,
                         best_breakdown.top_margin,
+                        best_breakdown.signed_top_margin,
                     )
                     break
 
@@ -337,9 +340,12 @@ class EvolutionaryRTDSearcher:
             margin_delta = best_margin - initial_margin
             if best_margin > (initial_margin + self.config.objective.tie_tolerance):
                 improved_prompts += 1
+            signed_margin = scored[0][1].signed_top_margin
+            signed_delta = signed_margin - initial_margin
             per_prompt.append(
                 f"{prompt_id}:best_score={best_score:.4f},top_margin={best_margin:.6f},"
-                f"delta_vs_init={margin_delta:.6f}"
+                f"signed_margin={signed_margin:.6f},delta_vs_init={margin_delta:.6f},"
+                f"signed_delta={signed_delta:.6f}"
             )
         logger.info(
             "generation=%d/%d margin_improved_prompts=%d/%d %s",
@@ -416,7 +422,11 @@ class EvolutionaryRTDSearcher:
         required_margin = self.config.distinguish_margin
         if required_margin is None:
             required_margin = self.config.objective.tie_tolerance
-        return breakdown.valid_pairs > 0 and breakdown.top_margin > required_margin
+        return (
+            breakdown.valid_pairs > 0
+            and breakdown.top_margin > required_margin
+            and breakdown.signed_top_margin > 0
+        )
 
     def _evolve_selected_prompts(
         self,

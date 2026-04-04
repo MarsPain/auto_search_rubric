@@ -23,7 +23,9 @@ class _StaticEvaluator:
         self._scored = scored
 
     def evaluate_candidates(self, item, rubric):  # noqa: ANN001 - test double
-        return list(self._scored)
+        out = list(self._scored)
+        out.sort(key=lambda ev: ev.score, reverse=True)
+        return out
 
 
 class _StaticJudge:
@@ -196,6 +198,57 @@ class TestEvaluatorObjective(unittest.TestCase):
         self.assertEqual(result.tail_acc, 1.0)
         self.assertEqual(result.total, 1.0)
 
+    def test_signed_top_margin_positive_when_aligned(self) -> None:
+        item = _build_two_candidate_item_with_quality("same", "diverse", quality_a=1.0, quality_b=0.5)
+        rubric = _build_test_rubric()
+        scored = [
+            CandidateEvaluation("a", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation("b", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
+        ]
+        result = compute_objective(
+            item,
+            rubric,
+            _StaticEvaluator(scored),
+            _StaticJudge(pref=1),
+            ObjectiveConfig(tail_fraction=1.0, lambda_var=0.0, mu_diverse=0.0),
+        )
+        self.assertAlmostEqual(result.signed_top_margin, 0.5, places=8)
+        self.assertAlmostEqual(result.top_margin, 0.5, places=8)
+
+    def test_signed_top_margin_negative_when_reversed(self) -> None:
+        item = _build_two_candidate_item_with_quality("same", "diverse", quality_a=1.0, quality_b=0.5)
+        rubric = _build_test_rubric()
+        scored = [
+            CandidateEvaluation("a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation("b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
+        ]
+        result = compute_objective(
+            item,
+            rubric,
+            _StaticEvaluator(scored),
+            _StaticJudge(pref=1),
+            ObjectiveConfig(tail_fraction=1.0, lambda_var=0.0, mu_diverse=0.0),
+        )
+        self.assertAlmostEqual(result.signed_top_margin, -0.5, places=8)
+        self.assertAlmostEqual(result.top_margin, 0.5, places=8)
+
+    def test_signed_top_margin_fallback_to_top_margin_without_ground_truth(self) -> None:
+        item = _build_two_candidate_item("same", "diverse")
+        rubric = _build_test_rubric()
+        scored = [
+            CandidateEvaluation("a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation("b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
+        ]
+        result = compute_objective(
+            item,
+            rubric,
+            _StaticEvaluator(scored),
+            _StaticJudge(pref=1),
+            ObjectiveConfig(tail_fraction=1.0, lambda_var=0.0, mu_diverse=0.0),
+        )
+        self.assertAlmostEqual(result.signed_top_margin, 0.5, places=8)
+        self.assertAlmostEqual(result.top_margin, 0.5, places=8)
+
 
 def _build_test_rubric() -> Rubric:
     return Rubric(
@@ -211,6 +264,19 @@ def _build_two_candidate_item(source_a: str, source_b: str) -> PromptExample:
         candidates=[
             ResponseCandidate("a", "left", source=source_a),
             ResponseCandidate("b", "right", source=source_b),
+        ],
+    )
+
+
+def _build_two_candidate_item_with_quality(
+    source_a: str, source_b: str, *, quality_a: float, quality_b: float
+) -> PromptExample:
+    return PromptExample(
+        prompt_id="p_test",
+        prompt="test prompt",
+        candidates=[
+            ResponseCandidate("a", "left", source=source_a, metadata={"quality": quality_a}),
+            ResponseCandidate("b", "right", source=source_b, metadata={"quality": quality_b}),
         ],
     )
 

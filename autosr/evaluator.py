@@ -31,6 +31,7 @@ class ObjectiveBreakdown:
     valid_pairs: int
     diverse_pairs: int
     top_margin: float
+    signed_top_margin: float
 
 
 @dataclass(slots=True)
@@ -126,6 +127,7 @@ def compute_objective(
     scored = evaluator.evaluate_candidates(item, rubric)
     tail = _resolve_tail(scored, config.tail_fraction)
     top_margin = _compute_top_margin(scored)
+    signed_top_margin = _compute_signed_top_margin(scored, item)
     tail_var = _compute_tail_variance(tail)
     pairs = _build_tail_pairs(tail)
     resolved_budget = config.pair_budget_full if pair_budget is None else pair_budget
@@ -150,6 +152,7 @@ def compute_objective(
         valid_pairs=stats.valid,
         diverse_pairs=stats.diverse_valid,
         top_margin=top_margin,
+        signed_top_margin=signed_top_margin,
         lambda_var=config.lambda_var,
         mu_diverse=config.mu_diverse,
     )
@@ -203,6 +206,53 @@ def _compute_top_margin(scored: list[CandidateEvaluation]) -> float:
     if len(scored) <= 1:
         return 0.0
     return scored[0].score - scored[1].score
+
+
+def _ground_truth_top2(item: PromptExample) -> tuple[str, str] | None:
+    """Return (best_id, runner_up_id) based on metadata rank or quality if available."""
+    candidates = item.candidates
+    if len(candidates) < 2:
+        return None
+
+    # Try rank first (lower is better)
+    ranked = [(c, c.metadata.get("rank")) for c in candidates]
+    if all(r is not None for _, r in ranked):
+        ranked.sort(key=lambda x: x[1])  # type: ignore[arg-return-type]
+        return ranked[0][0].candidate_id, ranked[1][0].candidate_id
+
+    # Fallback to quality (higher is better)
+    scored = [(c, c.metadata.get("quality")) for c in candidates]
+    if all(q is not None for _, q in scored):
+        scored.sort(key=lambda x: x[1], reverse=True)  # type: ignore[arg-return-type]
+        return scored[0][0].candidate_id, scored[1][0].candidate_id
+
+    return None
+
+
+def _compute_signed_top_margin(
+    scored: list[CandidateEvaluation],
+    item: PromptExample,
+) -> float:
+    """Compute margin between ground-truth top-2 under the current rubric scoring.
+
+    When ground-truth ordering is available (via metadata.rank or metadata.quality),
+    returns ``score(gt_best) - score(gt_runner_up)``, which is positive when the
+    rubric ranks them in the correct direction and negative when reversed.
+
+    When no ground-truth ordering is present, falls back to the unsigned
+    ``top_margin`` so that downstream logic (e.g. early stopping) remains valid.
+    """
+    gt = _ground_truth_top2(item)
+    if gt is None:
+        return _compute_top_margin(scored)
+
+    best_id, runner_up_id = gt
+    lookup = {ev.candidate_id: ev.score for ev in scored}
+    best_score = lookup.get(best_id)
+    runner_up_score = lookup.get(runner_up_id)
+    if best_score is None or runner_up_score is None:
+        return _compute_top_margin(scored)
+    return best_score - runner_up_score
 
 
 def _compute_tail_variance(tail: list[CandidateEvaluation]) -> float:
@@ -286,6 +336,7 @@ def _compose_objective_breakdown(
     valid_pairs: int,
     diverse_pairs: int,
     top_margin: float,
+    signed_top_margin: float,
     lambda_var: float,
     mu_diverse: float,
 ) -> ObjectiveBreakdown:
@@ -298,4 +349,5 @@ def _compose_objective_breakdown(
         valid_pairs=valid_pairs,
         diverse_pairs=diverse_pairs,
         top_margin=top_margin,
+        signed_top_margin=signed_top_margin,
     )
