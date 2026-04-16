@@ -188,6 +188,7 @@ uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manif
 
 ## 相关文档
 
+- [ARCHITECTURE.md](ARCHITECTURE.md) - 架构顶层地图（域与分层）
 - [design-docs/01-architecture.md](design-docs/01-architecture.md) - 详细架构演进
 - [PLANS.md](PLANS.md) - 执行计划管理
 - [PRODUCT_SENSE.md](PRODUCT_SENSE.md) - 产品方向与需求

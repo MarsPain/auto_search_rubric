@@ -12,6 +12,7 @@ DOCS_ROOT = REPO_ROOT / "docs"
 
 REQUIRED_FILES = (
     "AGENTS.md",
+    "docs/ARCHITECTURE.md",
     "docs/DESIGN.md",
     "docs/FRONTEND.md",
     "docs/PLANS.md",
@@ -33,13 +34,6 @@ REQUIRED_DIRS = (
     "docs/references",
 )
 
-REDIRECT_FILES = (
-    "ROADMAP.md",
-    "ROADMAP_ARCHITECTURE.md",
-    "STAGE0_IMPLEMENTATION.md",
-    "STAGE1_IMPLEMENTATION.md",
-)
-
 CORE_PLAN_FOLDERS = ("active", "completed", "tech-debt")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 
@@ -49,13 +43,7 @@ def _to_abs(rel_path: str) -> Path:
 
 
 def _collect_markdown_files() -> list[Path]:
-    top_level = [
-        REPO_ROOT / "AGENTS.md",
-        REPO_ROOT / "ROADMAP.md",
-        REPO_ROOT / "ROADMAP_ARCHITECTURE.md",
-        REPO_ROOT / "STAGE0_IMPLEMENTATION.md",
-        REPO_ROOT / "STAGE1_IMPLEMENTATION.md",
-    ]
+    top_level = [REPO_ROOT / "AGENTS.md"]
     return sorted(top_level + list(DOCS_ROOT.rglob("*.md")))
 
 
@@ -86,19 +74,6 @@ def _validate_paths(errors: list[str]) -> None:
     completed_plans = list((plans_root / "completed").glob("*.md"))
     if not completed_plans:
         errors.append("docs/exec-plans/completed must contain at least one .md plan")
-
-
-def _validate_redirect_docs(errors: list[str]) -> None:
-    for rel in REDIRECT_FILES:
-        path = _to_abs(rel)
-        if not path.exists():
-            errors.append(f"missing redirect file: {rel}")
-            continue
-        content = path.read_text(encoding="utf-8")
-        if "已迁移" not in content:
-            errors.append(f"redirect file missing migration marker '已迁移': {rel}")
-        if "(docs/" not in content:
-            errors.append(f"redirect file missing docs link target: {rel}")
 
 
 def _validate_agents_constraints(errors: list[str]) -> None:
@@ -155,7 +130,6 @@ def main() -> int:
 
     errors: list[str] = []
     _validate_paths(errors)
-    _validate_redirect_docs(errors)
     _validate_agents_constraints(errors)
     _validate_markdown_links(errors)
 
