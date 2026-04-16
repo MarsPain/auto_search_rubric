@@ -7,12 +7,14 @@ from typing import Any, Mapping
 
 from ..data_models import Rubric
 
+DEPLOYMENT_TARGETS = frozenset({"dev", "staging", "prod"})
+
 
 class ArtifactValidationError(Exception):
     """Raised when RM artifact data fails validation."""
 
-    def __init__(self, field: str, message: str) -> None:
-        super().__init__(f"RMArtifact validation failed for '{field}': {message}")
+    def __init__(self, field: str, message: str, *, schema: str = "RMArtifact") -> None:
+        super().__init__(f"{schema} validation failed for '{field}': {message}")
         self.field = field
         self.validation_message = message
 
@@ -105,4 +107,134 @@ class RMArtifact:
             data = json.loads(payload)
         except json.JSONDecodeError as exc:
             raise ArtifactValidationError("json", f"invalid JSON: {exc}") from exc
+        return cls.from_dict(data)
+
+
+@dataclass(slots=True)
+class DeployManifest:
+    """Schema v1 for RM artifact deployment records."""
+
+    deploy_id: str
+    deployed_at_utc: str
+    artifact_id: str
+    artifact_path: str
+    deployed_by: str
+    deployment_target: str
+    previous_artifact_id: str | None
+    rollback_policy: dict[str, Any]
+    source_session_id: str
+    dataset_hash: str
+    config_hash: str
+    schema_version: str = "1.0"
+
+    def __post_init__(self) -> None:
+        if not self.deploy_id.strip():
+            raise ArtifactValidationError("deploy_id", "must not be empty", schema="DeployManifest")
+        if not self.deployed_at_utc.strip():
+            raise ArtifactValidationError(
+                "deployed_at_utc",
+                "must not be empty",
+                schema="DeployManifest",
+            )
+        if not self.artifact_id.strip():
+            raise ArtifactValidationError("artifact_id", "must not be empty", schema="DeployManifest")
+        if not self.artifact_path.strip():
+            raise ArtifactValidationError("artifact_path", "must not be empty", schema="DeployManifest")
+        if not self.deployed_by.strip():
+            raise ArtifactValidationError("deployed_by", "must not be empty", schema="DeployManifest")
+        if self.deployment_target not in DEPLOYMENT_TARGETS:
+            raise ArtifactValidationError(
+                "deployment_target",
+                f"must be one of {sorted(DEPLOYMENT_TARGETS)}",
+                schema="DeployManifest",
+            )
+        if self.previous_artifact_id == self.artifact_id:
+            raise ArtifactValidationError(
+                "previous_artifact_id",
+                "must not equal artifact_id",
+                schema="DeployManifest",
+            )
+        if not isinstance(self.rollback_policy, dict):
+            raise ArtifactValidationError(
+                "rollback_policy",
+                "must be an object",
+                schema="DeployManifest",
+            )
+        if not self.source_session_id.strip():
+            raise ArtifactValidationError(
+                "source_session_id",
+                "must not be empty",
+                schema="DeployManifest",
+            )
+        if not self.dataset_hash.strip():
+            raise ArtifactValidationError("dataset_hash", "must not be empty", schema="DeployManifest")
+        if not self.config_hash.strip():
+            raise ArtifactValidationError("config_hash", "must not be empty", schema="DeployManifest")
+        if self.schema_version != "1.0":
+            raise ArtifactValidationError(
+                "schema_version",
+                f"unsupported schema_version={self.schema_version}, expected 1.0",
+                schema="DeployManifest",
+            )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "deploy_id": self.deploy_id,
+            "deployed_at_utc": self.deployed_at_utc,
+            "artifact_id": self.artifact_id,
+            "artifact_path": self.artifact_path,
+            "deployed_by": self.deployed_by,
+            "deployment_target": self.deployment_target,
+            "previous_artifact_id": self.previous_artifact_id,
+            "rollback_policy": dict(self.rollback_policy),
+            "source_session_id": self.source_session_id,
+            "dataset_hash": self.dataset_hash,
+            "config_hash": self.config_hash,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "DeployManifest":
+        schema_version = str(data.get("schema_version", "1.0"))
+        rollback_policy = data.get("rollback_policy", {})
+        if not isinstance(rollback_policy, Mapping):
+            raise ArtifactValidationError(
+                "rollback_policy",
+                "must be an object",
+                schema="DeployManifest",
+            )
+        previous_artifact_id_raw = data.get("previous_artifact_id")
+        previous_artifact_id = (
+            None
+            if previous_artifact_id_raw is None
+            else str(previous_artifact_id_raw)
+        )
+        return cls(
+            deploy_id=str(data.get("deploy_id", "")),
+            deployed_at_utc=str(data.get("deployed_at_utc", "")),
+            artifact_id=str(data.get("artifact_id", "")),
+            artifact_path=str(data.get("artifact_path", "")),
+            deployed_by=str(data.get("deployed_by", "")),
+            deployment_target=str(data.get("deployment_target", "")),
+            previous_artifact_id=previous_artifact_id,
+            rollback_policy=dict(rollback_policy),
+            source_session_id=str(data.get("source_session_id", "")),
+            dataset_hash=str(data.get("dataset_hash", "")),
+            config_hash=str(data.get("config_hash", "")),
+            schema_version=schema_version,
+        )
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
+
+    @classmethod
+    def from_json(cls, payload: str) -> "DeployManifest":
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError as exc:
+            raise ArtifactValidationError(
+                "json",
+                f"invalid JSON: {exc}",
+                schema="DeployManifest",
+            ) from exc
         return cls.from_dict(data)

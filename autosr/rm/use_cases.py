@@ -1,18 +1,30 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 from typing import Any, Mapping
 
 from ..data_models import Rubric
 from ..harness.state import compute_config_hash
-from .data_models import ArtifactValidationError, RMArtifact
-from .io import load_search_output, save_rm_artifact
+from .data_models import ArtifactValidationError, DeployManifest, RMArtifact
+from .io import (
+    load_deploy_manifest,
+    load_rm_artifact,
+    load_search_output,
+    save_deploy_manifest,
+    save_rm_artifact,
+)
 
 
 def _build_artifact_id() -> str:
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
     return f"rm_{timestamp}"
+
+
+def _build_deploy_id() -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S_%fZ")
+    return f"deploy_{timestamp}"
 
 
 def _build_config_hash(run_manifest: Mapping[str, Any] | None) -> str:
@@ -167,3 +179,67 @@ def export_rm_artifact(
         source_search_output_path=search_output_path,
     )
     return save_rm_artifact(out_artifact_path, artifact)
+
+
+def _resolve_previous_artifact_id(
+    *,
+    out_dir: Path,
+    deployment_target: str,
+) -> str | None:
+    if not out_dir.exists():
+        return None
+
+    latest_for_target: DeployManifest | None = None
+    for manifest_path in sorted(out_dir.glob("*.json")):
+        try:
+            manifest = load_deploy_manifest(manifest_path)
+        except (ArtifactValidationError, OSError):
+            continue
+        if manifest.deployment_target != deployment_target:
+            continue
+        if latest_for_target is None or manifest.deployed_at_utc > latest_for_target.deployed_at_utc:
+            latest_for_target = manifest
+
+    if latest_for_target is None:
+        return None
+    return latest_for_target.artifact_id
+
+
+def record_deploy_manifest(
+    *,
+    artifact_path: str | Path,
+    deployment_target: str,
+    deployed_by: str | None = None,
+    previous_artifact_id: str | None = None,
+    rollback_policy: Mapping[str, Any] | None = None,
+    out_dir: str | Path = "artifacts/rm_deployments",
+) -> Path:
+    artifact_file = Path(artifact_path)
+    artifact = load_rm_artifact(artifact_file)
+
+    resolved_out_dir = Path(out_dir)
+    resolved_previous_artifact = previous_artifact_id
+    if resolved_previous_artifact is None:
+        resolved_previous_artifact = _resolve_previous_artifact_id(
+            out_dir=resolved_out_dir,
+            deployment_target=deployment_target,
+        )
+
+    resolved_deployed_by = deployed_by or os.getenv("USER") or "unknown"
+    resolved_rollback_policy = dict(rollback_policy or {"strategy": "rollback_to_previous_artifact"})
+
+    manifest = DeployManifest(
+        deploy_id=_build_deploy_id(),
+        deployed_at_utc=datetime.now(timezone.utc).isoformat(),
+        artifact_id=artifact.artifact_id,
+        artifact_path=str(artifact_file.resolve()),
+        deployed_by=resolved_deployed_by,
+        deployment_target=deployment_target,
+        previous_artifact_id=resolved_previous_artifact,
+        rollback_policy=resolved_rollback_policy,
+        source_session_id=artifact.source_session_id,
+        dataset_hash=artifact.dataset_hash,
+        config_hash=artifact.config_hash,
+    )
+    target_path = resolved_out_dir / f"{manifest.deploy_id}.json"
+    return save_deploy_manifest(target_path, manifest)

@@ -1,6 +1,6 @@
 # AutoSR 执行计划管理
 
-> **版本**: v1.0 | **最后更新**: 2026-04-04
+> **版本**: v1.0 | **最后更新**: 2026-04-16
 > 
 > 计划作为一等工件，活跃/已完成/技术债统一版本化管理。
 
@@ -62,7 +62,7 @@
 |------|------|----------|------|
 | Stage 0 - Harness底座 | 会话化、Checkpoint schema、Resume验证 | 2026-04-03 | [stage0-harness.md](exec-plans/completed/stage0-harness.md) |
 | Stage 1 - 可恢复执行 | StateManager、单步执行、Resume能力 | 2026-04-04 | [stage1-resume.md](exec-plans/completed/stage1-resume.md) |
-| RMArtifact 阶段B核心 | RMArtifact schema、导出、校验器 | 2026-04-04 | [stage2-rm-artifact.md](exec-plans/completed/stage2-rm-artifact.md) |
+| RMArtifact 阶段B核心 | RMArtifact schema、导出、校验器、deploy manifest | 2026-04-16 | [stage2-rm-artifact.md](exec-plans/completed/stage2-rm-artifact.md) |
 
 ---
 
@@ -72,7 +72,6 @@
 |------|------|------|----------|
 | prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | Stage C前评估 |
 | Iterative模式step执行 | Iterative模式暂不支持step-wise执行 | 低 | 按需 |
-| RM deploy manifest | 发布记录尚未形成统一契约与存储流程 | 中 | 阶段B收尾 |
 
 ---
 
@@ -87,14 +86,14 @@
 - [x] resume行为契约明确
 - [x] scheduler可恢复状态
 
-### 阶段 B: RM Artifact契约与部署 🚧 进行中
+### 阶段 B: RM Artifact契约与部署 ✅ 已完成
 
 目标：把"best rubric JSON"升级为可部署、可追溯的RM artifact。
 
 - [x] `RMArtifact` schema v1
 - [x] artifact导出能力
 - [x] artifact校验器
-- [ ] deploy manifest（发布记录）
+- [x] deploy manifest（发布记录）
 
 ### 阶段 C: RM Server MVP 📋 待开始
 
@@ -125,7 +124,7 @@
 | 任务 | 用户价值 | 技术难度 | 优先级 | 状态 |
 |------|----------|----------|--------|------|
 | Harness收尾修缮 | 高 | 中 | P0 | ✅ 已完成 |
-| RMArtifact契约 | 高 | 中 | P0 | 🚧 进行中 |
+| RMArtifact契约 | 高 | 中 | P0 | ✅ 已完成 |
 | RM Server MVP | 高 | 中高 | P0 | 📋 待开始 |
 | RL训练接入 | 高 | 中高 | P0 | 📋 待开始 |
 | 监控与告警 | 中高 | 中 | P1 | 📋 规划中 |

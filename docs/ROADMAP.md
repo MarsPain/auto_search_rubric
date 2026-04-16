@@ -1,12 +1,12 @@
 # AutoSR Roadmap: 从 Rubric Search 到 RM+RL 闭环
 
-> **版本**: v1.0 | **最后更新**: 2026-04-04
+> **版本**: v1.0 | **最后更新**: 2026-04-16
 > 
 > 将 `autosr` 从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。
 
 ---
 
-## 当前状态（截至 2026-04-04）
+## 当前状态（截至 2026-04-16）
 
 ### 已经完成且建议保留
 
@@ -17,6 +17,7 @@
 - ✅ evolutionary + `global_batch` scope 的 step-wise 执行
 - ✅ Harness 阶段 A 收尾：RNG 恢复、interval checkpoint、生效 resume 语义、scheduler state 恢复
 - ✅ RMArtifact 阶段 B 核心落地：schema v1、导出命令、校验器（含 hash 一致性）
+- ✅ RM deploy manifest 落地：独立 deploy CLI、部署记录 schema、按目标环境回填 previous artifact
 
 ### 这批改动的定位
 
@@ -62,7 +63,7 @@
 
 ---
 
-### 阶段 B：RM Artifact 契约与部署 🚧 进行中
+### 阶段 B：RM Artifact 契约与部署 ✅ 已完成
 
 目标：把"best rubric JSON"升级为可部署、可追溯的 RM artifact。
 
@@ -72,16 +73,17 @@
   - `rubric`, `scoring_policy`, `normalization`, `compatibility`
 - [x] 新增 artifact 导出能力（由 search 输出生成 RM artifact）
 - [x] 增加 artifact 校验器（schema + 必填字段 + hash 一致性）
-- [ ] 定义 RM 发布记录（deploy manifest）：谁在何时发布了哪个 artifact
+- [x] 定义 RM 发布记录（deploy manifest）：谁在何时发布了哪个 artifact
 
 #### 交付物
 - `artifacts/rm_artifacts/*.json`
+- `artifacts/rm_deployments/*.json`
 - `run_records/*` 与 RM artifact 的关联字段
 - 文档化的 artifact 契约
 
 #### Go/No-Go
 - [ ] 给定同一 artifact，RM 打分结果可重复
-- [ ] 每次 RM 部署都可追溯到搜索会话和数据集版本
+- [x] 每次 RM 部署都可追溯到搜索会话和数据集版本
 
 ---
 
@@ -155,7 +157,7 @@
 | 任务 | 用户价值 | 技术难度 | 优先级 | 状态 |
 |------|----------|----------|--------|------|
 | Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | ✅ 已完成 |
-| RMArtifact 契约与导出 | 高 | 中 | P0 | 🚧 进行中 |
+| RMArtifact 契约与导出 | 高 | 中 | P0 | ✅ 已完成 |
 | RM Server MVP | 高 | 中高 | P0 | 📋 待开始 |
 | RL 训练接入与实验编排 | 高 | 中高 | P0 | 📋 待开始 |
 | 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 待开始 |
@@ -193,16 +195,24 @@ uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
 # 2) 导出可部署 RM artifact（已实现）
 uv run python -m autosr.rm.export --search-output ... --out-artifact ...
 
-# 3) 启动 RM server（规划）
+# 3) 记录 RM 部署 manifest（已实现）
+uv run python -m autosr.rm.deploy --artifact ... --deployment-target prod
+
+# 4) 启动 RM server（规划）
 uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080
 
-# 4) RL 训练消费 RM endpoint（规划）
+# 5) RL 训练消费 RM endpoint（规划）
 uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...
 ```
 
 ---
 
 ## 变更日志
+
+### 2026-04-16
+- 阶段 B 收尾完成：新增 `DeployManifest` schema、`record_deploy_manifest` 用例、CLI 命令 `autosr.rm.deploy`。
+- deploy manifest 默认写入 `artifacts/rm_deployments/*.json`（一部署一文件），支持按 `deployment_target` 自动推断 `previous_artifact_id`。
+- 发布记录补齐 `artifact_id/source_session_id/dataset_hash/config_hash` 链路，满足部署追溯要求。
 
 ### 2026-04-04
 - 阶段 A 收尾完成：RNG state 恢复修复、`checkpoint_interval_seconds` 生效、resume 语义落地、scheduler state 可恢复。

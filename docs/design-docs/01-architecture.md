@@ -1,6 +1,6 @@
 # AutoSR 架构演进图（面向 RM Server + RL 训练闭环）
 
-> **版本**: v1.0 | **状态**: 稳定 | **最后更新**: 2026-04-04
+> **版本**: v1.0 | **状态**: 稳定 | **最后更新**: 2026-04-16
 > 
 > 本文档与 `docs/ROADMAP.md` 保持一致，目标是把当前 Harness 底座延展为：
 > `Rubric Search -> RM Artifact -> RM Server -> RL Training -> Eval & Monitoring -> Search Refresh`
@@ -19,7 +19,10 @@
   - `autosr.rm.use_cases`（build/export/validate）
   - `autosr.rm.export` CLI 导出入口
   - hash 一致性校验（dataset/config）与 rubric 指纹一致性校验
-- 🚧 阶段 B 待补：deploy manifest（发布记录）
+- ✅ 阶段 B deploy manifest 已完成：
+  - `DeployManifest` schema（含发布追溯字段）
+  - `record_deploy_manifest` 用例（自动推断 `previous_artifact_id`）
+  - `autosr.rm.deploy` CLI（一部署一文件）
 
 ---
 
@@ -144,7 +147,7 @@
 Search Output -> RM Artifact Builder -> Artifact Store
 ```
 
-当前状态：🚧 进行中（schema/导出/校验已完成，deploy manifest 待补）
+当前状态：✅ 已完成（schema/导出/校验/deploy manifest 已落地）
 
 ### 阶段 C（RM Server）
 
@@ -254,3 +257,7 @@ Monitoring Regression Trigger -> Search Refresh -> Canary Deploy -> Promote/Roll
 ### 2026-04-04
 - 同步阶段 A 实际完成状态（RNG/interval/resume/scheduler）。
 - 同步阶段 B 已交付项（RMArtifact schema、导出、校验）与待办项（deploy manifest）。
+
+### 2026-04-16
+- 阶段 B deploy manifest 收尾完成，补齐发布记录契约与 CLI。
+- 更新阶段状态：阶段 B 从“进行中”转为“已完成”。

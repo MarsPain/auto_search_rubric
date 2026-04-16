@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 from typing import Any
 
-from .data_models import RMArtifact
+from .data_models import DeployManifest, RMArtifact
 
 
 def load_search_output(path: str | Path) -> dict[str, Any]:
@@ -18,11 +18,15 @@ def load_rm_artifact(path: str | Path) -> RMArtifact:
     return RMArtifact.from_json(file_path.read_text(encoding="utf-8"))
 
 
-def save_rm_artifact(path: str | Path, artifact: RMArtifact) -> Path:
+def load_deploy_manifest(path: str | Path) -> DeployManifest:
+    file_path = Path(path)
+    return DeployManifest.from_json(file_path.read_text(encoding="utf-8"))
+
+
+def _save_json_payload(path: str | Path, payload: str) -> Path:
     file_path = Path(path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    payload = artifact.to_json(indent=2)
     temp_path: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -40,3 +44,11 @@ def save_rm_artifact(path: str | Path, artifact: RMArtifact) -> Path:
         if temp_path is not None and temp_path.exists():
             temp_path.unlink()
     return file_path
+
+
+def save_rm_artifact(path: str | Path, artifact: RMArtifact) -> Path:
+    return _save_json_payload(path, artifact.to_json(indent=2))
+
+
+def save_deploy_manifest(path: str | Path, manifest: DeployManifest) -> Path:
+    return _save_json_payload(path, manifest.to_json(indent=2))

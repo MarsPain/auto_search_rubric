@@ -1,6 +1,6 @@
 # Stage 2: RM Artifact 契约与部署
 
-> **状态**: 部分完成 🚧 | **优先级**: P0 | **创建日期**: 2026-04-04 | **完成日期**: - (deploy manifest 待补)
+> **状态**: 已完成 ✅ | **优先级**: P0 | **创建日期**: 2026-04-04 | **完成日期**: 2026-04-16
 
 ---
 
@@ -53,23 +53,36 @@ uv run python -m autosr.rm.export \
 
 ---
 
-## 待完成任务 📋
+### 4. Deploy Manifest（发布记录）✓
 
-### Deploy Manifest（发布记录）
+目标：记录谁在何时向哪个环境发布了哪个 artifact，并支持回滚追溯。
 
-目标：谁在何时发布了哪个 artifact。
-
-建议字段：
+新增 `autosr/rm/data_models.py`:
 ```python
 @dataclass
 class DeployManifest:
-    deploy_id: str
+    deploy_id: str                    # 唯一部署标识
+    deployed_at_utc: str              # ISO格式时间戳
     artifact_id: str
-    deployed_at_utc: str
-    deployed_by: str              # 操作人/服务账号
-    deployment_target: str        # 目标环境
-    previous_artifact_id: str     # 回滚用
-    rollback_policy: dict         # 回滚策略
+    artifact_path: str                 # artifact 文件路径
+    deployed_by: str                   # 操作人/服务账号
+    deployment_target: str             # dev/staging/prod
+    previous_artifact_id: str | None   # 回滚用（首次部署可空）
+    rollback_policy: dict              # 回滚策略
+    source_session_id: str
+    dataset_hash: str
+    config_hash: str
+```
+
+新增 `autosr/rm/use_cases.py`:
+- `record_deploy_manifest()`: 记录部署事件
+- 同目标环境自动回填 `previous_artifact_id`（可显式覆盖）
+
+新增 CLI 入口 `autosr.rm.deploy`:
+```bash
+uv run python -m autosr.rm.deploy \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --deployment-target prod
 ```
 
 ---
@@ -78,10 +91,11 @@ class DeployManifest:
 
 - `autosr/rm/` 子包：
   - `data_models.py` - RMArtifact schema
-  - `use_cases.py` - build/export
-  - `validators.py` - 校验逻辑
+  - `use_cases.py` - build/export/deploy-manifest
   - `export.py` - CLI入口
+  - `deploy.py` - deploy manifest CLI入口
 - `artifacts/rm_artifacts/*.json`
+- `artifacts/rm_deployments/*.json`
 - `run_records/*` 与 RM artifact 的关联字段（`source_session_id`）
 
 ---
@@ -91,9 +105,9 @@ class DeployManifest:
 - [x] 定义 RMArtifact schema v1
 - [x] 新增 artifact 导出能力
 - [x] 增加 artifact 校验器
-- [ ] 定义 RM 发布记录（deploy manifest）
+- [x] 定义 RM 发布记录（deploy manifest）
 - [ ] 给定同一 artifact，RM 打分结果可重复
-- [ ] 每次 RM 部署都可追溯到搜索会话和数据集版本
+- [x] 每次 RM 部署都可追溯到搜索会话和数据集版本
 
 ---
 

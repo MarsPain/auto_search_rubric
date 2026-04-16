@@ -120,7 +120,7 @@ Entry Layer:
 ## 5. 当前阶段架构基线
 
 - 阶段 A（Harness 底座）已完成并作为不可回退基线。
-- 阶段 B（RM Artifact）核心能力已落地，deploy manifest 待补。
+- 阶段 B（RM Artifact）已完成：schema、导出、校验、deploy manifest。
 - 阶段 C+（RM Server / RL / Monitoring / Closed Loop）仍在路线图中。
 
 参考：
