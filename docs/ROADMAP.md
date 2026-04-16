@@ -200,8 +200,8 @@ uv run python -m autosr.rm.export --search-output ... --out-artifact ...
 # 3) 记录 RM 部署 manifest（已实现）
 uv run python -m autosr.rm.deploy --artifact ... --deployment-target prod
 
-# 4) 启动 RM server（规划）
-uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080
+# 4) 启动 RM server（已实现）
+uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080 --request-log-path artifacts/rm_server_logs/requests.jsonl
 
 # 5) RL 训练消费 RM endpoint（规划）
 uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...

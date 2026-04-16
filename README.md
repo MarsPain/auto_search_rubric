@@ -6,6 +6,7 @@ Automated search framework for rubric-based reward modeling, inspired by:
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
 This repository keeps `iterative` as a baseline and uses `evolutionary` as the default search mode.
+It now covers the path from rubric search to deployable RM artifacts and an RM server MVP for online scoring.
 
 ## Highlights
 
@@ -17,9 +18,14 @@ This repository keeps `iterative` as a baseline and uses `evolutionary` as the d
   - Adaptive mutation: `fixed`, `success_feedback`, `exploration_decay`, `diversity_driven`
   - Iteration scope: `global_batch` (dataset-level) and `prompt_local` (prompt-level independent evolution)
 - LLM architecture split into transport config (`autosr.llm_config`) and runtime config (`autosr.config`)
+- Deployable RM artifacts with validated schema and embedded runtime snapshot for server startup
+- Deployment tracking via `autosr.rm.deploy` manifests with per-target `previous_artifact_id` resolution
+- RM Server MVP (`autosr.rm.server`) exposing `/healthz`, `/score`, and `/batch_score` with closed-loop LLM scoring
 - Reproducibility outputs:
   - `run_manifest` embedded in output JSON
   - archived manifest and replay script under `<output_parent>/run_records/`
+  - RM deployment records under `artifacts/rm_deployments/`
+  - optional RM server request logs under `artifacts/rm_server_logs/`
 
 ## Architecture (Current)
 
@@ -77,14 +83,23 @@ This repository keeps `iterative` as a baseline and uses `evolutionary` as the d
 - `autosr/content_extraction/use_cases.py`: extraction-decorated verifier
 - `autosr/prompts/loader.py` + `autosr/prompts/constants.py`: file templates and constant fallback
 
+### RM Artifact + Serving Domain
+
+- `autosr/rm/data_models.py`: deployable RM artifact schema and deploy manifest schema
+- `autosr/rm/use_cases.py`: artifact export and deployment-record use cases
+- `autosr/rm/export.py`: CLI for exporting search output into a deployable RM artifact
+- `autosr/rm/deploy.py`: CLI for recording per-environment deployment manifests
+- `autosr/rm/server.py`: FastAPI RM server that loads artifact runtime snapshot and serves scoring APIs
+
 ## Project Layout
 
 - `autosr/`: core package
+- `autosr/rm/`: RM artifact/export/deploy/server modules
 - `prompts/`: prompt templates (supports locale folders such as `prompts/zh/` and `prompts/en/`)
 - `tests/`: `unittest` test suite
 - `scripts/`: unit/integration/formal run scripts
 - `examples/`: demo datasets and examples
-- `artifacts/`: default output directory
+- `artifacts/`: default output directory for search outputs, RM artifacts, deployment manifests, and server logs
 
 ## Environment Setup
 
@@ -99,6 +114,8 @@ Run commands with `uv run`:
 ```bash
 uv run python -m autosr.cli --help
 ```
+
+`uv sync` installs both the search stack and RM server dependencies (`fastapi`, `uvicorn`).
 
 ## Quick Start
 
@@ -130,6 +147,34 @@ uv run python -m autosr.cli \
   --selection-strategy top_k \
   --adaptive-mutation diversity_driven \
   --prompt-language zh
+```
+
+End-to-end RM flow:
+
+```bash
+# 1) Search for the best rubric
+uv run python -m autosr.cli \
+  --dataset examples/demo_dataset.json \
+  --mode evolutionary \
+  --output artifacts/best_rubrics.json
+
+# 2) Export a deployable RM artifact
+uv run python -m autosr.rm.export \
+  --search-output artifacts/best_rubrics.json \
+  --out-artifact artifacts/rm_artifacts/rm_v1.json
+
+# 3) Record deployment metadata
+uv run python -m autosr.rm.deploy \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --deployment-target dev
+
+# 4) Start the RM server
+export LLM_API_KEY="..."
+uv run python -m autosr.rm.server \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --request-log-path artifacts/rm_server_logs/requests.jsonl
 ```
 
 ## Backend and LLM Configuration
@@ -249,6 +294,17 @@ Per-run reproducibility files are written to:
 - `<output_parent>/run_records/<output_stem>_<run_id>.manifest.json`
 - `<output_parent>/run_records/<output_stem>_<run_id>.reproduce.sh`
 
+RM artifact and deployment outputs:
+
+- `artifacts/rm_artifacts/*.json`: deployable RM artifacts exported from search results
+- `artifacts/rm_deployments/*.json`: deployment records with `deployment_target`, `deployed_by`, and `previous_artifact_id`
+- `artifacts/rm_server_logs/requests.jsonl`: request logs emitted by `autosr.rm.server`
+
+RM server notes:
+
+- The server requires an artifact with the embedded runtime snapshot produced by `autosr.rm.export`.
+- Stable endpoints: `GET /healthz`, `POST /score`, `POST /batch_score`.
+
 ## Tests
 
 Unit tests:
@@ -288,6 +344,15 @@ uv run python -m unittest \
   tests.test_data_models_compat \
   tests.test_exceptions_module \
   tests.test_evolutionary_decoupling
+```
+
+RM artifact/server regression set:
+
+```bash
+uv run python -m unittest \
+  tests.test_rm_artifact \
+  tests.test_rm_deploy_manifest \
+  tests.test_rm_server
 ```
 
 ## Notes

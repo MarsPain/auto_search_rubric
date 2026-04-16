@@ -6,6 +6,7 @@
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
 本仓库保留 `iterative` 作为基线，并将 `evolutionary` 作为默认搜索模式。
+当前能力也已覆盖从 rubric search 到可部署 RM artifact，再到在线评分 RM server MVP 的主链路。
 
 ## 亮点
 
@@ -17,9 +18,14 @@
   - 自适应变异：`fixed`、`success_feedback`、`exploration_decay`、`diversity_driven`
   - 迭代范围：`global_batch`（数据集级）与 `prompt_local`（按 prompt 独立进化）
 - LLM 架构分离为传输配置（`autosr.llm_config`）与运行时配置（`autosr.config`）
+- 支持导出可部署 RM artifact，内含通过校验的 schema 与 server 启动所需 runtime snapshot
+- 通过 `autosr.rm.deploy` 记录部署 manifest，并按目标环境自动回填 `previous_artifact_id`
+- 提供 RM Server MVP（`autosr.rm.server`），暴露 `/healthz`、`/score`、`/batch_score` 闭环评分接口
 - 可复现实验产物：
   - 输出 JSON 内嵌 `run_manifest`
   - `<output_parent>/run_records/` 下归档 manifest 与复现脚本
+  - `artifacts/rm_deployments/` 下保存 RM 部署记录
+  - `artifacts/rm_server_logs/` 下保存可选请求日志
 
 ## 当前架构
 
@@ -77,14 +83,23 @@
 - `autosr/content_extraction/use_cases.py`：带提取装饰器的 verifier
 - `autosr/prompts/loader.py` + `autosr/prompts/constants.py`：模板加载与常量回退
 
+### RM Artifact 与服务域
+
+- `autosr/rm/data_models.py`：可部署 RM artifact schema 与 deploy manifest schema
+- `autosr/rm/use_cases.py`：artifact 导出与部署记录用例
+- `autosr/rm/export.py`：将搜索结果导出为可部署 RM artifact 的 CLI
+- `autosr/rm/deploy.py`：记录按环境部署 manifest 的 CLI
+- `autosr/rm/server.py`：加载 artifact runtime snapshot 并提供评分 API 的 FastAPI 服务
+
 ## 项目结构
 
 - `autosr/`：核心包
+- `autosr/rm/`：RM artifact / export / deploy / server 模块
 - `prompts/`：提示词模板（支持 `prompts/zh/`、`prompts/en/` 等 locale 子目录）
 - `tests/`：`unittest` 测试集
 - `scripts/`：单测/集测/formal 运行脚本
 - `examples/`：示例数据与示例脚本
-- `artifacts/`：默认输出目录
+- `artifacts/`：默认输出目录，包含搜索结果、RM artifact、部署 manifest 与服务日志
 
 ## 环境准备
 
@@ -99,6 +114,8 @@ uv sync
 ```bash
 uv run python -m autosr.cli --help
 ```
+
+`uv sync` 会同时安装搜索链路与 RM server 依赖（`fastapi`、`uvicorn`）。
 
 ## 快速开始
 
@@ -130,6 +147,34 @@ uv run python -m autosr.cli \
   --selection-strategy top_k \
   --adaptive-mutation diversity_driven \
   --prompt-language zh
+```
+
+端到端 RM 流程：
+
+```bash
+# 1) 搜索最优 rubric
+uv run python -m autosr.cli \
+  --dataset examples/demo_dataset.json \
+  --mode evolutionary \
+  --output artifacts/best_rubrics.json
+
+# 2) 导出可部署 RM artifact
+uv run python -m autosr.rm.export \
+  --search-output artifacts/best_rubrics.json \
+  --out-artifact artifacts/rm_artifacts/rm_v1.json
+
+# 3) 记录部署元数据
+uv run python -m autosr.rm.deploy \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --deployment-target dev
+
+# 4) 启动 RM server
+export LLM_API_KEY="..."
+uv run python -m autosr.rm.server \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --request-log-path artifacts/rm_server_logs/requests.jsonl
 ```
 
 ## 后端与 LLM 配置
@@ -249,6 +294,17 @@ Verifier 评分尺度：
 - `<output_parent>/run_records/<output_stem>_<run_id>.manifest.json`
 - `<output_parent>/run_records/<output_stem>_<run_id>.reproduce.sh`
 
+RM artifact 与部署相关输出：
+
+- `artifacts/rm_artifacts/*.json`：由搜索结果导出的可部署 RM artifact
+- `artifacts/rm_deployments/*.json`：部署记录，含 `deployment_target`、`deployed_by`、`previous_artifact_id`
+- `artifacts/rm_server_logs/requests.jsonl`：`autosr.rm.server` 输出的请求日志
+
+RM server 说明：
+
+- server 启动依赖 `autosr.rm.export` 产出的、内嵌 runtime snapshot 的 artifact。
+- 当前稳定接口：`GET /healthz`、`POST /score`、`POST /batch_score`。
+
 ## 测试
 
 单元测试：
@@ -288,6 +344,15 @@ uv run python -m unittest \
   tests.test_data_models_compat \
   tests.test_exceptions_module \
   tests.test_evolutionary_decoupling
+```
+
+RM artifact / server 回归测试集合：
+
+```bash
+uv run python -m unittest \
+  tests.test_rm_artifact \
+  tests.test_rm_deploy_manifest \
+  tests.test_rm_server
 ```
 
 ## 备注
