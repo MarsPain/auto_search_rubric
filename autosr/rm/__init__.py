@@ -14,6 +14,13 @@ from .use_cases import (
     record_deploy_manifest,
     validate_rm_artifact,
 )
+from .server import (
+    RMScoringService,
+    RMServerRuntime,
+    RequestAuditLogger,
+    build_runtime_from_artifact,
+    create_app,
+)
 
 __all__ = [
     "ArtifactValidationError",
@@ -28,4 +35,9 @@ __all__ = [
     "validate_rm_artifact",
     "export_rm_artifact",
     "record_deploy_manifest",
+    "RMScoringService",
+    "RMServerRuntime",
+    "RequestAuditLogger",
+    "build_runtime_from_artifact",
+    "create_app",
 ]

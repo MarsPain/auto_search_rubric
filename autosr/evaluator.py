@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 import itertools
 import math
@@ -10,7 +10,7 @@ from typing import Iterable
 
 from .config import ObjectiveConfig
 from .interfaces import PreferenceJudge, Verifier
-from .data_models import PromptExample, Rubric
+from .data_models import PromptExample, ResponseCandidate, Rubric
 
 
 @dataclass(slots=True)
@@ -20,6 +20,7 @@ class CandidateEvaluation:
     variance: float
     majority_grades: dict[str, float | None]
     vote_scores: list[float]
+    per_vote_grades: list[dict[str, float | None]] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -56,20 +57,45 @@ class RubricEvaluator:
         vote_override: int | None = None,
         use_cache: bool = True,
     ) -> list[CandidateEvaluation]:
-        votes = vote_override or rubric.grading_protocol.num_votes
         out: list[CandidateEvaluation] = []
-        rubric_fp = rubric.fingerprint()
         for candidate in item.candidates:
-            key = (item.prompt_id, candidate.candidate_id, rubric_fp, votes)
-            if use_cache and key in self._candidate_cache:
-                out.append(self._candidate_cache[key])
-                continue
-            evaluation = self._evaluate_one(item, candidate.candidate_id, rubric, votes)
-            if use_cache:
-                self._candidate_cache[key] = evaluation
+            evaluation = self.evaluate_single_candidate(
+                prompt_id=item.prompt_id,
+                prompt=item.prompt,
+                candidate=candidate,
+                rubric=rubric,
+                vote_override=vote_override,
+                use_cache=use_cache,
+            )
             out.append(evaluation)
         out.sort(key=lambda ev: ev.score, reverse=True)
         return out
+
+    def evaluate_single_candidate(
+        self,
+        *,
+        prompt_id: str,
+        prompt: str,
+        candidate: ResponseCandidate,
+        rubric: Rubric,
+        vote_override: int | None = None,
+        use_cache: bool = True,
+    ) -> CandidateEvaluation:
+        votes = vote_override or rubric.grading_protocol.num_votes
+        rubric_fp = rubric.fingerprint()
+        key = (prompt_id, candidate.candidate_id, rubric_fp, votes)
+        if use_cache and key in self._candidate_cache:
+            return self._candidate_cache[key]
+        evaluation = self._evaluate_single_uncached(
+            prompt_id=prompt_id,
+            prompt=prompt,
+            candidate=candidate,
+            rubric=rubric,
+            votes=votes,
+        )
+        if use_cache:
+            self._candidate_cache[key] = evaluation
+        return evaluation
 
     def _evaluate_one(
         self,
@@ -79,11 +105,28 @@ class RubricEvaluator:
         votes: int,
     ) -> CandidateEvaluation:
         candidate = next(c for c in item.candidates if c.candidate_id == candidate_id)
+        return self._evaluate_single_uncached(
+            prompt_id=item.prompt_id,
+            prompt=item.prompt,
+            candidate=candidate,
+            rubric=rubric,
+            votes=votes,
+        )
+
+    def _evaluate_single_uncached(
+        self,
+        *,
+        prompt_id: str,
+        prompt: str,
+        candidate: ResponseCandidate,
+        rubric: Rubric,
+        votes: int,
+    ) -> CandidateEvaluation:
         per_vote_grades: list[dict[str, float | None]] = []
         vote_scores: list[float] = []
         for vote_idx in range(votes):
-            seed = self._vote_seed(item.prompt_id, candidate.candidate_id, rubric, vote_idx)
-            grades = self.verifier.grade(item.prompt, candidate, rubric, seed=seed)
+            seed = self._vote_seed(prompt_id, candidate.candidate_id, rubric, vote_idx)
+            grades = self.verifier.grade(prompt, candidate, rubric, seed=seed)
             per_vote_grades.append(grades)
             vote_scores.append(rubric.score_from_grades(grades))
 
@@ -107,6 +150,7 @@ class RubricEvaluator:
             variance=variance,
             majority_grades=majority,
             vote_scores=vote_scores,
+            per_vote_grades=per_vote_grades,
         )
 
     def _vote_seed(self, prompt_id: str, candidate_id: str, rubric: Rubric, vote_idx: int) -> int:

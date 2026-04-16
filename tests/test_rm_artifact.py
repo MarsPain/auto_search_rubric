@@ -41,13 +41,35 @@ def _write_search_output(path: Path, *, with_manifest: bool = True) -> None:
                 "path": "/tmp/dataset.json",
                 "dataset_sha256": "dataset_hash_123",
             },
+            "backend": {"requested": "mock", "resolved": "mock"},
+            "seed": 7,
+            "harness": {"session_id": "session_123"},
             "config_snapshot": {
                 "search": {"mode": "evolutionary", "generations": 3},
                 "objective": {"tail_fraction": 0.25},
+                "extraction": {
+                    "strategy": "tag",
+                    "tag_name": "content",
+                    "pattern": None,
+                    "join_separator": "\n\n",
+                },
+                "candidate_extraction": {
+                    "strategy": "answer",
+                    "join_separator": "\n\n",
+                },
             },
-            "backend": {"requested": "mock", "resolved": "mock"},
-            "llm_snapshot": {"default_model": "dummy"},
-            "harness": {"session_id": "session_123"},
+            "llm_snapshot": {
+                "base_url": "https://example.invalid/v1",
+                "timeout": 20.0,
+                "max_retries": 1,
+                "retry_backoff_base": 0.25,
+                "retry_backoff_max": 2.0,
+                "retry_jitter": 0.1,
+                "fail_soft": False,
+                "default_model": "model-default",
+                "verifier_model": "model-verifier",
+                "prompt_language": "zh",
+            },
         }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -67,10 +89,46 @@ class TestRMArtifactDataModel(unittest.TestCase):
             scoring_policy={"policy_version": "1"},
             normalization={"method": "identity"},
             compatibility={"artifact_type": "rm", "min_rm_api_version": "1.0"},
+            runtime_snapshot={
+                "seed": 7,
+                "extraction": {"strategy": "identity", "tag_name": "content", "pattern": None, "join_separator": "\n\n"},
+                "candidate_extraction": {"strategy": "answer", "join_separator": "\n\n"},
+                "llm": {
+                    "base_url": "https://example.invalid/v1",
+                    "timeout": 30.0,
+                    "max_retries": 1,
+                    "retry_backoff_base": 0.5,
+                    "retry_backoff_max": 2.0,
+                    "retry_jitter": 0.1,
+                    "fail_soft": False,
+                    "default_model": "model-default",
+                    "verifier_model": "model-verifier",
+                    "prompt_language": "zh",
+                },
+            },
         )
         restored = RMArtifact.from_dict(artifact.to_dict())
         self.assertEqual(restored.artifact_id, "rm_001")
         self.assertIn("p1", restored.rubric)
+        self.assertEqual(restored.runtime_snapshot["seed"], 7)
+
+    def test_artifact_roundtrip_without_runtime_snapshot(self) -> None:
+        from autosr.rm.data_models import RMArtifact
+
+        artifact = RMArtifact(
+            artifact_id="rm_001",
+            created_at_utc="2026-04-04T00:00:00+00:00",
+            source_session_id="session_123",
+            source_run_id="run_123",
+            dataset_hash="dataset_hash",
+            config_hash="config_hash",
+            rubric={"p1": _build_test_rubric("r1")},
+            scoring_policy={"policy_version": "1"},
+            normalization={"method": "identity"},
+            compatibility={"artifact_type": "rm", "min_rm_api_version": "1.0"},
+        )
+        restored = RMArtifact.from_dict(artifact.to_dict())
+        self.assertEqual(restored.runtime_snapshot, {})
 
     def test_artifact_validation_missing_required_field(self) -> None:
         from autosr.rm.data_models import ArtifactValidationError, RMArtifact
@@ -87,6 +145,24 @@ class TestRMArtifactDataModel(unittest.TestCase):
                 scoring_policy={"policy_version": "1"},
                 normalization={"method": "identity"},
                 compatibility={"artifact_type": "rm", "min_rm_api_version": "1.0"},
+            )
+
+    def test_artifact_validation_rejects_invalid_runtime_snapshot(self) -> None:
+        from autosr.rm.data_models import ArtifactValidationError, RMArtifact
+
+        with self.assertRaises(ArtifactValidationError):
+            RMArtifact(
+                artifact_id="rm_001",
+                created_at_utc="2026-04-04T00:00:00+00:00",
+                source_session_id="session_123",
+                source_run_id="run_123",
+                dataset_hash="dataset_hash",
+                config_hash="config_hash",
+                rubric={"p1": _build_test_rubric("r1")},
+                scoring_policy={"policy_version": "1"},
+                normalization={"method": "identity"},
+                compatibility={"artifact_type": "rm", "min_rm_api_version": "1.0"},
+                runtime_snapshot={"seed": "not-an-int"},
             )
 
 
@@ -112,6 +188,11 @@ class TestRMArtifactUseCases(unittest.TestCase):
         self.assertEqual(artifact.dataset_hash, "dataset_hash_123")
         self.assertIn("p1", artifact.rubric)
         self.assertIn("p2", artifact.rubric)
+        self.assertIn("runtime_snapshot", artifact.to_dict())
+        self.assertEqual(artifact.runtime_snapshot["seed"], 7)
+        self.assertEqual(artifact.runtime_snapshot["extraction"]["strategy"], "tag")
+        self.assertEqual(artifact.runtime_snapshot["candidate_extraction"]["strategy"], "answer")
+        self.assertEqual(artifact.runtime_snapshot["llm"]["verifier_model"], "model-verifier")
 
     def test_validate_rm_artifact_hash_consistency(self) -> None:
         from autosr.rm.data_models import ArtifactValidationError

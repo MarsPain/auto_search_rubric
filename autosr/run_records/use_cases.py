@@ -141,6 +141,7 @@ def build_run_manifest(
         "proposer_model": config.llm.get_model_for_role(LLMRole.PROPOSER),
         "verifier_model": config.llm.get_model_for_role(LLMRole.VERIFIER),
         "judge_model": config.llm.get_model_for_role(LLMRole.JUDGE),
+        "prompt_language": config.llm.prompt_language,
     }
 
     return {

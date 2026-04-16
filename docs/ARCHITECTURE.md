@@ -121,7 +121,8 @@ Entry Layer:
 
 - 阶段 A（Harness 底座）已完成并作为不可回退基线。
 - 阶段 B（RM Artifact）已完成：schema、导出、校验、deploy manifest。
-- 阶段 C+（RM Server / RL / Monitoring / Closed Loop）仍在路线图中。
+- 阶段 C（RM Server MVP）已完成：服务进程、评分API、artifact运行时加载、请求日志。
+- 阶段 D+（RL / Monitoring / Closed Loop）仍在路线图中。
 
 参考：
 - [ROADMAP.md](ROADMAP.md)

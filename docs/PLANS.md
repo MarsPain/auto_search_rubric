@@ -95,14 +95,16 @@
 - [x] artifact校验器
 - [x] deploy manifest（发布记录）
 
-### 阶段 C: RM Server MVP 📋 待开始
+### 阶段 C: RM Server MVP ✅ 已完成
 
 目标：提供稳定的reward打分服务。
 
-- [ ] RM server进程
-- [ ] API: `/healthz`, `/score`, `/batch_score`
-- [ ] 运行时加载artifact
-- [ ] 请求日志
+- [x] RM server进程（FastAPI + Uvicorn）
+- [x] API: `/healthz`, `/score`, `/batch_score`
+- [x] 运行时加载artifact（缺失 `runtime_snapshot` 启动失败）
+- [x] 请求日志（stdout + JSONL）
+- [x] 闭环LLM评分（server内部按criteria调用LLM，不接受外部传分）
+- [x] 评分同构（复用 `RubricEvaluator` 单候选评分内核）
 
 ### 阶段 D: RL训练接入与实验编排 📋 待开始
 
@@ -125,7 +127,7 @@
 |------|----------|----------|--------|------|
 | Harness收尾修缮 | 高 | 中 | P0 | ✅ 已完成 |
 | RMArtifact契约 | 高 | 中 | P0 | ✅ 已完成 |
-| RM Server MVP | 高 | 中高 | P0 | 📋 待开始 |
+| RM Server MVP | 高 | 中高 | P0 | ✅ 已完成 |
 | RL训练接入 | 高 | 中高 | P0 | 📋 待开始 |
 | 监控与告警 | 中高 | 中 | P1 | 📋 规划中 |
 | 闭环自动调度 | 中高 | 高 | P2 | 📋 规划中 |

@@ -81,6 +81,26 @@ class TestEvaluatorObjective(unittest.TestCase):
         self.assertEqual(sampled_once, sampled_twice)
         self.assertNotEqual(full, sampled_once)
 
+    def test_single_candidate_scoring_matches_candidate_ranking_path(self) -> None:
+        item = self.prompts[0]
+        rubric = HeuristicRubricInitializer().initialize(item, rng=random.Random(123))
+        evaluator = RubricEvaluator(HeuristicVerifier(noise=0.0), base_seed=7)
+        ranked = evaluator.evaluate_candidates(item, rubric)
+        lookup = {candidate.candidate_id: candidate for candidate in item.candidates}
+
+        for ranked_eval in ranked:
+            single = evaluator.evaluate_single_candidate(
+                prompt_id=item.prompt_id,
+                prompt=item.prompt,
+                candidate=lookup[ranked_eval.candidate_id],
+                rubric=rubric,
+                use_cache=False,
+            )
+            self.assertAlmostEqual(single.score, ranked_eval.score, places=8)
+            self.assertEqual(single.majority_grades, ranked_eval.majority_grades)
+            self.assertEqual(single.vote_scores, ranked_eval.vote_scores)
+            self.assertEqual(single.per_vote_grades, ranked_eval.per_vote_grades)
+
     def test_tie_tolerance_within_boundary_treated_as_tie(self) -> None:
         item = _build_two_candidate_item("same", "same")
         rubric = _build_test_rubric()

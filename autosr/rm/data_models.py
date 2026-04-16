@@ -8,6 +8,21 @@ from typing import Any, Mapping
 from ..data_models import Rubric
 
 DEPLOYMENT_TARGETS = frozenset({"dev", "staging", "prod"})
+RUNTIME_SNAPSHOT_KEYS = frozenset({"seed", "extraction", "candidate_extraction", "llm"})
+RUNTIME_LLM_KEYS = frozenset(
+    {
+        "base_url",
+        "timeout",
+        "max_retries",
+        "retry_backoff_base",
+        "retry_backoff_max",
+        "retry_jitter",
+        "fail_soft",
+        "default_model",
+        "verifier_model",
+        "prompt_language",
+    }
+)
 
 
 class ArtifactValidationError(Exception):
@@ -17,6 +32,41 @@ class ArtifactValidationError(Exception):
         super().__init__(f"{schema} validation failed for '{field}': {message}")
         self.field = field
         self.validation_message = message
+
+
+def _validate_runtime_snapshot(snapshot: Mapping[str, Any]) -> None:
+    missing = sorted(RUNTIME_SNAPSHOT_KEYS - set(snapshot.keys()))
+    if missing:
+        raise ArtifactValidationError(
+            "runtime_snapshot",
+            f"missing required keys: {missing}",
+        )
+
+    seed = snapshot.get("seed")
+    if not isinstance(seed, int):
+        raise ArtifactValidationError("runtime_snapshot.seed", "must be an integer")
+
+    extraction = snapshot.get("extraction")
+    if not isinstance(extraction, Mapping):
+        raise ArtifactValidationError("runtime_snapshot.extraction", "must be an object")
+
+    candidate_extraction = snapshot.get("candidate_extraction")
+    if not isinstance(candidate_extraction, Mapping):
+        raise ArtifactValidationError(
+            "runtime_snapshot.candidate_extraction",
+            "must be an object",
+        )
+
+    llm = snapshot.get("llm")
+    if not isinstance(llm, Mapping):
+        raise ArtifactValidationError("runtime_snapshot.llm", "must be an object")
+
+    missing_llm = sorted(RUNTIME_LLM_KEYS - set(llm.keys()))
+    if missing_llm:
+        raise ArtifactValidationError(
+            "runtime_snapshot.llm",
+            f"missing required keys: {missing_llm}",
+        )
 
 
 @dataclass(slots=True)
@@ -32,6 +82,7 @@ class RMArtifact:
     scoring_policy: dict[str, Any]
     normalization: dict[str, Any]
     compatibility: dict[str, Any]
+    runtime_snapshot: dict[str, Any] = field(default_factory=dict)
     created_at_utc: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     schema_version: str = "1.0"
 
@@ -46,6 +97,10 @@ class RMArtifact:
             raise ArtifactValidationError("config_hash", "must not be empty")
         if not self.rubric:
             raise ArtifactValidationError("rubric", "must include at least one prompt rubric")
+        if not isinstance(self.runtime_snapshot, dict):
+            raise ArtifactValidationError("runtime_snapshot", "must be an object")
+        if self.runtime_snapshot:
+            _validate_runtime_snapshot(self.runtime_snapshot)
         if self.schema_version != "1.0":
             raise ArtifactValidationError(
                 "schema_version",
@@ -68,6 +123,7 @@ class RMArtifact:
             "scoring_policy": self.scoring_policy,
             "normalization": self.normalization,
             "compatibility": self.compatibility,
+            "runtime_snapshot": self.runtime_snapshot,
         }
 
     @classmethod
@@ -81,6 +137,9 @@ class RMArtifact:
         rubric_raw = data.get("rubric", {})
         if not isinstance(rubric_raw, Mapping):
             raise ArtifactValidationError("rubric", "must be a mapping from prompt_id to rubric")
+        runtime_snapshot_raw = data.get("runtime_snapshot", {})
+        if not isinstance(runtime_snapshot_raw, Mapping):
+            raise ArtifactValidationError("runtime_snapshot", "must be an object")
         return cls(
             artifact_id=str(data.get("artifact_id", "")),
             created_at_utc=str(data.get("created_at_utc", datetime.now(timezone.utc).isoformat())),
@@ -95,6 +154,7 @@ class RMArtifact:
             scoring_policy=dict(data.get("scoring_policy", {})),
             normalization=dict(data.get("normalization", {})),
             compatibility=dict(data.get("compatibility", {})),
+            runtime_snapshot=dict(runtime_snapshot_raw),
             schema_version=schema_version,
         )
 

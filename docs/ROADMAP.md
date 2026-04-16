@@ -87,24 +87,26 @@
 
 ---
 
-### 阶段 C：RM Server MVP 📋 待开始
+### 阶段 C：RM Server MVP ✅ 已完成
 
 目标：提供稳定的 reward 打分服务，供 RL 训练调用。
 
 #### 关键任务
-- [ ] 实现 RM server 进程（本地部署优先）
-- [ ] 最小 API：
+- [x] 实现 RM server 进程（本地部署优先）
+- [x] 最小 API：
   - `GET /healthz`
   - `POST /score`（单样本）
   - `POST /batch_score`（批量）
-- [ ] 运行时加载指定 `RMArtifact`
-- [ ] 记录请求日志（request_id、artifact_id、latency、异常）
-- [ ] 提供热切换或重启切换 artifact 的安全机制
+- [x] 运行时加载指定 `RMArtifact`
+- [x] 记录请求日志（request_id、artifact_id、latency、异常）
+- [x] 提供重启切换 artifact 的安全机制
+- [x] server 内部 LLM 按 criterion 闭环打分（不接受外部传分）
+- [x] 复用搜索评分内核，保持在线/离线评分同构
 
 #### Go/No-Go
-- [ ] 正确性：与离线评分实现一致
+- [x] 正确性：与离线评分实现一致（单测验证同构）
 - [ ] 稳定性：训练负载下无明显崩溃/泄漏
-- [ ] 可观测：请求成功率、延迟分布可导出
+- [x] 可观测：请求日志可导出（stdout + JSONL）
 
 ---
 
@@ -158,7 +160,7 @@
 |------|----------|----------|--------|------|
 | Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | ✅ 已完成 |
 | RMArtifact 契约与导出 | 高 | 中 | P0 | ✅ 已完成 |
-| RM Server MVP | 高 | 中高 | P0 | 📋 待开始 |
+| RM Server MVP | 高 | 中高 | P0 | ✅ 已完成 |
 | RL 训练接入与实验编排 | 高 | 中高 | P0 | 📋 待开始 |
 | 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 待开始 |
 | 闭环自动调度与灰度发布 | 中高 | 高 | P2 | 📋 规划中 |

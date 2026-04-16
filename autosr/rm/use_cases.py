@@ -38,6 +38,81 @@ def _build_config_hash(run_manifest: Mapping[str, Any] | None) -> str:
     return compute_config_hash(hash_material)
 
 
+def _build_runtime_snapshot(run_manifest: Mapping[str, Any] | None) -> dict[str, Any]:
+    if run_manifest is None:
+        return {}
+
+    seed_raw = run_manifest.get("seed", 7)
+    seed = int(seed_raw) if isinstance(seed_raw, (int, float, str)) else 7
+
+    config_snapshot = run_manifest.get("config_snapshot", {})
+    extraction_snapshot = {
+        "strategy": "identity",
+        "tag_name": "content",
+        "pattern": None,
+        "join_separator": "\n\n",
+    }
+    candidate_extraction_snapshot = {
+        "strategy": "answer",
+        "join_separator": "\n\n",
+    }
+    if isinstance(config_snapshot, Mapping):
+        extraction = config_snapshot.get("extraction", {})
+        if isinstance(extraction, Mapping):
+            extraction_snapshot = {
+                "strategy": str(extraction.get("strategy", "identity")),
+                "tag_name": str(extraction.get("tag_name", "content")),
+                "pattern": extraction.get("pattern"),
+                "join_separator": str(extraction.get("join_separator", "\n\n")),
+            }
+
+        candidate_extraction = config_snapshot.get("candidate_extraction", {})
+        if isinstance(candidate_extraction, Mapping):
+            candidate_extraction_snapshot = {
+                "strategy": str(candidate_extraction.get("strategy", "answer")),
+                "join_separator": str(candidate_extraction.get("join_separator", "\n\n")),
+            }
+
+    llm_snapshot = run_manifest.get("llm_snapshot", {})
+    llm_runtime_snapshot = {
+        "base_url": "https://openrouter.ai/api/v1",
+        "timeout": 30.0,
+        "max_retries": 2,
+        "retry_backoff_base": 0.5,
+        "retry_backoff_max": 8.0,
+        "retry_jitter": 0.2,
+        "fail_soft": False,
+        "default_model": "stepfun/step-3.5-flash:free",
+        "verifier_model": "stepfun/step-3.5-flash:free",
+        "prompt_language": None,
+    }
+    if isinstance(llm_snapshot, Mapping):
+        default_model = str(llm_snapshot.get("default_model", llm_runtime_snapshot["default_model"]))
+        llm_runtime_snapshot = {
+            "base_url": str(llm_snapshot.get("base_url", llm_runtime_snapshot["base_url"])),
+            "timeout": float(llm_snapshot.get("timeout", llm_runtime_snapshot["timeout"])),
+            "max_retries": int(llm_snapshot.get("max_retries", llm_runtime_snapshot["max_retries"])),
+            "retry_backoff_base": float(
+                llm_snapshot.get("retry_backoff_base", llm_runtime_snapshot["retry_backoff_base"])
+            ),
+            "retry_backoff_max": float(
+                llm_snapshot.get("retry_backoff_max", llm_runtime_snapshot["retry_backoff_max"])
+            ),
+            "retry_jitter": float(llm_snapshot.get("retry_jitter", llm_runtime_snapshot["retry_jitter"])),
+            "fail_soft": bool(llm_snapshot.get("fail_soft", llm_runtime_snapshot["fail_soft"])),
+            "default_model": default_model,
+            "verifier_model": str(llm_snapshot.get("verifier_model", default_model)),
+            "prompt_language": llm_snapshot.get("prompt_language"),
+        }
+
+    return {
+        "seed": seed,
+        "extraction": extraction_snapshot,
+        "candidate_extraction": candidate_extraction_snapshot,
+        "llm": llm_runtime_snapshot,
+    }
+
+
 def _extract_rubric_map(search_output: Mapping[str, Any]) -> dict[str, Rubric]:
     best_rubrics = search_output.get("best_rubrics", [])
     if not isinstance(best_rubrics, list) or not best_rubrics:
@@ -116,6 +191,9 @@ def build_rm_artifact(
             "min_rm_api_version": "1.0",
             "output_schema": "reward_score_v1",
         },
+        runtime_snapshot=_build_runtime_snapshot(
+            run_manifest if isinstance(run_manifest, Mapping) else None
+        ),
     )
     return artifact
 

@@ -23,6 +23,12 @@
   - `DeployManifest` schema（含发布追溯字段）
   - `record_deploy_manifest` 用例（自动推断 `previous_artifact_id`）
   - `autosr.rm.deploy` CLI（一部署一文件）
+- ✅ 阶段 C RM Server MVP 已完成：
+  - `autosr.rm.server`（FastAPI + Uvicorn）
+  - API：`/healthz`、`/score`、`/batch_score`
+  - server 内部 LLM 闭环评分（按 criteria 打分，不接受外部传分）
+  - 评分同构（复用 `RubricEvaluator` 单候选评分内核）
+  - 请求日志（stdout + JSONL）
 
 ---
 
@@ -157,6 +163,8 @@ Search Output -> RM Artifact Builder -> Artifact Store
 RM Artifact -> RM Server -> /score|/batch_score
 ```
 
+当前状态：✅ 已完成（MVP）
+
 ### 阶段 D（RL 训练接入）
 
 训练端通过 endpoint 获取 reward，训练 run 自动绑定 artifact。
@@ -192,7 +200,7 @@ uv run python -m autosr.rm.server --artifact artifacts/rm_artifacts/rm_v1.json -
 uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --manifest artifacts/training_runs/run_001.json
 ```
 
-说明：以上为目标接口草案，不代表当前已实现。其中 `autosr.rm.export` 已实现，`autosr.rm.server` 和 `autosr.rl.train` 仍为规划项。
+说明：`autosr.rm.export` 与 `autosr.rm.server` 已实现，`autosr.rl.train` 仍为规划项。
 
 ---
 

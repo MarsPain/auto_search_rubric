@@ -1,6 +1,6 @@
 # AutoSR 架构设计
 
-> **版本**: v1.0 | **状态**: 稳定 | **最后更新**: 2026-04-04
+> **版本**: v1.1 | **状态**: 稳定 | **最后更新**: 2026-04-16
 
 ---
 
@@ -114,6 +114,7 @@ RMArtifact(
     scoring_policy: dict
     normalization: dict
     compatibility: dict
+    runtime_snapshot: dict  # seed/extraction/candidate_extraction/llm(verifier)
 )
 ```
 
@@ -143,7 +144,7 @@ TrainingRunManifest(
 | `autosr/harness/storage.py` | 状态持久化 | `StateManager` |
 | `autosr/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
 | `autosr/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
-| `autosr/rm/` | RM Artifact管理 | `RMArtifact`, `ArtifactExporter` |
+| `autosr/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |
 | `autosr/config.py` | 运行时配置 | `RuntimeConfig` |
 | `autosr/data_models.py` | 领域实体 | `Rubric`, `Criterion` |
 | `autosr/types.py` | 统一枚举 | `BackendType`, `SearchMode` |
@@ -160,14 +161,18 @@ uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
 
 # 导出RM artifact
 uv run python -m autosr.rm.export --search-output ... --out-artifact ...
+
+# 启动RM server（闭环LLM评分）
+uv run python -m autosr.rm.server \
+  --artifact artifacts/rm_artifacts/rm_v1.json \
+  --host 0.0.0.0 \
+  --port 8080 \
+  --request-log-path artifacts/rm_server_logs/requests.jsonl
 ```
 
 ### 规划API
 
 ```bash
-# 启动RM server
-uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080
-
 # RL训练
 uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...
 ```
