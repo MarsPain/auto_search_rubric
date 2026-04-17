@@ -83,8 +83,8 @@
                                │ reward API
                                ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                   RL Training Orchestrator                   │
-│   (trainer integration, run manifest, retry/recovery)        │
+│             RL Integration Metadata Plane                    │
+│  (contracts, registry, lineage query, reference flow docs)   │
 └──────────────────────────────┬───────────────────────────────┘
                                │ train/eval metrics
                                ▼
@@ -123,17 +123,17 @@
 - `normalization`
 - `compatibility`
 
-### 3.3 Training Run Manifest（新增）
+### 3.3 Training Manifests & Eval Reports（新增）
 
-用途：训练可追溯与可比较。
+用途：以版本化契约记录训练前声明、训练后事实和评测结果。
 
-建议最小字段：
-- `training_run_id`
-- `rm_artifact_id`
-- `search_session_id`
-- `dataset_version`
-- `trainer_config`
-- `code_version`
+建议最小对象：
+- `TrainingManifest`
+- `TrainingResultManifest`
+- `EvalReport`
+
+详细字段与交互时序见：
+- [02-stage-d-rl-lineage.md](02-stage-d-rl-lineage.md)
 
 ---
 
@@ -167,7 +167,7 @@ RM Artifact -> RM Server -> /score|/batch_score
 
 ### 阶段 D（RL 训练接入）
 
-训练端通过 endpoint 获取 reward，训练 run 自动绑定 artifact。
+训练端通过 endpoint 获取 reward，并通过版本化 manifest/result/report 与 `autosr` 建立稳定握手。
 
 ### 阶段 E（监控评测）
 
@@ -196,11 +196,17 @@ uv run python -m autosr.rm.export --search-output artifacts/best_rubrics.json --
 # 启动 RM server
 uv run python -m autosr.rm.server --artifact artifacts/rm_artifacts/rm_v1.json --host 0.0.0.0 --port 8080
 
-# RL 训练接入 RM endpoint
-uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --manifest artifacts/training_runs/run_001.json
+# 记录训练前 manifest（规划）
+uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
+
+# 训练结果回填（规划）
+uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
+
+# 评测结果回填（规划）
+uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
 ```
 
-说明：`autosr.rm.export` 与 `autosr.rm.server` 已实现，`autosr.rl.train` 仍为规划项。
+说明：`autosr.rm.export` 与 `autosr.rm.server` 已实现；Stage D 规划的是“契约 + registry + reference flow”，而不是在 `autosr` 内实现 trainer。
 
 ---
 

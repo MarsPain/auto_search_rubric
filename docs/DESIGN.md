@@ -118,18 +118,56 @@ RMArtifact(
 )
 ```
 
-### Training Run Manifest（追溯用）
+### TrainingManifest（训练前声明）
 
-用途：训练可追溯与可比较。
+用途：记录训练启动前绑定的 reward、数据、trainer 代码版本与执行上下文。
 
 ```python
-TrainingRunManifest(
+TrainingManifest(
     training_run_id: str
     rm_artifact_id: str
+    rm_deploy_id: str
     search_session_id: str
-    dataset_version: str
+    rm_endpoint: str
+    dataset: dict
+    trainer: dict
     trainer_config: dict
-    code_version: str
+    execution: dict
+    tags: list[str]
+)
+```
+
+### TrainingResultManifest（训练后事实）
+
+用途：记录训练终态、产物路径与失败信息；必须覆盖成功与失败两类 run。
+
+```python
+TrainingResultManifest(
+    training_run_id: str
+    status: str  # succeeded | failed | canceled
+    started_at_utc: str
+    finished_at_utc: str
+    duration_seconds: float
+    trainer_code_version: str
+    output: dict
+    reward_summary: dict
+    training_summary: dict
+    failure: dict | None
+)
+```
+
+### EvalReport（评测报告）
+
+用途：记录 benchmark、指标与 baseline 对比，支持同一 training run 的多次评测。
+
+```python
+EvalReport(
+    eval_run_id: str
+    training_run_id: str
+    benchmark: dict
+    metrics: dict
+    summary: dict
+    comparison_baseline: dict | None
 )
 ```
 
@@ -145,6 +183,7 @@ TrainingRunManifest(
 | `autosr/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
 | `autosr/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
 | `autosr/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |
+| `autosr/rl/` | RL接入契约与实验记录平面（规划） | `TrainingManifest`, `TrainingResultManifest`, `EvalReport` |
 | `autosr/config.py` | 运行时配置 | `RuntimeConfig` |
 | `autosr/data_models.py` | 领域实体 | `Rubric`, `Criterion` |
 | `autosr/types.py` | 统一枚举 | `BackendType`, `SearchMode` |
@@ -173,8 +212,17 @@ uv run python -m autosr.rm.server \
 ### 规划API
 
 ```bash
-# RL训练
-uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...
+# 记录训练前 manifest（规划）
+uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
+
+# 训练结果回填（规划）
+uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
+
+# 评测结果回填（规划）
+uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
+
+# 查询 lineage（规划）
+uv run python -m autosr.rl.show_lineage --training-run-id run_001
 ```
 
 ---
@@ -195,5 +243,6 @@ uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manif
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - 架构顶层地图（域与分层）
 - [design-docs/01-architecture.md](design-docs/01-architecture.md) - 详细架构演进
+- [design-docs/02-stage-d-rl-lineage.md](design-docs/02-stage-d-rl-lineage.md) - Stage D 详细设计
 - [PLANS.md](PLANS.md) - 执行计划管理
 - [PRODUCT_SENSE.md](PRODUCT_SENSE.md) - 产品方向与需求
