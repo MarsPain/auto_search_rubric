@@ -1,12 +1,12 @@
 # AutoSR Roadmap: 从 Rubric Search 到 RM+RL 闭环
 
-> **版本**: v1.0 | **最后更新**: 2026-04-16
+> **版本**: v1.1 | **最后更新**: 2026-04-17
 > 
 > 将 `autosr` 从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。
 
 ---
 
-## 当前状态（截至 2026-04-16）
+## 当前状态（截至 2026-04-17）
 
 ### 已经完成且建议保留
 
@@ -22,7 +22,7 @@
 ### 这批改动的定位
 
 - 它们是"**工程底座**"，不是"RM/RL 主业务闭环"。
-- 结论：**保留并继续演进**，但后续路线必须切向 RM server、RL 驱动、训练/评测监控。
+- 结论：**保留并继续演进**，但后续路线必须切向 RM server、RL 驱动、classifier RM 蒸馏、训练/评测监控。
 
 ---
 
@@ -34,14 +34,15 @@
 2. 将当前最优 rubric 产出为可部署的 RM artifact（版本化）
 3. 自动部署/更新 RM server（稳定评分 API）
 4. RL 训练任务消费 RM server 进行 reward 计算
-5. 监控 RL 训练与评测，触发告警与回归分析
-6. 根据评测结果决定是否再次触发 rubric search
+5. 基于 RL 采样自动蒸馏 classifier RM，降低 reward 成本并沉淀偏好数据
+6. 监控 RL 训练、classifier RM 与评测表现，触发告警与回归分析
+7. 根据评测结果决定是否再次触发 rubric search
 
 ---
 
 ## 设计原则（重定向后的硬约束）
 
-1. **闭环优先**：任何新增能力必须服务 `Search -> RM -> RL -> Eval` 链路。
+1. **闭环优先**：任何新增能力必须服务 `Search -> RM -> RL -> Classifier RM -> Eval` 链路。
 2. **契约先行**：先定义 artifact/API/指标契约，再做实现。
 3. **可回滚**：每次 RM 发布、每次训练实验都可追溯到明确版本。
 4. **兼容现有 CLI**：`uv run python -m autosr.cli` 继续可用。
@@ -110,7 +111,7 @@
 
 ---
 
-### 阶段 D：RL 训练接入与实验编排 📋 待开始
+### 阶段 D：RL 训练接入与实验编排 🚧 设计完成，待实现
 
 目标：让 RL 训练可直接消费 RM server，并将训练结果与 RM/Search 版本绑定。
 
@@ -138,13 +139,45 @@
 
 ---
 
-### 阶段 E：训练与评测监控 📋 规划中
+### 阶段 E：基于 RL 采样自动训练 Classifier RM 📋 规划中
+
+目标：复用 RL 训练中的采样数据，自动构建去噪后的打分/偏好数据，并交由外部项目训练 classifier RM。
+
+#### 关键任务
+- [ ] 数据模型统一：
+  - RL 采样批次元信息（来源 run、checkpoint、采样策略）
+  - 原始打分数据（`query`、`response`、`score`）
+  - 偏好数据（`query`、`chosen_response`、`rejected_response`、`margin`）
+- [ ] 多次重复打分降噪：
+  - 对同一 `(query, response)` 做多次评分
+  - 记录 criterion 级与总分级均值/方差
+  - 基于方差与 margin 做 pair 过滤
+- [ ] 建立 append-only classifier RM 数据 registry：
+  - `artifacts/classifier_rm/sample_batches/`
+  - `artifacts/classifier_rm/score_datasets/`
+  - `artifacts/classifier_rm/preference_datasets/`
+  - `artifacts/classifier_rm/training_runs/`
+- [ ] 定义 classifier RM 训练契约：
+  - `ClassifierRMTrainingManifest`
+  - `ClassifierRMTrainingResult`
+  - `ClassifierRMArtifact`
+- [ ] 文档化外部 classifier RM repo 参考交互时序与回填流程
+
+#### Go/No-Go
+- [ ] 任一 classifier RM artifact 可回查到 teacher RM artifact / deploy
+- [ ] 任一 preference pair 可回查到原始采样与重复打分记录
+- [ ] 不同 RL run 的样本可被统一构造成同口径训练集
+
+---
+
+### 阶段 F：训练、Classifier RM 与评测监控 📋 规划中
 
 目标：建立面向运营的训练/评测监控，支持告警与回归定位。
 
 #### 关键任务
 - [ ] 指标模型统一：
-  - 训练指标（reward trend、stability、KL/entropy 等）
+  - RL 训练指标（reward trend、stability、KL/entropy 等）
+  - classifier RM 训练指标（pair accuracy、val loss、calibration 等）
   - 评测指标（win-rate、任务成功率、拒答率等）
   - RM 服务指标（QPS、p95、error rate）
 - [ ] 时间序列存储与看板
@@ -153,7 +186,7 @@
 
 ---
 
-### 阶段 F：闭环调度 📋 规划中
+### 阶段 G：闭环调度 📋 规划中
 
 目标：让系统在评测退化时自动触发新一轮 rubric search，并进入灰度发布。
 
@@ -171,8 +204,9 @@
 | Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | ✅ 已完成 |
 | RMArtifact 契约与导出 | 高 | 中 | P0 | ✅ 已完成 |
 | RM Server MVP | 高 | 中高 | P0 | ✅ 已完成 |
-| RL 训练接入与实验编排 | 高 | 中高 | P0 | 📋 待开始 |
-| 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 待开始 |
+| RL 训练接入与实验编排 | 高 | 中高 | P0 | 🚧 设计完成，待实现 |
+| Classifier RM 自动蒸馏 | 高 | 中高 | P0 | 📋 规划中 |
+| 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 规划中 |
 | 闭环自动调度与灰度发布 | 中高 | 高 | P2 | 📋 规划中 |
 | Benchmark/分布式扩展 | 中 | 高 | P3 | ⏸️ 延后 |
 
@@ -215,6 +249,18 @@ uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080 --re
 
 # 5) RL 训练消费 RM endpoint（规划）
 uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...
+
+# 6) 登记 RL 采样批次（规划）
+uv run python -m autosr.classifier_rm.record_sample_batch --manifest ...
+
+# 7) 构建重复打分数据集（规划）
+uv run python -m autosr.classifier_rm.build_score_dataset --sample-batch sample_batch_001 --repeat-count 5
+
+# 8) 构建偏好数据集（规划）
+uv run python -m autosr.classifier_rm.build_preference_dataset --score-dataset score_dataset_001 --pairing-policy hybrid
+
+# 9) 准备 classifier RM 训练 manifest（规划）
+uv run python -m autosr.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
 ```
 
 ---
@@ -230,6 +276,9 @@ uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manif
 - 明确 Stage D 方向采用 “Contract + Registry + Reference Flow”：
   `autosr` 负责训练契约、append-only registry 与 lineage 查询；外部 RL repo 负责 trainer 执行与结果回填。
 - 新增 Stage D 详细设计文档 `docs/design-docs/02-stage-d-rl-lineage.md`，补齐 TrainingManifest / TrainingResultManifest / EvalReport、参考交互时序、目录约定与失败恢复策略。
+- 新增 Stage E 方向：基于 RL 采样自动蒸馏 classifier RM，位于 Stage D 之后、监控之前。
+- 新增 Stage E 详细设计文档 `docs/design-docs/03-stage-e-classifier-rm.md`，补齐 sample batch / repeated score dataset / preference dataset / classifier training handshake。
+- 原路线图中的“训练与评测监控 / 闭环调度”顺延为 Stage F / Stage G，以保持阶段语义清晰。
 
 ### 2026-04-04
 - 阶段 A 收尾完成：RNG state 恢复修复、`checkpoint_interval_seconds` 生效、resume 语义落地、scheduler state 可恢复。

@@ -1,9 +1,9 @@
 # AutoSR 架构演进图（面向 RM Server + RL 训练闭环）
 
-> **版本**: v1.0 | **状态**: 稳定 | **最后更新**: 2026-04-16
+> **版本**: v1.1 | **状态**: 稳定 | **最后更新**: 2026-04-17
 > 
 > 本文档与 `docs/ROADMAP.md` 保持一致，目标是把当前 Harness 底座延展为：
-> `Rubric Search -> RM Artifact -> RM Server -> RL Training -> Eval & Monitoring -> Search Refresh`
+> `Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distillation -> Eval & Monitoring -> Search Refresh`
 
 ---
 
@@ -86,7 +86,13 @@
 │             RL Integration Metadata Plane                    │
 │  (contracts, registry, lineage query, reference flow docs)   │
 └──────────────────────────────┬───────────────────────────────┘
-                               │ train/eval metrics
+                               │ sampled (query, response)
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│             Classifier RM Distillation Plane                 │
+│  sample registry, denoising, preference builder, train flow  │
+└──────────────────────────────┬───────────────────────────────┘
+                               │ distilled artifact + metrics
                                ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                  Monitoring & Evaluation Plane               │
@@ -123,7 +129,7 @@
 - `normalization`
 - `compatibility`
 
-### 3.3 Training Manifests & Eval Reports（新增）
+### 3.3 Training Manifests（Stage D）
 
 用途：以版本化契约记录训练前声明、训练后事实和评测结果。
 
@@ -134,6 +140,21 @@
 
 详细字段与交互时序见：
 - [02-stage-d-rl-lineage.md](02-stage-d-rl-lineage.md)
+
+### 3.4 Classifier RM Distillation Contracts（Stage E）
+
+用途：记录 RL 采样导入、重复打分降噪、偏好构造与 classifier RM 训练握手。
+
+建议最小对象：
+- `RLSampleBatchManifest`
+- `RepeatedScoreDatasetManifest`
+- `PreferenceDatasetManifest`
+- `ClassifierRMTrainingManifest`
+- `ClassifierRMTrainingResult`
+- `ClassifierRMArtifact`
+
+详细字段与交互时序见：
+- [03-stage-e-classifier-rm.md](03-stage-e-classifier-rm.md)
 
 ---
 
@@ -169,11 +190,15 @@ RM Artifact -> RM Server -> /score|/batch_score
 
 训练端通过 endpoint 获取 reward，并通过版本化 manifest/result/report 与 `autosr` 建立稳定握手。
 
-### 阶段 E（监控评测）
+### 阶段 E（Classifier RM 自动蒸馏）
+
+基于 Stage D 的训练 lineage 与 RL 采样，自动构建去噪后的打分/偏好数据，并通过外部 trainer 训练 classifier RM。
+
+### 阶段 F（监控评测）
 
 引入指标看板、告警、回归分析，支持对比不同 artifact 下的训练表现。
 
-### 阶段 F（闭环控制）
+### 阶段 G（闭环控制）
 
 根据评测退化自动触发 search refresh，并支持 canary 与 rollback。
 
@@ -204,6 +229,12 @@ uv run python -m autosr.rl.record_result --result artifacts/training_runs/result
 
 # 评测结果回填（规划）
 uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
+
+# 登记 RL 采样批次（规划）
+uv run python -m autosr.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
+
+# 准备 classifier RM 训练（规划）
+uv run python -m autosr.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
 ```
 
 说明：`autosr.rm.export` 与 `autosr.rm.server` 已实现；Stage D 规划的是“契约 + registry + reference flow”，而不是在 `autosr` 内实现 trainer。
@@ -222,7 +253,10 @@ uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/ev
 │  └─────────────────────┘   └──────────────────────────────┘  │
 │              ▲                          │                     │
 │              │                          ▼                     │
-│        RM Artifact Store       Train/Eval Metrics Store      │
+│        RM Artifact Store       Sample / Metrics Store        │
+│                                         │                    │
+│                                         ▼                    │
+│                              Classifier RM Trainer Process   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -233,6 +267,9 @@ Search Harness -> Artifact Registry -> RM Service Cluster
                                       │
                                       ▼
                                RL Training Jobs
+                                      │
+                                      ▼
+                         Classifier RM Distillation Jobs
                                       │
                                       ▼
                            Metrics + Alerts + Reports
@@ -261,7 +298,7 @@ Monitoring Regression Trigger -> Search Refresh -> Canary Deploy -> Promote/Roll
 ## 8. 与 ROADMAP 对齐检查
 
 - 保留阶段 A（现有 Harness）作为底座，而非最终目标。
-- 后续阶段主线统一为 `Artifact -> RM Server -> RL -> Monitoring -> Closed Loop`。
+- 后续阶段主线统一为 `Artifact -> RM Server -> RL -> Classifier RM Distillation -> Monitoring -> Closed Loop`。
 - 分布式与 benchmark 扩展明确降级为后置项，不抢占主线资源。
 
 ---
@@ -275,3 +312,8 @@ Monitoring Regression Trigger -> Search Refresh -> Canary Deploy -> Promote/Roll
 ### 2026-04-16
 - 阶段 B deploy manifest 收尾完成，补齐发布记录契约与 CLI。
 - 更新阶段状态：阶段 B 从“进行中”转为“已完成”。
+
+### 2026-04-17
+- 同步 Stage D 详细设计落地，明确 RL integration metadata plane 的边界。
+- 新增 Stage E：基于 RL 采样自动蒸馏 classifier RM，并补充对应详细设计文档。
+- 原“监控评测 / 闭环控制”顺延为 Stage F / Stage G。
