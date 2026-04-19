@@ -111,31 +111,31 @@
 
 ---
 
-### 阶段 D：RL 训练接入与实验编排 🚧 设计完成，待实现
+### 阶段 D：RL 训练接入与实验编排 ✅ 已完成
 
 目标：让 RL 训练可直接消费 RM server，并将训练结果与 RM/Search 版本绑定。
 
 #### 关键任务
-- [ ] 定义 `TrainingManifest`（训练前声明）：
+- [x] 定义 `TrainingManifest`（训练前声明）：
   - `training_run_id`, `rm_artifact_id`, `rm_deploy_id`, `search_session_id`
   - `rm_endpoint`, 数据版本、trainer 代码版本、执行上下文
-- [ ] 定义 `TrainingResultManifest`（训练后事实）：
+- [x] 定义 `TrainingResultManifest`（训练后事实）：
   - 成功/失败/取消终态
   - 训练摘要、reward summary、输出路径、失败信息
-- [ ] 定义 `EvalReport`（标准化评测报告）：
+- [x] 定义 `EvalReport`（标准化评测报告）：
   - benchmark 元信息、扁平 metrics、baseline 对比
-- [ ] 建立 append-only training registry：
+- [x] 建立 append-only training registry：
   - `artifacts/training_runs/manifests/`
   - `artifacts/training_runs/results/`
   - `artifacts/training_runs/evals/`
-- [ ] 提供 lineage 查询能力：
+- [x] 提供 lineage 查询能力：
   - `training_run -> rm_deploy -> rm_artifact -> search_session`
-- [ ] 文档化外部 RL repo 参考交互时序、目录约定与回填流程
+- [x] 文档化外部 RL repo 参考交互时序、目录约定与回填流程
 
 #### Go/No-Go
-- [ ] 任一训练 run 可回放关键上下文与 reward 来源链
-- [ ] 失败 run 可被记录、查询并诊断
-- [ ] 可横向比较不同 RM artifact 对训练结果与评测结果的影响
+- [x] 任一训练 run 可回放关键上下文与 reward 来源链
+- [x] 失败 run 可被记录、查询并诊断
+- [x] 可横向比较不同 RM artifact 对训练结果与评测结果的影响
 
 ---
 

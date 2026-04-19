@@ -148,6 +148,9 @@ class TestRMServerApi(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["artifact_id"], "rm_server_001")
+        self.assertEqual(payload["source_session_id"], "session_123")
+        self.assertEqual(payload["schema_version"], "1.0")
+        self.assertEqual(payload["rm_api_version"], "1.0")
 
     def test_score_success(self) -> None:
         response = self.client.post(

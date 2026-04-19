@@ -219,7 +219,9 @@ def create_app(runtime: RMServerRuntime) -> FastAPI:
         return {
             "status": "ok",
             "artifact_id": runtime.artifact.artifact_id,
+            "source_session_id": runtime.artifact.source_session_id,
             "schema_version": runtime.artifact.schema_version,
+            "rm_api_version": "1.0",
         }
 
     @app.post("/score")
