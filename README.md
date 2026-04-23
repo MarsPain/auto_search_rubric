@@ -6,7 +6,7 @@ Automated search framework for rubric-based reward modeling, inspired by:
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
 This repository keeps `iterative` as a baseline and uses `evolutionary` as the default search mode.
-It now covers the path from rubric search to deployable RM artifacts and an RM server MVP for online scoring.
+It now covers the path from rubric search to deployable RM artifacts and an RM server MVP for online scoring. RL experiment lineage tracking and external RL training run referencing are under active design (Stage D/E).
 
 ## Highlights
 
@@ -83,6 +83,13 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 - `autosr/content_extraction/use_cases.py`: extraction-decorated verifier
 - `autosr/prompts/loader.py` + `autosr/prompts/constants.py`: file templates and constant fallback
 
+### RL Domain (Stage D/E — active design)
+
+- `autosr/rl/`: experiment registry, lineage tracking, and external RL training-run reference scaffolding
+  - `data_models.py`, `registry.py`, `lineage.py`, `validation.py`, `io.py`
+  - `cli/`: `record_manifest`, `record_eval`, `record_result`, `show_lineage`
+  - `verl/`: `prepare_training_run`, `run_verl_training`, `finalize_training_run`, `reward_client`
+
 ### RM Artifact + Serving Domain
 
 - `autosr/rm/data_models.py`: deployable RM artifact schema and deploy manifest schema
@@ -95,6 +102,7 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 
 - `autosr/`: core package
 - `autosr/rm/`: RM artifact/export/deploy/server modules
+- `autosr/rl/`: RL experiment lineage and external training-run reference modules
 - `prompts/`: prompt templates (supports locale folders such as `prompts/zh/` and `prompts/en/`)
 - `tests/`: `unittest` test suite
 - `scripts/`: unit/integration/formal run scripts
@@ -344,6 +352,14 @@ uv run python -m unittest \
   tests.test_data_models_compat \
   tests.test_exceptions_module \
   tests.test_evolutionary_decoupling
+```
+
+RL lineage regression set:
+
+```bash
+uv run python -m unittest \
+  tests.test_rl_lineage \
+  tests.test_rl_verl_reference_flow
 ```
 
 RM artifact/server regression set:

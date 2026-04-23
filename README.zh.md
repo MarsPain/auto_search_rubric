@@ -6,7 +6,7 @@
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
 
 本仓库保留 `iterative` 作为基线，并将 `evolutionary` 作为默认搜索模式。
-当前能力也已覆盖从 rubric search 到可部署 RM artifact，再到在线评分 RM server MVP 的主链路。
+当前能力已覆盖从 rubric search 到可部署 RM artifact、在线评分 RM server MVP 的主链路。RL 实验血统追踪与外部 RL 训练流程引用尚在活跃设计中（Stage D/E）。
 
 ## 亮点
 
@@ -83,6 +83,13 @@
 - `autosr/content_extraction/use_cases.py`：带提取装饰器的 verifier
 - `autosr/prompts/loader.py` + `autosr/prompts/constants.py`：模板加载与常量回退
 
+### RL 域（Stage D/E — 活跃设计中）
+
+- `autosr/rl/`：实验注册、血统追踪与外部 RL 训练流程引用脚手架
+  - `data_models.py`、`registry.py`、`lineage.py`、`validation.py`、`io.py`
+  - `cli/`：`record_manifest`、`record_eval`、`record_result`、`show_lineage`
+  - `verl/`：`prepare_training_run`、`run_verl_training`、`finalize_training_run`、`reward_client`
+
 ### RM Artifact 与服务域
 
 - `autosr/rm/data_models.py`：可部署 RM artifact schema 与 deploy manifest schema
@@ -95,6 +102,7 @@
 
 - `autosr/`：核心包
 - `autosr/rm/`：RM artifact / export / deploy / server 模块
+- `autosr/rl/`：RL 实验血统与外部训练流程引用模块
 - `prompts/`：提示词模板（支持 `prompts/zh/`、`prompts/en/` 等 locale 子目录）
 - `tests/`：`unittest` 测试集
 - `scripts/`：单测/集测/formal 运行脚本
@@ -344,6 +352,14 @@ uv run python -m unittest \
   tests.test_data_models_compat \
   tests.test_exceptions_module \
   tests.test_evolutionary_decoupling
+```
+
+RL 血统回归测试集合：
+
+```bash
+uv run python -m unittest \
+  tests.test_rl_lineage \
+  tests.test_rl_verl_reference_flow
 ```
 
 RM artifact / server 回归测试集合：

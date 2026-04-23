@@ -131,6 +131,12 @@
 - [x] 提供 lineage 查询能力：
   - `training_run -> rm_deploy -> rm_artifact -> search_session`
 - [x] 文档化外部 RL repo 参考交互时序、目录约定与回填流程
+- [x] 比较视图与回归检测（D3）：
+  - `compare_runs` / `compare_artifacts` — 横向比较不同 artifact 的评测结果
+  - `detect_regression` — 自动 baseline 推断与回归分级（critical/warning/info）
+  - `detect_anomalies` — 异常 run 识别（失败、无 eval、零时长）
+  - `list_runs` CLI 增强 — 按 artifact/status/dataset 过滤与异常标记
+  - `show_lineage --with-baseline-delta` — baseline 指标差异展示
 
 #### Go/No-Go
 - [x] 任一训练 run 可回放关键上下文与 reward 来源链
@@ -291,5 +297,12 @@ uv run python -m autosr.classifier_rm.prepare_training --preference-dataset pref
 - 保留阶段 A（当前 harness）作为底座，不再作为最终目标本身。
 
 ---
+
+### 2026-04-22
+- 阶段 D3 完成：补齐 Comparative Experiment View，实现 `autosr/rl/comparison.py` 核心比较引擎。
+- 新增 CLI：`compare_runs`、`compare_artifacts`、`check_regression`、`list_runs`；增强 `show_lineage --with-baseline-delta`。
+- Registry 新增过滤查询：`list_runs_by_artifact`、`list_runs_by_dataset_version`、`list_runs_by_status`。
+- 新增 `tests/test_rl_comparison.py`，38 个测试覆盖比较、回归、异常、聚合、CLI 集成。
+- 阶段 D 整体标记为 ✅ 已完成，`PLANS.md` 同步更新。
 
 *本路线图为活文档，随项目进展持续更新。*

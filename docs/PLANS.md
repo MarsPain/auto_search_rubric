@@ -18,7 +18,9 @@
 
 ## 活跃计划 (Active)
 
-暂无活跃计划。
+| 计划 | 描述 | 优先级 | 创建日期 | 文档 |
+|------|------|--------|----------|------|
+| Stage D3 - Comparative Experiment View | 横向比较、baseline对比、回归检测 | P0 | 2026-04-22 | [stage-d3-comparative-view.md](exec-plans/active/stage-d3-comparative-view.md) |
 
 ### 计划模板
 
@@ -138,7 +140,7 @@
 | Harness收尾修缮 | 高 | 中 | P0 | ✅ 已完成 |
 | RMArtifact契约 | 高 | 中 | P0 | ✅ 已完成 |
 | RM Server MVP | 高 | 中高 | P0 | ✅ 已完成 |
-| RL训练接入 | 高 | 中高 | P0 | 🚧 设计完成，待实现 |
+| RL训练接入 | 高 | 中高 | P0 | ✅ 已完成 |
 | Classifier RM自动蒸馏 | 高 | 中高 | P0 | 📋 规划中 |
 | 监控与告警 | 中高 | 中 | P1 | 📋 规划中 |
 | 闭环自动调度 | 中高 | 高 | P2 | 📋 规划中 |

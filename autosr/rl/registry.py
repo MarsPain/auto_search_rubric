@@ -263,6 +263,35 @@ class ExperimentRegistry:
     def list_training_run_ids(self) -> list[str]:
         return self.list_manifests()
 
+    def list_runs_by_artifact(self, artifact_id: str) -> list[str]:
+        """List training run IDs that used a specific RM artifact."""
+        result: list[str] = []
+        for run_id in self.list_training_run_ids():
+            manifest = self.get_manifest(run_id)
+            if manifest is not None and manifest.rm_artifact_id == artifact_id:
+                result.append(run_id)
+        return result
+
+    def list_runs_by_dataset_version(self, dataset_version: str) -> list[str]:
+        """List training run IDs that used a specific dataset version."""
+        result: list[str] = []
+        for run_id in self.list_training_run_ids():
+            manifest = self.get_manifest(run_id)
+            if manifest is not None:
+                dv = str(manifest.dataset.get("dataset_version", ""))
+                if dv == dataset_version:
+                    result.append(run_id)
+        return result
+
+    def list_runs_by_status(self, status: str) -> list[str]:
+        """List training run IDs with a specific result status."""
+        result: list[str] = []
+        for run_id in self.list_training_run_ids():
+            res = self.get_result(run_id)
+            if res is not None and res.status == status:
+                result.append(run_id)
+        return result
+
     # ------------------------------------------------------------------
     # Full lineage resolution
     # ------------------------------------------------------------------

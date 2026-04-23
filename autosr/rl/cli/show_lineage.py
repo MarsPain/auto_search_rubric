@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from autosr.rl.comparison import compare_runs
 from autosr.rl.lineage import build_lineage_view, format_lineage_text, list_all_training_runs
 from autosr.rl.registry import ExperimentRegistry, RegistryError
 
@@ -27,6 +28,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Output as JSON instead of text",
     )
+    parser.add_argument(
+        "--with-baseline-delta",
+        action="store_true",
+        help="Show metric deltas against comparison_baseline evals",
+    )
     return parser
 
 
@@ -46,9 +52,17 @@ def main() -> None:
             parser.error(f"Training run not found: {args.training_run_id}")
             return
         if args.json:
-            print(json.dumps(view.to_dict(), indent=2, ensure_ascii=False))
+            data = view.to_dict()
+            if args.with_baseline_delta:
+                data["baseline_deltas"] = _build_baseline_deltas(registry, args.training_run_id)
+            print(json.dumps(data, indent=2, ensure_ascii=False))
         else:
-            print(format_lineage_text(view))
+            text = format_lineage_text(view)
+            if args.with_baseline_delta:
+                delta_text = _format_baseline_deltas(registry, args.training_run_id)
+                if delta_text:
+                    text = text + "\n" + delta_text
+            print(text)
     else:
         try:
             views = list_all_training_runs(registry)
@@ -56,14 +70,66 @@ def main() -> None:
             parser.error(str(exc))
             return
         if args.json:
-            print(json.dumps([v.to_dict() for v in views], indent=2, ensure_ascii=False))
+            data = [v.to_dict() for v in views]
+            if args.with_baseline_delta:
+                for item in data:
+                    item["baseline_deltas"] = _build_baseline_deltas(registry, item["training_run_id"])
+            print(json.dumps(data, indent=2, ensure_ascii=False))
         else:
             if not views:
                 print("No training runs recorded.")
                 return
             for view in views:
-                print(format_lineage_text(view))
+                text = format_lineage_text(view)
+                if args.with_baseline_delta:
+                    delta_text = _format_baseline_deltas(registry, view.training_run_id)
+                    if delta_text:
+                        text = text + "\n" + delta_text
+                print(text)
                 print()
+
+
+def _build_baseline_deltas(registry: ExperimentRegistry, training_run_id: str) -> list[dict[str, Any]]:
+    """Build baseline delta data for a training run's evals."""
+    eval_ids = registry.list_evals_for_training_run(training_run_id)
+    deltas: list[dict[str, Any]] = []
+    for eid in eval_ids:
+        ev = registry.get_eval(eid)
+        if ev is None or not ev.comparison_baseline:
+            continue
+        comparisons = compare_runs(registry, ev.comparison_baseline, training_run_id, ev.benchmark.get("name"))
+        for comp in comparisons:
+            for m in comp.metric_deltas:
+                deltas.append(
+                    {
+                        "baseline_run_id": ev.comparison_baseline,
+                        "benchmark": comp.benchmark_name,
+                        "metric": m.name,
+                        "baseline_value": m.value_a,
+                        "current_value": m.value_b,
+                        "delta": m.delta,
+                        "delta_pct": m.delta_pct,
+                        "direction": m.direction,
+                    }
+                )
+    return deltas
+
+
+def _format_baseline_deltas(registry: ExperimentRegistry, training_run_id: str) -> str:
+    """Format baseline deltas as human-readable text."""
+    deltas = _build_baseline_deltas(registry, training_run_id)
+    if not deltas:
+        return ""
+    lines = ["  Baseline Deltas:"]
+    for d in deltas:
+        pct_str = f"{d['delta_pct']:+.1f}%" if d["delta_pct"] is not None else "N/A"
+        lines.append(
+            f"    {d['benchmark']}/{d['metric']}:"
+            f" {d['baseline_value']} -> {d['current_value']}"
+            f" ({d['delta']:+.4f}, {pct_str})"
+            f" [baseline={d['baseline_run_id']}]"
+        )
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

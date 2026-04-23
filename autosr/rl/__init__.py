@@ -17,18 +17,40 @@ from .data_models import (
     TrainingValidationError,
 )
 from .registry import DuplicateEntryError, ExperimentRegistry, MissingManifestError
+from .comparison import (
+    ArtifactMetricTable,
+    ArtifactSummary,
+    MetricDelta,
+    RegressionSignal,
+    RunComparison,
+    compare_artifacts,
+    compare_runs,
+    detect_anomalies,
+    detect_regression,
+    summarize_artifact,
+)
 from .lineage import LineageView, build_lineage_view, format_lineage_text, list_all_training_runs
 
 __all__ = [
+    "ArtifactMetricTable",
+    "ArtifactSummary",
     "EvalReport",
     "LineageIndex",
     "LineageView",
+    "MetricDelta",
+    "RegressionSignal",
+    "RunComparison",
     "TrainingManifest",
     "TrainingResultManifest",
     "TrainingValidationError",
+    "compare_artifacts",
+    "compare_runs",
+    "detect_anomalies",
+    "detect_regression",
     "DuplicateEntryError",
     "ExperimentRegistry",
     "MissingManifestError",
+    "summarize_artifact",
     "build_lineage_view",
     "format_lineage_text",
     "list_all_training_runs",
