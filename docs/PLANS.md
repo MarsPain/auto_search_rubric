@@ -18,9 +18,7 @@
 
 ## 活跃计划 (Active)
 
-| 计划 | 描述 | 优先级 | 创建日期 | 文档 |
-|------|------|--------|----------|------|
-| Stage D3 - Comparative Experiment View | 横向比较、baseline对比、回归检测 | P0 | 2026-04-22 | [stage-d3-comparative-view.md](exec-plans/active/stage-d3-comparative-view.md) |
+当前无活跃功能计划。技术债务清偿 Sprint 见 [tech-debt/tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)。
 
 ### 计划模板
 
@@ -65,6 +63,7 @@
 | Stage 0 - Harness底座 | 会话化、Checkpoint schema、Resume验证 | 2026-04-03 | [stage0-harness.md](exec-plans/completed/stage0-harness.md) |
 | Stage 1 - 可恢复执行 | StateManager、单步执行、Resume能力 | 2026-04-04 | [stage1-resume.md](exec-plans/completed/stage1-resume.md) |
 | RMArtifact 阶段B核心 | RMArtifact schema、导出、校验器、deploy manifest | 2026-04-16 | [stage2-rm-artifact.md](exec-plans/completed/stage2-rm-artifact.md) |
+| Stage D3 - Comparative Experiment View | 横向比较、baseline对比、回归检测 | 2026-04-22 | [stage-d3-comparative-view.md](exec-plans/completed/stage-d3-comparative-view.md) |
 
 ---
 
@@ -72,8 +71,9 @@
 
 | 债务 | 描述 | 影响 | 计划解决 |
 |------|------|------|----------|
-| prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | Stage C前评估 |
+| prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | Stage E前评估 |
 | Iterative模式step执行 | Iterative模式暂不支持step-wise执行 | 低 | 按需 |
+| **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，含 6 项架构级、8 项代码级、7 项质量级债务 | **高** | **Stage E前必须清偿阻塞项** |
 
 ---
 
@@ -108,14 +108,15 @@
 - [x] 闭环LLM评分（server内部按criteria调用LLM，不接受外部传分）
 - [x] 评分同构（复用 `RubricEvaluator` 单候选评分内核）
 
-### 阶段 D: RL训练接入与实验编排 🚧 设计完成，待实现
+### 阶段 D: RL训练接入与实验编排 ✅ 已完成
 
 目标：让RL训练可直接消费RM server。
 
-- [ ] 训练入口支持注入RM endpoint
-- [ ] 训练实验manifest记录
-- [ ] 失败恢复策略
-- [ ] 标准化评测报告
+- [x] 训练入口支持注入RM endpoint
+- [x] 训练实验manifest记录（TrainingManifest / TrainingResultManifest）
+- [x] 失败恢复策略（registry + lineage）
+- [x] 标准化评测报告（EvalReport）
+- [x] 比较视图与回归检测（D3）
 
 ### 阶段 E: 基于RL采样自动训练Classifier RM 📋 规划中
 
