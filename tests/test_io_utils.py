@@ -6,6 +6,7 @@ import random
 import tempfile
 import unittest
 
+from autosr import io_utils
 from autosr.io_utils import (
     load_dataset,
     load_initial_rubrics,
@@ -321,6 +322,27 @@ class TestSaveRubrics(unittest.TestCase):
                 self.assertEqual(payload["best_objective_scores"][item.prompt_id], score)
 
             self.assertEqual(list(output_path.parent.glob("out.json.*.tmp")), [])
+
+
+class TestAtomicWrites(unittest.TestCase):
+    def test_atomic_write_primitives_are_public(self) -> None:
+        self.assertTrue(hasattr(io_utils, "atomic_write_text"))
+        self.assertTrue(hasattr(io_utils, "atomic_write_json"))
+
+    def test_atomic_write_json_writes_payload_and_cleans_temp_file(self) -> None:
+        self.assertTrue(hasattr(io_utils, "atomic_write_json"))
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "nested" / "payload.json"
+
+            written_path = io_utils.atomic_write_json(output_path, {"value": 3, "label": "ok"})
+
+            self.assertEqual(written_path, output_path)
+            self.assertEqual(
+                json.loads(output_path.read_text(encoding="utf-8")),
+                {"value": 3, "label": "ok"},
+            )
+            self.assertEqual(list(output_path.parent.glob("payload.json.*.tmp")), [])
 
 
 if __name__ == "__main__":

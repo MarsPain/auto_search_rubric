@@ -29,6 +29,8 @@
 - 2.5 `LineageView` 可变默认写法
 - 2.8 `create_verifier_with_extraction` 兼容参数策略说明
 - 3.6 文档状态同步
+- 1.3 原子写 JSON 逻辑三处重复
+- 1.5 `CheckpointCallback` 类型别名重复
 
 ---
 

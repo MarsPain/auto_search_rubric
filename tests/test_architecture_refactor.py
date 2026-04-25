@@ -3,9 +3,12 @@ from __future__ import annotations
 import importlib
 import unittest
 
+from autosr import factory as factory_module
+from autosr import interfaces
 from autosr.config import ObjectiveFunctionConfig, RuntimeConfig, SearchAlgorithmConfig
 from autosr.factory import ComponentFactory
 from autosr.models import PromptExample, ResponseCandidate
+from autosr.search import evolutionary as evolutionary_module
 from autosr.search import EvolutionaryRTDSearcher, IterativeRTDSearcher
 
 
@@ -75,6 +78,11 @@ class TestArchitectureRefactor(unittest.TestCase):
         searcher = factory.create_searcher([_build_prompt()], checkpoint_callback=callback)
 
         self.assertIsInstance(searcher, IterativeRTDSearcher)
+
+    def test_checkpoint_callback_type_is_defined_once_in_interfaces(self) -> None:
+        self.assertTrue(hasattr(interfaces, "CheckpointCallback"))
+        self.assertIs(factory_module.CheckpointCallback, interfaces.CheckpointCallback)
+        self.assertIs(evolutionary_module.CheckpointCallback, interfaces.CheckpointCallback)
 
 
 if __name__ == "__main__":

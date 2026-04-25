@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import random
 from typing import Protocol
 
 from .data_models import PromptExample, ResponseCandidate, Rubric
 from .types import MutationMode
+
+CheckpointCallback = Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None]
 
 
 class Verifier(Protocol):

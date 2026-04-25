@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-import tempfile
-from typing import Any
 
+from ..io_utils import atomic_write_text
 from .data_models import EvalReport, LineageIndex, TrainingManifest, TrainingResultManifest
 
 
@@ -29,26 +27,7 @@ def load_lineage_index(path: str | Path) -> LineageIndex:
 
 
 def _save_json_payload(path: str | Path, payload: str) -> Path:
-    file_path = Path(path)
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=file_path.parent,
-            prefix=f"{file_path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_file.write(payload)
-            temp_path = Path(temp_file.name)
-        temp_path.replace(file_path)
-    finally:
-        if temp_path is not None and temp_path.exists():
-            temp_path.unlink()
-    return file_path
+    return atomic_write_text(path, payload)
 
 
 def save_training_manifest(path: str | Path, manifest: TrainingManifest) -> Path:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import tempfile
 from typing import Any
@@ -21,6 +22,38 @@ def load_dataset(path: str | Path) -> list[PromptExample]:
     raw = json.loads(file_path.read_text(encoding="utf-8"))
     prompts_raw = raw.get("prompts", [])
     return [PromptExample.from_dict(item) for item in prompts_raw]
+
+
+def atomic_write_text(path: str | Path, content: str) -> Path:
+    """Write text via a same-directory temp file and atomic replace."""
+    file_path = Path(path)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=file_path.parent,
+            prefix=f"{file_path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as temp_file:
+            temp_file.write(content)
+            temp_file.flush()
+            os.fsync(temp_file.fileno())
+            temp_path = Path(temp_file.name)
+        temp_path.replace(file_path)
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
+    return file_path
+
+
+def atomic_write_json(path: str | Path, data: Any, *, indent: int | None = 2) -> Path:
+    """Serialize JSON using the repository's stable UTF-8 output format."""
+    payload = json.dumps(data, indent=indent, ensure_ascii=False)
+    return atomic_write_text(path, payload)
 
 
 def load_initial_rubrics(path: str | Path) -> dict[str, Rubric]:
@@ -119,23 +152,7 @@ def save_rubrics(
         output["run_manifest"] = run_manifest
     if search_diagnostics is not None:
         output["search_diagnostics"] = search_diagnostics
-    output_text = json.dumps(output, indent=2, ensure_ascii=False)
-    temp_path: Path | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            encoding="utf-8",
-            dir=file_path.parent,
-            prefix=f"{file_path.name}.",
-            suffix=".tmp",
-            delete=False,
-        ) as temp_file:
-            temp_file.write(output_text)
-            temp_path = Path(temp_file.name)
-        temp_path.replace(file_path)
-    finally:
-        if temp_path is not None and temp_path.exists():
-            temp_path.unlink()
+    atomic_write_json(file_path, output)
 
 
 def save_run_record_files(
@@ -162,10 +179,7 @@ def save_run_record_files(
     manifest_path = run_records_dir / f"{base_name}_{run_id}.manifest.json"
     script_path = run_records_dir / f"{base_name}_{run_id}.reproduce.sh"
 
-    manifest_path.write_text(
-        json.dumps(run_manifest, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    script_path.write_text(reproducible_script, encoding="utf-8")
+    atomic_write_json(manifest_path, run_manifest)
+    atomic_write_text(script_path, reproducible_script)
     script_path.chmod(0o755)
     return manifest_path, script_path

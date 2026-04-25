@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from collections.abc import Callable
 import logging
 import math
 import random
 
 from ..evaluator import ObjectiveBreakdown, RubricEvaluator, disagreement_score
-from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
+from ..interfaces import (
+    CheckpointCallback,
+    PreferenceJudge,
+    RubricInitializer,
+    RubricProposer,
+    Verifier,
+)
 from ..data_models import PromptExample, Rubric
 from ..types import EvolutionIterationScope, MutationMode
 from .adaptive_mutation import (
@@ -28,11 +33,6 @@ from .strategies import (
 )
 
 logger = logging.getLogger("autosr.search")
-
-CheckpointCallback = Callable[
-    [dict[str, Rubric], dict[str, float], dict[str, list[float]]],
-    None,
-]
 
 
 class EvolutionaryRTDSearcher:
