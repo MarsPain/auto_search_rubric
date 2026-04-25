@@ -13,16 +13,18 @@ import json
 import os
 import tempfile
 import unittest
+from dataclasses import fields
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from autosr.config import RuntimeConfig, SearchAlgorithmConfig
+from autosr.config import LLMBackendConfig, RuntimeConfig, SearchAlgorithmConfig
 from autosr.data_models import PromptExample, ResponseCandidate
 from autosr.factory import ComponentFactory
 from autosr.harness import (
     CheckpointCorruptedError,
     CheckpointMetadata,
     CheckpointNotFoundError,
+    CheckpointSaveError,
     ResumeCompatibilityError,
     ResumeValidator,
     SearchCheckpoint,
@@ -33,6 +35,7 @@ from autosr.harness import (
     compute_config_hash,
 )
 from autosr.harness.storage import StateManager
+from autosr.harness.session import _config_to_dict
 from autosr.types import BackendType, EvolutionIterationScope
 
 
@@ -469,6 +472,64 @@ class TestSearchSessionStepExecution(unittest.TestCase):
 
         checkpoints = state_manager.list_checkpoints(session.session_id)
         self.assertGreaterEqual(len(checkpoints), 1)
+
+    def test_checkpoint_save_failure_is_not_silently_swallowed(self) -> None:
+        """Test that checkpoint persistence errors stop the step instead of returning None."""
+
+        class FailingStateManager(StateManager):
+            def save_checkpoint(self, checkpoint: SearchCheckpoint, *, atomic: bool = True) -> Path:
+                raise OSError("disk full")
+
+        state_manager = FailingStateManager(base_dir=self.temp_dir)
+        session = SearchSession.create(
+            prompts=self.prompts,
+            config=self.config,
+            factory=self.factory,
+            state_manager=state_manager,
+            checkpoint_every_generation=True,
+        )
+
+        with self.assertRaises(CheckpointSaveError) as ctx:
+            session.run_step()
+        self.assertIn("disk full", str(ctx.exception))
+
+    def test_checkpoint_save_error_is_public_harness_contract(self) -> None:
+        import autosr.harness as harness
+
+        self.assertTrue(hasattr(harness, "CheckpointSaveError"))
+
+
+class TestRuntimeConfigHashSerialization(unittest.TestCase):
+    def test_config_to_dict_covers_all_runtime_fields_except_secrets(self) -> None:
+        config = RuntimeConfig(
+            backend=BackendType.LLM,
+            llm=LLMBackendConfig(
+                api_key="secret-token",
+                retry_backoff_base=0.75,
+                retry_backoff_max=3.0,
+                retry_jitter=0.05,
+                fail_soft=True,
+                initializer_model="init-model",
+                proposer_model="prop-model",
+                verifier_model="verify-model",
+                judge_model="judge-model",
+                prompt_language="zh",
+            ),
+        )
+
+        payload = _config_to_dict(config)
+
+        self.assertEqual(set(payload), {field.name for field in fields(config)})
+        self.assertEqual(payload["backend"], "llm")
+        self.assertEqual(payload["search"]["mode"], "evolutionary")
+        self.assertEqual(payload["candidate_extraction"]["strategy"], "answer")
+        self.assertNotIn("api_key", payload["llm"])
+        self.assertEqual(
+            set(payload["llm"]),
+            {field.name for field in fields(config.llm)} - {"api_key"},
+        )
+        self.assertEqual(payload["llm"]["retry_backoff_base"], 0.75)
+        self.assertEqual(payload["llm"]["initializer_model"], "init-model")
 
 
 class TestSearchSessionResume(unittest.TestCase):

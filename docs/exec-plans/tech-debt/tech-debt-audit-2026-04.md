@@ -31,6 +31,8 @@
 - 3.6 文档状态同步
 - 1.3 原子写 JSON 逻辑三处重复
 - 1.5 `CheckpointCallback` 类型别名重复
+- 2.2 `_config_to_dict` 手动选取字段导致哈希碰撞风险
+- 2.6 checkpoint 保存失败静默吞错风险
 
 ---
 

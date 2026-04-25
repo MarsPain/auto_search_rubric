@@ -8,14 +8,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import json
 import logging
 import os
 import tempfile
 from pathlib import Path
 from typing import Any
 
-from .state import SearchCheckpoint
+from .state import CheckpointValidationError, SearchCheckpoint
 
 logger = logging.getLogger("autosr.harness")
 
@@ -37,6 +36,11 @@ class CheckpointNotFoundError(Exception):
 
 class CheckpointCorruptedError(Exception):
     """Raised when checkpoint data is corrupted or unreadable."""
+    pass
+
+
+class CheckpointSaveError(Exception):
+    """Raised when checkpoint data cannot be persisted."""
     pass
 
 
@@ -110,28 +114,33 @@ class StateManager:
             checkpoint.generation,
         )
         
-        json_content = checkpoint.to_json(indent=2)
-        
-        if atomic:
-            # Atomic write: write to temp file, then rename
-            fd, temp_path = tempfile.mkstemp(
-                dir=session_dir,
-                prefix=f"gen_{checkpoint.generation:04d}_tmp_",
-                suffix=".json",
-            )
-            try:
-                with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                    f.write(json_content)
-                os.rename(temp_path, checkpoint_path)
-            except Exception:
-                # Clean up temp file on error
+        try:
+            json_content = checkpoint.to_json(indent=2)
+
+            if atomic:
+                # Atomic write: write to temp file, then rename
+                fd, temp_path = tempfile.mkstemp(
+                    dir=session_dir,
+                    prefix=f"gen_{checkpoint.generation:04d}_tmp_",
+                    suffix=".json",
+                )
                 try:
-                    os.unlink(temp_path)
+                    with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                        f.write(json_content)
+                    os.rename(temp_path, checkpoint_path)
                 except OSError:
-                    pass
-                raise
-        else:
-            checkpoint_path.write_text(json_content, encoding='utf-8')
+                    # Clean up temp file on error
+                    try:
+                        os.unlink(temp_path)
+                    except OSError:
+                        pass
+                    raise
+            else:
+                checkpoint_path.write_text(json_content, encoding='utf-8')
+        except (OSError, TypeError, ValueError) as e:
+            raise CheckpointSaveError(
+                f"Failed to save checkpoint: {checkpoint_path}"
+            ) from e
         
         logger.debug(
             "Checkpoint saved session_id=%s generation=%d path=%s",
@@ -179,11 +188,7 @@ class StateManager:
         try:
             json_content = checkpoint_path.read_text(encoding='utf-8')
             checkpoint = SearchCheckpoint.from_json(json_content)
-        except json.JSONDecodeError as e:
-            raise CheckpointCorruptedError(
-                f"Failed to parse checkpoint JSON: {checkpoint_path}"
-            ) from e
-        except Exception as e:
+        except (OSError, CheckpointValidationError, KeyError, TypeError, ValueError) as e:
             raise CheckpointCorruptedError(
                 f"Failed to load checkpoint: {checkpoint_path}"
             ) from e
@@ -248,7 +253,12 @@ class StateManager:
                     created_at_utc=checkpoint.created_at_utc,
                     file_size_bytes=stat.st_size,
                 ))
-            except Exception as e:
+            except (
+                OSError,
+                ValueError,
+                CheckpointCorruptedError,
+                CheckpointNotFoundError,
+            ) as e:
                 logger.warning(
                     "Failed to read checkpoint metadata: %s (%s)",
                     checkpoint_path,

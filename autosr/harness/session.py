@@ -17,6 +17,7 @@ from ..data_models import PromptExample, Rubric
 from ..search.config import SearchResult
 from ..types import EvolutionIterationScope
 from .state import ResumeCompatibilityError, SearchCheckpoint, compute_config_hash, compute_dataset_hash
+from .storage import CheckpointSaveError
 
 if TYPE_CHECKING:
     from ..config import RuntimeConfig
@@ -661,7 +662,10 @@ class SearchSession:
             dataset_path: Optional path to dataset for hash computation
             
         Returns:
-            Path to saved checkpoint, or None if save failed
+            Path to saved checkpoint, or None when checkpointing is not enabled.
+
+        Raises:
+            CheckpointSaveError: If checkpoint serialization or persistence fails.
         """
         if self._state_manager is None or self._step_state is None:
             return None
@@ -710,9 +714,13 @@ class SearchSession:
             logger.debug("Checkpoint saved path=%s", path)
             return path
             
-        except Exception as e:
-            logger.error("Failed to save checkpoint: %s", e)
-            return None
+        except (OSError, TypeError, ValueError, CheckpointSaveError) as e:
+            message = (
+                "Failed to save checkpoint "
+                f"session_id={self._session_id} generation={self._current_generation}: {e}"
+            )
+            logger.error(message)
+            raise CheckpointSaveError(message) from e
     
     def is_finished(self) -> bool:
         """Check if search has completed.
@@ -778,25 +786,25 @@ def _config_to_dict(config: RuntimeConfig) -> dict[str, Any]:
         if isinstance(obj, Enum):
             return obj.value
         if is_dataclass(obj):
-            return asdict(obj)
+            return convert(asdict(obj))
+        if isinstance(obj, dict):
+            return {
+                str(key): convert(value)
+                for key, value in obj.items()
+                if key != "api_key"
+            }
+        if isinstance(obj, list):
+            return [convert(item) for item in obj]
+        if isinstance(obj, tuple):
+            return [convert(item) for item in obj]
+        if isinstance(obj, Path):
+            return str(obj)
         return obj
-    
-    return {
-        "backend": str(config.backend),
-        "search": asdict(config.search),
-        "objective": asdict(config.objective),
-        "initializer": asdict(config.initializer),
-        "extraction": asdict(config.extraction),
-        "candidate_extraction": asdict(config.candidate_extraction),
-        "verifier": asdict(config.verifier),
-        "llm": {
-            "base_url": config.llm.base_url,
-            "timeout": config.llm.timeout,
-            "max_retries": config.llm.max_retries,
-            "temperature": config.llm.temperature,
-            "default_model": config.llm.default_model,
-        },
-    }
+
+    payload = convert(config)
+    if not isinstance(payload, dict):
+        raise TypeError("RuntimeConfig serialization must produce a dictionary")
+    return payload
 
 
 def _serialize_rng_state(value: Any) -> Any:

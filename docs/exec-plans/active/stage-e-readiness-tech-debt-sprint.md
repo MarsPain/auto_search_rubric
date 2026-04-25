@@ -19,8 +19,8 @@
 - [x] 明确 `create_verifier_with_extraction(prompts)` 的兼容参数策略
 - [x] 统一原子写 JSON 原语并替换 RM/RL 局部重复实现
 - [x] 修复 `CheckpointCallback` 类型别名重复
-- [ ] 修复 `_config_to_dict` 手工白名单导致的 hash 覆盖风险
-- [ ] 细化 checkpoint 保存异常策略，避免静默失败
+- [x] 修复 `_config_to_dict` 手工白名单导致的 hash 覆盖风险
+- [x] 细化 checkpoint 保存异常策略，避免静默失败
 - [ ] 定义 `Searcher` / `SteppableSearcher` 协议，解耦 `SearchSession` 与具体搜索实现
 - [ ] 配置基础静态工具链（优先 ruff，mypy 分阶段推进）
 
@@ -42,3 +42,4 @@
 
 - 2026-04-25: 创建计划，并完成第一批低风险代码债与文档状态同步。
 - 2026-04-25: 完成共享原子写原语收敛，并统一 `CheckpointCallback` 类型契约。
+- 2026-04-25: 修复 config hash 全量字段覆盖，并将 checkpoint 保存失败改为显式异常。

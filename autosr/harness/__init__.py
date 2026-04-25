@@ -36,6 +36,7 @@ from .storage import (
     CheckpointCorruptedError,
     CheckpointMetadata,
     CheckpointNotFoundError,
+    CheckpointSaveError,
     StateManager,
 )
 
@@ -57,4 +58,5 @@ __all__ = [
     "CheckpointMetadata",
     "CheckpointNotFoundError",
     "CheckpointCorruptedError",
+    "CheckpointSaveError",
 ]
