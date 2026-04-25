@@ -20,7 +20,7 @@
 ```text
 CLI / Integration Boundary
   -> Component Assembly (factory + runtime config)
-    -> Search Harness (session / checkpoint / resume)
+    -> Search Harness (session / checkpoint / resume via searcher protocols)
       -> Search Domain (iterative / evolutionary strategies)
         -> LLM & Content Extraction Adapters
           -> Evaluation & Run Records
@@ -39,6 +39,7 @@ CLI / Integration Boundary
   - `autosr/harness/session.py`
   - `autosr/harness/state.py`
   - `autosr/harness/storage.py`
+- 关键边界：Harness 只通过 `Searcher` / `SteppableSearcher` 公共协议驱动算法，不调用具体搜索器私有方法。
 
 ### 3.2 Search 域（算法层）
 
@@ -91,6 +92,7 @@ CLI / Integration Boundary
   - `autosr/data_models.py`
   - `autosr/types.py`
   - `autosr/config.py`
+  - `autosr/interfaces.py`
 
 ---
 

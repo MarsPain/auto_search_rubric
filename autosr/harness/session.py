@@ -13,16 +13,15 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..data_models import PromptExample, Rubric
+from ..data_models import PromptExample
+from ..interfaces import Searcher, SteppableSearcher
 from ..search.config import SearchResult
-from ..types import EvolutionIterationScope
 from .state import ResumeCompatibilityError, SearchCheckpoint, compute_config_hash, compute_dataset_hash
 from .storage import CheckpointSaveError
 
 if TYPE_CHECKING:
     from ..config import RuntimeConfig
     from ..factory import ComponentFactory
-    from ..search import EvolutionaryRTDSearcher, IterativeRTDSearcher
     from .storage import StateManager
 
 logger = logging.getLogger("autosr.harness")
@@ -94,7 +93,7 @@ class SearchSession:
         self,
         session_id: str,
         prompts: list[PromptExample],
-        searcher: IterativeRTDSearcher | EvolutionaryRTDSearcher,
+        searcher: Searcher,
         config: RuntimeConfig,
         factory: ComponentFactory,
         state_manager: StateManager | None = None,
@@ -315,39 +314,27 @@ class SearchSession:
         resume_semantics = "reseed_from_checkpoint"
 
         # Initialize step state for continued execution.
-        if (
-            hasattr(searcher, "config")
-            and hasattr(searcher.config, "iteration_scope")
-            and searcher.config.iteration_scope is EvolutionIterationScope.GLOBAL_BATCH
-        ):
-            restored_step_state = _restore_global_step_state(
-                checkpoint=checkpoint,
-                expected_prompt_ids=[item.prompt_id for item in prompts],
+        if isinstance(searcher, SteppableSearcher) and searcher.supports_step_execution:
+            restored_step_state = searcher.restore_algorithm_state(
+                checkpoint.algorithm_state,
+                prompt_ids=[item.prompt_id for item in prompts],
+                best_rubrics=checkpoint.best_rubrics,
+                best_scores=checkpoint.best_scores,
+                history=checkpoint.history,
             )
             if restored_step_state is not None:
                 session._step_state = restored_step_state
                 session._initialized = True
                 resume_semantics = "continue_from_checkpoint"
-                diversity_history = checkpoint.algorithm_state.get("diversity_history", [])
-                if isinstance(diversity_history, list) and hasattr(searcher, "diversity_history"):
-                    searcher.diversity_history = [float(item) for item in diversity_history]
             else:
                 # Legacy checkpoint fallback (no algorithm_state): re-seed state from scratch.
-                population, history, best_rubrics, best_scores, initial_margins = searcher._init_global_state(prompts)
-                best_rubrics.update(checkpoint.best_rubrics)
-                best_scores.update(checkpoint.best_scores)
+                step_state = searcher.initialize_step_state(prompts)
+                step_state["best_rubrics"].update(checkpoint.best_rubrics)
+                step_state["best_scores"].update(checkpoint.best_scores)
                 for pid, scores in checkpoint.history.items():
-                    if pid in history:
-                        history[pid] = list(scores)
-                session._step_state = {
-                    "population": population,
-                    "history": history,
-                    "best_rubrics": best_rubrics,
-                    "best_scores": best_scores,
-                    "initial_margins": initial_margins,
-                    "stale_rounds": 0,
-                    "should_stop": False,
-                }
+                    if pid in step_state["history"]:
+                        step_state["history"][pid] = list(scores)
+                session._step_state = step_state
                 session._initialized = True
         else:
             session._step_state = {
@@ -401,12 +388,12 @@ class SearchSession:
             len(self._prompts),
         )
         
-        # If checkpointing is enabled and we're using evolutionary mode,
-        # use step-wise execution
+        # If checkpointing is enabled and the searcher supports step execution,
+        # use the public step-wise protocol.
         if (self._state_manager is not None and 
             (self._checkpoint_every_generation or self._checkpoint_interval_seconds is not None) and
-            hasattr(self._searcher, 'config') and
-            hasattr(self._searcher.config, 'iteration_scope')):
+            isinstance(self._searcher, SteppableSearcher) and
+            self._searcher.supports_step_execution):
             
             while not self.is_finished():
                 self.run_step()
@@ -442,33 +429,31 @@ class SearchSession:
         if self._finished:
             raise SessionStateError("Session has already finished.")
         
-        # Only support evolutionary mode for now
-        if not hasattr(self._searcher, 'config') or not hasattr(self._searcher.config, 'iteration_scope'):
+        if not isinstance(self._searcher, SteppableSearcher):
             raise NotImplementedError(
-                "Step execution only supported for evolutionary search mode"
+                "Step execution only supported for searchers implementing SteppableSearcher"
             )
-        
-        searcher: EvolutionaryRTDSearcher = self._searcher  # type: ignore
-        config = searcher.config
-        
-        if config.iteration_scope is EvolutionIterationScope.PROMPT_LOCAL:
+
+        searcher = self._searcher
+        if not searcher.supports_step_execution:
             raise NotImplementedError(
-                "Step execution for prompt_local scope not yet implemented. "
-                "Use global_batch scope for checkpointable search."
+                "This searcher configuration does not support step execution."
             )
         
         # Initialize on first step
         if not self._initialized:
-            self._init_global_step_state()
+            self._step_state = searcher.initialize_step_state(self._prompts)
+            self._initialized = True
         
         assert self._step_state is not None
         
         current_gen = self._current_generation
-        max_generations = config.generations
+        max_generations = searcher.max_steps
         
         if current_gen >= max_generations:
             # Finalize and finish
-            self._finalize_global_search()
+            self._result = searcher.finalize_step_result(self._prompts, self._step_state)
+            self._finished = True
             return StepResult(
                 generation=current_gen,
                 is_finished=True,
@@ -476,7 +461,7 @@ class SearchSession:
             )
         
         # Execute one generation
-        self._execute_global_generation(current_gen)
+        searcher.step(self._prompts, self._step_state, current_gen)
         self._current_generation = current_gen + 1
         
         # Save checkpoint if enabled
@@ -493,7 +478,8 @@ class SearchSession:
         )
         
         if is_finished:
-            self._finalize_global_search()
+            self._result = searcher.finalize_step_result(self._prompts, self._step_state)
+            self._finished = True
         
         return StepResult(
             generation=self._current_generation,
@@ -502,25 +488,6 @@ class SearchSession:
             checkpoint_path=checkpoint_path,
         )
     
-    def _init_global_step_state(self) -> None:
-        """Initialize step-wise execution state for global_batch mode."""
-        searcher: EvolutionaryRTDSearcher = self._searcher  # type: ignore
-        
-        population, history, best_rubrics, best_scores, initial_margins = searcher._init_global_state(self._prompts)
-        
-        self._step_state = {
-            "population": population,
-            "history": history,
-            "best_rubrics": best_rubrics,
-            "best_scores": best_scores,
-            "initial_margins": initial_margins,
-            "stale_rounds": 0,
-            "should_stop": False,
-        }
-        self._initialized = True
-        
-        logger.debug("Global step state initialized session_id=%s", self._session_id)
-
     def _should_checkpoint(self) -> bool:
         """Decide whether current step should emit a checkpoint."""
         if self._state_manager is None:
@@ -535,125 +502,6 @@ class SearchSession:
             return True
         elapsed = (datetime.now(timezone.utc) - self._last_checkpoint_time).total_seconds()
         return elapsed >= self._checkpoint_interval_seconds
-    
-    def _execute_global_generation(self, generation: int) -> None:
-        """Execute a single generation for global_batch mode."""
-        from ..evaluator import ObjectiveBreakdown
-        
-        searcher: EvolutionaryRTDSearcher = self._searcher  # type: ignore
-        assert self._step_state is not None
-        
-        population = self._step_state["population"]
-        history = self._step_state["history"]
-        best_rubrics = self._step_state["best_rubrics"]
-        best_scores = self._step_state["best_scores"]
-        initial_margins = self._step_state["initial_margins"]
-        
-        # Score population
-        scored_population: dict[str, list[tuple[Rubric, ObjectiveBreakdown]]] = {}
-        for item in self._prompts:
-            scored_population[item.prompt_id] = searcher._score_population(item, population[item.prompt_id])
-        
-        # Log progress
-        searcher._log_generation_progress(generation, scored_population, initial_margins)
-        
-        # Compute diversity
-        diversity_scores: dict[str, float] = {}
-        for item in self._prompts:
-            diversity = searcher.diversity_metric.compute(
-                population[item.prompt_id],
-                rng=searcher.rng,
-            )
-            diversity_scores[item.prompt_id] = diversity
-            searcher.diversity_history.append(diversity)
-        
-        # Update bests
-        generation_improved = searcher._update_generation_bests(
-            scored_population=scored_population,
-            best_rubrics=best_rubrics,
-            best_scores=best_scores,
-            history=history,
-        )
-        
-        # Handle stagnation
-        stale_rounds = self._step_state["stale_rounds"]
-        stale_rounds, should_stop = searcher._handle_stagnation(generation_improved, stale_rounds)
-        self._step_state["stale_rounds"] = stale_rounds
-        self._step_state["should_stop"] = should_stop
-        
-        if should_stop:
-            logger.info(
-                "stopping early at generation=%d stale_rounds=%d threshold=%d",
-                generation + 1,
-                stale_rounds,
-                searcher.config.stagnation_generations,
-            )
-            return
-        
-        # Evolve selected prompts
-        hard_prompt_ids = searcher._select_hard_prompts(self._prompts, population, scored_population)
-        logger.info(
-            "generation=%d selected_hard_prompts=%s",
-            generation + 1,
-            ",".join(sorted(hard_prompt_ids)) if hard_prompt_ids else "<none>",
-        )
-        
-        searcher._evolve_selected_prompts(
-            prompts=self._prompts,
-            hard_prompt_ids=hard_prompt_ids,
-            scored_population=scored_population,
-            population=population,
-            diversity_scores=diversity_scores,
-            generation=generation,
-            scheduler=searcher.mutation_scheduler,
-        )
-        
-        searcher.mutation_scheduler.next_generation()
-    
-    def _finalize_global_search(self) -> None:
-        """Finalize search and create result."""
-        searcher: EvolutionaryRTDSearcher = self._searcher  # type: ignore
-        assert self._step_state is not None
-        
-        population = self._step_state["population"]
-        history = self._step_state["history"]
-        best_rubrics = self._step_state["best_rubrics"]
-        best_scores = self._step_state["best_scores"]
-        initial_margins = self._step_state["initial_margins"]
-        
-        searcher._finalize_best_from_population(
-            prompts=self._prompts,
-            population=population,
-            best_rubrics=best_rubrics,
-            best_scores=best_scores,
-        )
-        
-        margin_improvement = searcher._collect_margin_improvement(
-            prompts=self._prompts,
-            best_rubrics=best_rubrics,
-            initial_margins=initial_margins,
-        )
-        
-        diagnostics = {
-            "mode": "evolutionary",
-            "iteration_scope": searcher.config.iteration_scope.value,
-            "selection_strategy": searcher.config.selection_strategy.name,
-            "adaptive_mutation": searcher.config.adaptive_mutation.name,
-            "mutation_diagnostics": searcher.mutation_scheduler.get_diagnostics(),
-            "avg_diversity": sum(searcher.diversity_history) / len(searcher.diversity_history)
-            if searcher.diversity_history else 0.0,
-            "margin_improvement": margin_improvement,
-        }
-        
-        self._result = SearchResult(
-            best_rubrics=best_rubrics,
-            best_scores=best_scores,
-            history=history,
-            diagnostics=diagnostics,
-        )
-        self._finished = True
-        
-        logger.info("Search finalized session_id=%s", self._session_id)
     
     def _save_checkpoint(self, dataset_path: Path | None = None) -> Path | None:
         """Save current state as checkpoint.
@@ -688,7 +536,11 @@ class SearchSession:
                 else:
                     scheduler_state = mutation_scheduler.get_diagnostics()
 
-            algorithm_state = _serialize_global_step_state(self._step_state, self._searcher)
+            algorithm_state = (
+                self._searcher.get_algorithm_state(self._step_state)
+                if isinstance(self._searcher, SteppableSearcher)
+                else {}
+            )
             
             # Compute dataset hash if path provided
             dataset_hash = "unknown"
@@ -872,76 +724,6 @@ def _restore_scheduler_state(searcher: Any, scheduler_state: dict[str, Any]) -> 
     except Exception as exc:
         logger.warning("Failed to restore scheduler state: %s", exc)
         return False
-
-
-def _serialize_global_step_state(step_state: dict[str, Any] | None, searcher: Any) -> dict[str, Any]:
-    """Serialize global-batch step state into checkpoint algorithm_state payload."""
-    if step_state is None:
-        return {}
-    population = step_state.get("population")
-    if not isinstance(population, dict):
-        return {}
-
-    serialized_population: dict[str, list[dict[str, Any]]] = {}
-    for prompt_id, rubrics in population.items():
-        if not isinstance(prompt_id, str) or not isinstance(rubrics, list):
-            continue
-        serialized_population[prompt_id] = [rubric.to_dict() for rubric in rubrics]
-
-    return {
-        "population": serialized_population,
-        "initial_margins": {
-            key: float(value) for key, value in step_state.get("initial_margins", {}).items()
-        },
-        "stale_rounds": int(step_state.get("stale_rounds", 0)),
-        "should_stop": bool(step_state.get("should_stop", False)),
-        "diversity_history": list(getattr(searcher, "diversity_history", [])),
-    }
-
-
-def _restore_global_step_state(
-    checkpoint: SearchCheckpoint,
-    expected_prompt_ids: list[str],
-) -> dict[str, Any] | None:
-    """Restore global-batch step state from checkpoint algorithm_state payload."""
-    state = checkpoint.algorithm_state
-    population_raw = state.get("population")
-    if not isinstance(population_raw, dict):
-        return None
-
-    population: dict[str, list[Rubric]] = {}
-    for prompt_id in expected_prompt_ids:
-        raw_rubrics = population_raw.get(prompt_id)
-        if not isinstance(raw_rubrics, list):
-            return None
-        restored_rubrics: list[Rubric] = []
-        for payload in raw_rubrics:
-            if not isinstance(payload, dict):
-                return None
-            restored_rubrics.append(Rubric.from_dict(payload))
-        population[prompt_id] = restored_rubrics
-
-    initial_margins_raw = state.get("initial_margins", {})
-    if not isinstance(initial_margins_raw, dict):
-        initial_margins_raw = {}
-
-    initial_margins = {
-        prompt_id: float(initial_margins_raw.get(prompt_id, 0.0))
-        for prompt_id in expected_prompt_ids
-    }
-
-    return {
-        "population": population,
-        "history": {
-            prompt_id: list(checkpoint.history.get(prompt_id, []))
-            for prompt_id in expected_prompt_ids
-        },
-        "best_rubrics": dict(checkpoint.best_rubrics),
-        "best_scores": dict(checkpoint.best_scores),
-        "initial_margins": initial_margins,
-        "stale_rounds": int(state.get("stale_rounds", 0)),
-        "should_stop": bool(state.get("should_stop", False)),
-    }
 
 
 def _parse_checkpoint_timestamp(timestamp: str) -> datetime | None:

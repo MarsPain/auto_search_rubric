@@ -30,7 +30,7 @@ Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distil
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ SearchSession + Searcher (iterative/evolutionary)           │
+│ SearchSession + Searcher / SteppableSearcher protocols       │
 │ + Checkpoint/Resume (SearchCheckpoint, StateManager)        │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -272,6 +272,7 @@ EvalReport(
 | `autosr/harness/session.py` | 搜索会话生命周期 | `SearchSession` |
 | `autosr/harness/state.py` | Checkpoint schema | `SearchCheckpoint`, `ResumeValidator` |
 | `autosr/harness/storage.py` | 状态持久化 | `StateManager` |
+| `autosr/interfaces.py` | 跨域协议边界 | `Searcher`, `SteppableSearcher`, `CheckpointCallback` |
 | `autosr/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
 | `autosr/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
 | `autosr/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |

@@ -10,6 +10,7 @@ from ..interfaces import (
     PreferenceJudge,
     RubricInitializer,
     RubricProposer,
+    StepState,
     Verifier,
 )
 from ..data_models import PromptExample, Rubric
@@ -65,6 +66,203 @@ class EvolutionaryRTDSearcher:
 
         # Track diversity history for diagnostics
         self.diversity_history: list[float] = []
+
+    @property
+    def supports_step_execution(self) -> bool:
+        return self.config.iteration_scope is EvolutionIterationScope.GLOBAL_BATCH
+
+    @property
+    def max_steps(self) -> int:
+        return self.config.generations
+
+    def initialize_step_state(self, prompts: list[PromptExample]) -> StepState:
+        if not self.supports_step_execution:
+            raise NotImplementedError(
+                "Step execution for prompt_local scope not yet implemented. "
+                "Use global_batch scope for checkpointable search."
+            )
+        population, history, best_rubrics, best_scores, initial_margins = self._init_global_state(prompts)
+        return {
+            "population": population,
+            "history": history,
+            "best_rubrics": best_rubrics,
+            "best_scores": best_scores,
+            "initial_margins": initial_margins,
+            "stale_rounds": 0,
+            "should_stop": False,
+        }
+
+    def step(self, prompts: list[PromptExample], state: StepState, generation: int) -> None:
+        if not self.supports_step_execution:
+            raise NotImplementedError(
+                "Step execution for prompt_local scope not yet implemented. "
+                "Use global_batch scope for checkpointable search."
+            )
+
+        population = state["population"]
+        history = state["history"]
+        best_rubrics = state["best_rubrics"]
+        best_scores = state["best_scores"]
+        initial_margins = state["initial_margins"]
+
+        scored_population = self._score_generation(prompts, population)
+        self._log_generation_progress(generation, scored_population, initial_margins)
+
+        diversity_scores: dict[str, float] = {}
+        for item in prompts:
+            diversity = self.diversity_metric.compute(
+                population[item.prompt_id],
+                rng=self.rng,
+            )
+            diversity_scores[item.prompt_id] = diversity
+            self.diversity_history.append(diversity)
+
+        generation_improved = self._update_generation_bests(
+            scored_population=scored_population,
+            best_rubrics=best_rubrics,
+            best_scores=best_scores,
+            history=history,
+        )
+
+        stale_rounds = int(state["stale_rounds"])
+        stale_rounds, should_stop = self._handle_stagnation(generation_improved, stale_rounds)
+        state["stale_rounds"] = stale_rounds
+        state["should_stop"] = should_stop
+
+        if should_stop:
+            logger.info(
+                "stopping early at generation=%d stale_rounds=%d threshold=%d",
+                generation + 1,
+                stale_rounds,
+                self.config.stagnation_generations,
+            )
+            return
+
+        hard_prompt_ids = self._select_hard_prompts(prompts, population, scored_population)
+        logger.info(
+            "generation=%d selected_hard_prompts=%s",
+            generation + 1,
+            ",".join(sorted(hard_prompt_ids)) if hard_prompt_ids else "<none>",
+        )
+        self._evolve_selected_prompts(
+            prompts=prompts,
+            hard_prompt_ids=hard_prompt_ids,
+            scored_population=scored_population,
+            population=population,
+            diversity_scores=diversity_scores,
+            generation=generation,
+            scheduler=self.mutation_scheduler,
+        )
+
+        self.mutation_scheduler.next_generation()
+
+    def finalize_step_result(self, prompts: list[PromptExample], state: StepState) -> SearchResult:
+        population = state["population"]
+        history = state["history"]
+        best_rubrics = state["best_rubrics"]
+        best_scores = state["best_scores"]
+        initial_margins = state["initial_margins"]
+
+        self._finalize_best_from_population(
+            prompts=prompts,
+            population=population,
+            best_rubrics=best_rubrics,
+            best_scores=best_scores,
+        )
+        margin_improvement = self._collect_margin_improvement(
+            prompts=prompts,
+            best_rubrics=best_rubrics,
+            initial_margins=initial_margins,
+        )
+
+        diagnostics = {
+            "mode": "evolutionary",
+            "iteration_scope": self.config.iteration_scope.value,
+            "selection_strategy": self.config.selection_strategy.name,
+            "adaptive_mutation": self.config.adaptive_mutation.name,
+            "mutation_diagnostics": self.mutation_scheduler.get_diagnostics(),
+            "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
+            if self.diversity_history else 0.0,
+            "margin_improvement": margin_improvement,
+        }
+
+        return SearchResult(
+            best_rubrics=best_rubrics,
+            best_scores=best_scores,
+            history=history,
+            diagnostics=diagnostics,
+        )
+
+    def get_algorithm_state(self, state: StepState | None) -> StepState:
+        if state is None:
+            return {}
+        population = state.get("population")
+        if not isinstance(population, dict):
+            return {}
+
+        serialized_population: dict[str, list[dict[str, object]]] = {}
+        for prompt_id, rubrics in population.items():
+            if not isinstance(prompt_id, str) or not isinstance(rubrics, list):
+                continue
+            serialized_population[prompt_id] = [rubric.to_dict() for rubric in rubrics]
+
+        return {
+            "population": serialized_population,
+            "initial_margins": {
+                key: float(value) for key, value in state.get("initial_margins", {}).items()
+            },
+            "stale_rounds": int(state.get("stale_rounds", 0)),
+            "should_stop": bool(state.get("should_stop", False)),
+            "diversity_history": list(self.diversity_history),
+        }
+
+    def restore_algorithm_state(
+        self,
+        algorithm_state: StepState,
+        *,
+        prompt_ids: list[str],
+        best_rubrics: dict[str, Rubric],
+        best_scores: dict[str, float],
+        history: dict[str, list[float]],
+    ) -> StepState | None:
+        population_raw = algorithm_state.get("population")
+        if not isinstance(population_raw, dict):
+            return None
+
+        population: dict[str, list[Rubric]] = {}
+        for prompt_id in prompt_ids:
+            raw_rubrics = population_raw.get(prompt_id)
+            if not isinstance(raw_rubrics, list):
+                return None
+            restored_rubrics: list[Rubric] = []
+            for payload in raw_rubrics:
+                if not isinstance(payload, dict):
+                    return None
+                restored_rubrics.append(Rubric.from_dict(payload))
+            population[prompt_id] = restored_rubrics
+
+        initial_margins_raw = algorithm_state.get("initial_margins", {})
+        if not isinstance(initial_margins_raw, dict):
+            initial_margins_raw = {}
+        diversity_history = algorithm_state.get("diversity_history", [])
+        if isinstance(diversity_history, list):
+            self.diversity_history = [float(item) for item in diversity_history]
+
+        return {
+            "population": population,
+            "history": {
+                prompt_id: list(history.get(prompt_id, []))
+                for prompt_id in prompt_ids
+            },
+            "best_rubrics": dict(best_rubrics),
+            "best_scores": dict(best_scores),
+            "initial_margins": {
+                prompt_id: float(initial_margins_raw.get(prompt_id, 0.0))
+                for prompt_id in prompt_ids
+            },
+            "stale_rounds": int(algorithm_state.get("stale_rounds", 0)),
+            "should_stop": bool(algorithm_state.get("should_stop", False)),
+        }
 
     def search(self, prompts: list[PromptExample]) -> SearchResult:
         logger.info(

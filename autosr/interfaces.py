@@ -2,12 +2,53 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import random
-from typing import Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from .data_models import PromptExample, ResponseCandidate, Rubric
 from .types import MutationMode
 
 CheckpointCallback = Callable[[dict[str, Rubric], dict[str, float], dict[str, list[float]]], None]
+StepState = dict[str, Any]
+
+
+@runtime_checkable
+class Searcher(Protocol):
+    def search(self, prompts: list[PromptExample]) -> Any:
+        """Run the full search and return the algorithm-specific search result."""
+
+
+@runtime_checkable
+class SteppableSearcher(Searcher, Protocol):
+    @property
+    def supports_step_execution(self) -> bool:
+        """Whether this searcher can execute through the harness step contract."""
+
+    @property
+    def max_steps(self) -> int:
+        """Maximum number of step generations for the current configuration."""
+
+    def initialize_step_state(self, prompts: list[PromptExample]) -> StepState:
+        """Create initial state for harness-managed step execution."""
+
+    def step(self, prompts: list[PromptExample], state: StepState, generation: int) -> None:
+        """Advance the search state by one generation."""
+
+    def finalize_step_result(self, prompts: list[PromptExample], state: StepState) -> Any:
+        """Build the final search result from a step state."""
+
+    def get_algorithm_state(self, state: StepState | None) -> StepState:
+        """Serialize algorithm-owned state for checkpointing."""
+
+    def restore_algorithm_state(
+        self,
+        algorithm_state: StepState,
+        *,
+        prompt_ids: list[str],
+        best_rubrics: dict[str, Rubric],
+        best_scores: dict[str, float],
+        history: dict[str, list[float]],
+    ) -> StepState | None:
+        """Restore algorithm-owned state from checkpoint payload."""
 
 
 class Verifier(Protocol):

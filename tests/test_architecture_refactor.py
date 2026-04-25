@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import unittest
 
 from autosr import factory as factory_module
 from autosr import interfaces
 from autosr.config import ObjectiveFunctionConfig, RuntimeConfig, SearchAlgorithmConfig
 from autosr.factory import ComponentFactory
+from autosr.harness import SearchSession
+from autosr.interfaces import SteppableSearcher
 from autosr.models import PromptExample, ResponseCandidate
 from autosr.search import evolutionary as evolutionary_module
 from autosr.search import EvolutionaryRTDSearcher, IterativeRTDSearcher
+from autosr.types import EvolutionIterationScope
 
 
 def _build_prompt() -> PromptExample:
@@ -83,6 +87,36 @@ class TestArchitectureRefactor(unittest.TestCase):
         self.assertTrue(hasattr(interfaces, "CheckpointCallback"))
         self.assertIs(factory_module.CheckpointCallback, interfaces.CheckpointCallback)
         self.assertIs(evolutionary_module.CheckpointCallback, interfaces.CheckpointCallback)
+
+    def test_evolutionary_searcher_exposes_steppable_protocol(self) -> None:
+        config = RuntimeConfig(
+            search=SearchAlgorithmConfig(
+                mode="evolutionary",
+                iteration_scope=EvolutionIterationScope.GLOBAL_BATCH,
+            )
+        )
+        searcher = ComponentFactory(config).create_searcher([_build_prompt()])
+
+        self.assertIsInstance(searcher, EvolutionaryRTDSearcher)
+        self.assertIsInstance(searcher, SteppableSearcher)
+
+    def test_search_session_does_not_call_evolutionary_private_step_methods(self) -> None:
+        source = inspect.getsource(SearchSession)
+        forbidden = [
+            "._init_global_state",
+            "._score_population",
+            "._log_generation_progress",
+            "._update_generation_bests",
+            "._handle_stagnation",
+            "._select_hard_prompts",
+            "._evolve_selected_prompts",
+            "._finalize_best_from_population",
+            "._collect_margin_improvement",
+        ]
+
+        for private_call in forbidden:
+            with self.subTest(private_call=private_call):
+                self.assertNotIn(private_call, source)
 
 
 if __name__ == "__main__":
