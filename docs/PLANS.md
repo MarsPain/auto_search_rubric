@@ -18,7 +18,11 @@
 
 ## 活跃计划 (Active)
 
-当前无活跃功能计划。技术债务清偿 Sprint 见 [tech-debt/tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)。
+当前活跃计划：Stage E Readiness 技术债清偿 Sprint，见 [stage-e-readiness-tech-debt-sprint.md](exec-plans/active/stage-e-readiness-tech-debt-sprint.md)。
+
+| 计划 | 描述 | 创建日期 | 文档 |
+|------|------|----------|------|
+| Stage E Readiness - Tech Debt Sprint | 清偿进入 Stage E 前的阻塞债务 | 2026-04-25 | [stage-e-readiness-tech-debt-sprint.md](exec-plans/active/stage-e-readiness-tech-debt-sprint.md) |
 
 ### 计划模板
 
@@ -73,7 +77,7 @@
 |------|------|------|----------|
 | prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | Stage E前评估 |
 | Iterative模式step执行 | Iterative模式暂不支持step-wise执行 | 低 | 按需 |
-| **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，含 6 项架构级、8 项代码级、7 项质量级债务 | **高** | **Stage E前必须清偿阻塞项** |
+| **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，含 5 项架构级、8 项代码级、7 项质量级债务 | **高** | **Stage E前必须清偿阻塞项** |
 
 ---
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import MISSING, fields
+import inspect
 import json
 import subprocess
 import sys
@@ -20,6 +22,7 @@ from autosr.rl.registry import (
     MissingManifestError,
     RegistryError,
 )
+from autosr.rl.io import save_eval_report
 from autosr.rl.validation import (
     LineageValidationError,
     validate_cross_consistency,
@@ -143,6 +146,12 @@ class TestTrainingManifestDataModel(unittest.TestCase):
         s = m.to_json()
         m2 = TrainingManifest.from_json(s)
         self.assertEqual(m.to_dict(), m2.to_dict())
+
+    def test_from_json_has_single_schema_contract(self) -> None:
+        source = inspect.getsource(TrainingManifest)
+
+        self.assertEqual(source.count("def from_json"), 1)
+        self.assertEqual(TrainingManifest.from_json.__annotations__["return"], "TrainingManifest")
 
 
 class TestTrainingResultManifestDataModel(unittest.TestCase):
@@ -377,6 +386,26 @@ class TestExperimentRegistry(unittest.TestCase):
         ids = self.registry.list_evals_for_training_run("train_001")
         self.assertEqual(sorted(ids), ["eval_001", "eval_002"])
 
+    def test_fallback_scan_reads_each_eval_once(self) -> None:
+        class CountingRegistry(ExperimentRegistry):
+            def __init__(self, base_dir: str) -> None:
+                super().__init__(base_dir)
+                self.get_eval_calls: list[str] = []
+
+            def get_eval(self, eval_run_id: str) -> EvalReport | None:
+                self.get_eval_calls.append(eval_run_id)
+                return super().get_eval(eval_run_id)
+
+        registry = CountingRegistry(self.tmpdir.name)
+        save_eval_report(registry.evals_dir / "eval_001.json", _build_valid_eval("eval_001", "train_001"))
+        save_eval_report(registry.evals_dir / "eval_002.json", _build_valid_eval("eval_002", "train_002"))
+
+        evals = registry.list_evals_for_training_run("train_001")
+
+        self.assertEqual(evals, ["eval_001"])
+        self.assertEqual(registry.get_eval_calls.count("eval_001"), 1)
+        self.assertEqual(registry.get_eval_calls.count("eval_002"), 1)
+
     def test_resolve_lineage(self) -> None:
         m = _build_valid_manifest("train_001")
         self.registry.record_manifest(m)
@@ -462,6 +491,12 @@ class TestLineageView(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tmpdir.cleanup()
+
+    def test_mutable_fields_use_default_factories(self) -> None:
+        field_by_name = {f.name: f for f in fields(LineageView)}
+
+        self.assertIsNot(field_by_name["eval_benchmarks"].default_factory, MISSING)
+        self.assertIsNot(field_by_name["upstream_chain"].default_factory, MISSING)
 
     def test_build_lineage_view(self) -> None:
         m = _build_valid_manifest("train_001")

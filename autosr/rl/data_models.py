@@ -115,15 +115,7 @@ class TrainingManifest:
         return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
 
     @classmethod
-    def from_json(cls, payload: str) -> "LineageIndex":
-        try:
-            data = json.loads(payload)
-        except json.JSONDecodeError as exc:
-            raise TrainingValidationError("json", f"invalid JSON: {exc}", schema="LineageIndex") from exc
-        return cls.from_dict(data)
-
-    @classmethod
-    def from_json(cls, payload: str) -> "TrainingManifest":
+    def from_json(cls, payload: str) -> TrainingManifest:
         try:
             data = json.loads(payload)
         except json.JSONDecodeError as exc:

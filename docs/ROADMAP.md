@@ -210,7 +210,7 @@
 | Harness 收尾修缮（RNG/interval/resume 契约） | 高 | 中 | P0 | ✅ 已完成 |
 | RMArtifact 契约与导出 | 高 | 中 | P0 | ✅ 已完成 |
 | RM Server MVP | 高 | 中高 | P0 | ✅ 已完成 |
-| RL 训练接入与实验编排 | 高 | 中高 | P0 | 🚧 设计完成，待实现 |
+| RL 训练接入与实验编排 | 高 | 中高 | P0 | ✅ 已完成 |
 | Classifier RM 自动蒸馏 | 高 | 中高 | P0 | 📋 规划中 |
 | 训练/评测监控与告警 | 中高 | 中 | P1 | 📋 规划中 |
 | 闭环自动调度与灰度发布 | 中高 | 高 | P2 | 📋 规划中 |
@@ -253,8 +253,8 @@ uv run python -m autosr.rm.deploy --artifact ... --deployment-target prod
 # 4) 启动 RM server（已实现）
 uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080 --request-log-path artifacts/rm_server_logs/requests.jsonl
 
-# 5) RL 训练消费 RM endpoint（规划）
-uv run python -m autosr.rl.train --rm-endpoint http://127.0.0.1:8080 --run-manifest ...
+# 5) RL 训练消费 RM endpoint（已实现参考流）
+uv run python -m autosr.rl.verl.run_verl_training --rm-endpoint http://127.0.0.1:8080 ...
 
 # 6) 登记 RL 采样批次（规划）
 uv run python -m autosr.classifier_rm.record_sample_batch --manifest ...

@@ -207,9 +207,12 @@ class ComponentFactory:
         self,
         prompts: list[PromptExample] | None = None,
     ) -> Verifier:
-        """Create verifier with content extraction wrapper if configured."""
+        """Create verifier with content extraction wrapper if configured.
+
+        The prompts argument is retained for compatibility with older call sites;
+        extraction no longer depends on dataset contents.
+        """
         from .types import ExtractionStrategy
-        # Kept for API compatibility with call sites that pass dataset prompts.
         _ = prompts
 
         verifier = self.create_verifier()

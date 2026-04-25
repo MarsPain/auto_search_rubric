@@ -216,12 +216,12 @@ class ExperimentRegistry:
         if index is not None:
             return list(index.eval_run_ids)
         # Fallback: scan evals dir
-        return sorted(
-            p.stem
-            for p in self.evals_dir.glob("*.json")
-            if self.get_eval(p.stem) is not None
-            and self.get_eval(p.stem).training_run_id == training_run_id
-        )
+        eval_run_ids: list[str] = []
+        for p in self.evals_dir.glob("*.json"):
+            report = self.get_eval(p.stem)
+            if report is not None and report.training_run_id == training_run_id:
+                eval_run_ids.append(p.stem)
+        return sorted(eval_run_ids)
 
     # ------------------------------------------------------------------
     # Index / Lineage

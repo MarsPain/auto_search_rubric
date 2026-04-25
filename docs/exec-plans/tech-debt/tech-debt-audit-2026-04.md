@@ -20,6 +20,16 @@
 | 🟢 质量级债务 | 7 | 测试缺口、工具缺失、文档不一致 |
 | 合计 | 20 | 详见下文分级清单 |
 
+### 清偿进度
+
+截至 2026-04-25，已完成第一批低风险清偿：
+
+- 2.1 `TrainingManifest.from_json` 重复声明
+- 2.4 `registry.py` fallback 双重 I/O
+- 2.5 `LineageView` 可变默认写法
+- 2.8 `create_verifier_with_extraction` 兼容参数策略说明
+- 3.6 文档状态同步
+
 ---
 
 ## 一、🔴 架构级债务（Architectural Debt）

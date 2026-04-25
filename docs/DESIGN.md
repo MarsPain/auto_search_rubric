@@ -275,7 +275,7 @@ EvalReport(
 | `autosr/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
 | `autosr/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
 | `autosr/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |
-| `autosr/rl/` | RL接入契约与实验记录平面（规划） | `TrainingManifest`, `TrainingResultManifest`, `EvalReport` |
+| `autosr/rl/` | RL接入契约、实验记录、lineage查询与比较视图 | `TrainingManifest`, `TrainingResultManifest`, `EvalReport` |
 | `autosr/classifier_rm/` | RL 采样蒸馏与 classifier RM 训练契约（规划） | `RLSampleBatchManifest`, `PreferenceDatasetManifest`, `ClassifierRMTrainingManifest` |
 | `autosr/config.py` | 运行时配置 | `RuntimeConfig` |
 | `autosr/data_models.py` | 领域实体 | `Rubric`, `Criterion` |
@@ -300,23 +300,23 @@ uv run python -m autosr.rm.server \
   --host 0.0.0.0 \
   --port 8080 \
   --request-log-path artifacts/rm_server_logs/requests.jsonl
+
+# 记录训练前 manifest
+uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
+
+# 训练结果回填
+uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
+
+# 评测结果回填
+uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
+
+# 查询 lineage
+uv run python -m autosr.rl.show_lineage --training-run-id run_001
 ```
 
 ### 规划API
 
 ```bash
-# 记录训练前 manifest（规划）
-uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
-
-# 训练结果回填（规划）
-uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
-
-# 评测结果回填（规划）
-uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
-
-# 查询 lineage（规划）
-uv run python -m autosr.rl.show_lineage --training-run-id run_001
-
 # 登记 RL 采样批次（规划）
 uv run python -m autosr.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
 

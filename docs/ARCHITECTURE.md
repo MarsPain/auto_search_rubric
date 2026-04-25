@@ -74,7 +74,17 @@ CLI / Integration Boundary
   - `autosr/rm/export.py`
   - `autosr/rm/io.py`
 
-### 3.6 共享模型与类型域
+### 3.6 RL 接入与实验记录域（阶段 D）
+
+- 目标：维护 RL 训练接入契约、append-only registry、lineage 查询与比较视图。
+- 核心包：
+  - `autosr/rl/data_models.py`
+  - `autosr/rl/registry.py`
+  - `autosr/rl/lineage.py`
+  - `autosr/rl/comparison.py`
+  - `autosr/rl/verl/`
+
+### 3.7 共享模型与类型域
 
 - 目标：统一领域实体、枚举和跨模块契约，降低耦合。
 - 核心包：
@@ -122,7 +132,8 @@ Entry Layer:
 - 阶段 A（Harness 底座）已完成并作为不可回退基线。
 - 阶段 B（RM Artifact）已完成：schema、导出、校验、deploy manifest。
 - 阶段 C（RM Server MVP）已完成：服务进程、评分API、artifact运行时加载、请求日志。
-- 阶段 D+（RL / Classifier RM / Monitoring / Closed Loop）仍在路线图中。
+- 阶段 D（RL 训练接入与实验编排）已完成：训练 manifest/result/eval registry、lineage 查询、比较视图与回归检测。
+- 阶段 E–G（Classifier RM / Monitoring / Closed Loop）仍在路线图中。
 
 参考：
 - [ROADMAP.md](ROADMAP.md)

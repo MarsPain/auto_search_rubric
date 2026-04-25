@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from .data_models import EvalReport, TrainingManifest, TrainingResultManifest
@@ -20,15 +20,9 @@ class LineageView:
     code_version: str = ""
     duration_seconds: float = 0.0
     eval_count: int = 0
-    eval_benchmarks: list[str] = None  # type: ignore[assignment]
-    upstream_chain: dict[str, str] = None  # type: ignore[assignment]
+    eval_benchmarks: list[str] = field(default_factory=list)
+    upstream_chain: dict[str, str] = field(default_factory=dict)
     failure_stage: str = ""
-
-    def __post_init__(self) -> None:
-        if self.eval_benchmarks is None:
-            self.eval_benchmarks = []
-        if self.upstream_chain is None:
-            self.upstream_chain = {}
 
     def to_dict(self) -> dict[str, Any]:
         return {
