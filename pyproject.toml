@@ -19,3 +19,30 @@ include = ["autosr*"]
 
 [tool.uv]
 package = false
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["autosr", "tests", "scripts"]
+extend-exclude = [
+  "artifacts",
+  "docs/generated",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+  # Stage E readiness starts with correctness-oriented checks. Existing style,
+  # import ordering, and pyupgrade debt should be paid down in follow-up slices.
+  "E501",
+  "I001",
+  "E402",
+  "UP017",
+  "UP035",
+  "UP037",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

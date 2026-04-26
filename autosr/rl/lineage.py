@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from .data_models import EvalReport, TrainingManifest, TrainingResultManifest
 from .registry import ExperimentRegistry
 
 

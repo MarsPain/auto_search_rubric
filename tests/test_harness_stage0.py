@@ -14,7 +14,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from autosr.config import RuntimeConfig, SearchAlgorithmConfig
 from autosr.data_models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
@@ -23,7 +23,6 @@ from autosr.types import BackendType
 from autosr.harness import (
     CheckpointValidationError,
     ResumeCompatibilityError,
-    ResumeValidationResult,
     ResumeValidator,
     SearchCheckpoint,
     SearchSession,

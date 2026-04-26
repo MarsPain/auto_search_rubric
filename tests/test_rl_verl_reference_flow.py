@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autosr.rl.data_models import TrainingManifest, TrainingResultManifest, EvalReport
+from autosr.rl.data_models import TrainingManifest, EvalReport
 from autosr.rl.registry import ExperimentRegistry
 from autosr.rl.verl.reward_client import RMHealthzError, RMScoringClient, ScoreError
 

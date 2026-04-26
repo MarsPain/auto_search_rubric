@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import logging
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -101,11 +102,7 @@ class FileSystemPromptRepository:
     
     def _check_yaml(self) -> bool:
         """Check if PyYAML is available."""
-        try:
-            import yaml
-            return True
-        except ImportError:
-            return False
+        return importlib.util.find_spec("yaml") is not None
     
     def get(self, template_id: str, version: str | None = None) -> PromptConfig:
         """Get prompt configuration.

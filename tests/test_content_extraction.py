@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import unittest
 
 from autosr.content_extraction import (

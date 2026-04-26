@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from autosr.rl.data_models import (
     EvalReport,
@@ -576,7 +577,7 @@ class TestCLIScripts(unittest.TestCase):
         return path
 
     def test_record_manifest_cli(self) -> None:
-        from autosr.rl.cli.record_manifest import build_parser, main
+        from autosr.rl.cli.record_manifest import build_parser
 
         manifest_path = self._write_json("manifest.json", _build_valid_manifest("train_cli_001").to_dict())
         parser = build_parser()

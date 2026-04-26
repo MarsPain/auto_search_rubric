@@ -8,7 +8,6 @@ This module provides dynamic mutation mode selection based on:
 
 from __future__ import annotations
 
-import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
@@ -415,7 +414,7 @@ class FingerprintDiversityMetric:
 
             # Simple character-level distance
             matches = sum(
-                1 for a, b in zip(fp1, fp2) if a == b
+                1 for a, b in zip(fp1, fp2, strict=False) if a == b
             )
             similarity = matches / max_len
             distances.append(1.0 - similarity)

@@ -1,6 +1,6 @@
 # Stage E Readiness: Tech Debt Sprint
 
-> **状态**: 活跃 | **优先级**: P0 | **负责人**: AutoSR Team | **创建日期**: 2026-04-25
+> **状态**: 已完成 | **优先级**: P0 | **负责人**: AutoSR Team | **创建日期**: 2026-04-25 | **完成日期**: 2026-04-25
 
 ## 目标
 
@@ -22,14 +22,14 @@
 - [x] 修复 `_config_to_dict` 手工白名单导致的 hash 覆盖风险
 - [x] 细化 checkpoint 保存异常策略，避免静默失败
 - [x] 定义 `Searcher` / `SteppableSearcher` 协议，解耦 `SearchSession` 与具体搜索实现
-- [ ] 配置基础静态工具链（优先 ruff，mypy 分阶段推进）
+- [x] 配置基础静态工具链（优先 ruff，mypy 分阶段推进）
 
 ## 验收标准
 
-- [ ] `./scripts/run_tests_unit.sh` 通过
-- [ ] `uv run python scripts/validate_docs.py` 通过
-- [ ] Stage E 阻塞项在技术债审计报告中标注清偿状态
-- [ ] `docs/PLANS.md` 中本计划状态与实际文件位置一致
+- [x] `./scripts/run_tests_unit.sh` 通过
+- [x] `uv run python scripts/validate_docs.py` 通过
+- [x] Stage E 阻塞项在技术债审计报告中标注清偿状态
+- [x] `docs/PLANS.md` 中本计划状态与实际文件位置一致
 
 ## 关联文档
 
@@ -44,3 +44,4 @@
 - 2026-04-25: 完成共享原子写原语收敛，并统一 `CheckpointCallback` 类型契约。
 - 2026-04-25: 修复 config hash 全量字段覆盖，并将 checkpoint 保存失败改为显式异常。
 - 2026-04-25: 定义 `Searcher` / `SteppableSearcher` 公共协议，并将 step/checkpoint 状态契约移出 harness。
+- 2026-04-25: 配置 ruff 基础静态工具链，lint 门禁启用，format 与 mypy 分阶段推进。

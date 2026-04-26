@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
+from typing import Any
 
 from autosr.rl.comparison import compare_runs
 from autosr.rl.lineage import build_lineage_view, format_lineage_text, list_all_training_runs

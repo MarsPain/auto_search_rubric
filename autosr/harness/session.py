@@ -6,10 +6,9 @@ capabilities to existing search algorithms without modifying their core logic.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import logging
-import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 

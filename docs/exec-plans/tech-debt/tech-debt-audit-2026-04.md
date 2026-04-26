@@ -34,6 +34,7 @@
 - 2.2 `_config_to_dict` 手动选取字段导致哈希碰撞风险
 - 2.6 checkpoint 保存失败静默吞错风险
 - 1.1 Searcher step/checkpoint 协议缺失
+- 3.4 静态代码质量工具链缺失（ruff lint 门禁已启用；format 与 mypy 分阶段推进）
 
 ---
 
@@ -258,6 +259,7 @@
 | **影响** | 中高。随着代码量增长（当前 `autosr/` 下 78 个 Python 源文件，全仓库 109 个 Python 文件），人工 code review 无法覆盖所有类型不一致、未使用变量、导入循环、格式问题。Stage E 计划引入更多模块，工具链缺失将显著降低开发效率。 |
 | **建议修复** | 1. 引入 `ruff` 作为 linter + formatter（替代 flake8 + black，配置简单）；<br>2. 引入 `mypy` 做静态类型检查（代码已有 extensive type hints，收益高）；<br>3. 配置 `pre-commit` hook 在提交前自动运行；<br>4. 首次启用时可能会暴露大量既有 warning，建议分阶段修复（先配置，再分期清偿既有 debt）。 |
 | **估算** | 1 天（配置）+ 2 天（修复既有 warning，可分期） |
+| **清偿状态** | 已完成 Stage E 进入门槛：`pyproject.toml` 已配置 ruff，`scripts/run_quality_checks.sh` 已作为统一入口；当前启用 correctness-oriented lint 门禁，format-check 作为显式报告，mypy 留待后续分阶段收紧。 |
 
 ---
 

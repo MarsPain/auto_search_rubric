@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Mapping
 
 from .data_models import EvalReport, TrainingManifest, TrainingResultManifest, TrainingValidationError

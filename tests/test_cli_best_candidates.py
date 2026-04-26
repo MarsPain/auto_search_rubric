@@ -41,7 +41,7 @@ class TestCliBestCandidates(unittest.TestCase):
         for prompt_id, scores in candidate_scores.items():
             candidate_ids = {candidate.candidate_id for candidate in prompt_map[prompt_id].candidates}
             self.assertEqual(set(scores.keys()), candidate_ids)
-            for candidate_id, score in scores.items():
+            for _candidate_id, score in scores.items():
                 self.assertIsInstance(score, float)
             # Verify best_candidate matches highest score
             best_candidate_id = best_candidates[prompt_id]

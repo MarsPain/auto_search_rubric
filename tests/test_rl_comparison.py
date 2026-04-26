@@ -6,13 +6,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 from autosr.rl.comparison import (
-    ArtifactMetricTable,
-    ArtifactSummary,
-    MetricDelta,
-    RegressionSignal,
-    RunComparison,
     compare_artifacts,
     compare_runs,
     detect_anomalies,

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .data_models import EvalReport
@@ -454,7 +454,7 @@ def summarize_artifact(registry: ExperimentRegistry, artifact_id: str) -> Artifa
     # Use a simple heuristic: the eval from the latest run (last in run_ids)
     latest_evals_by_benchmark: dict[str, dict[str, Any]] = {}
     # Process in reverse to prioritize later runs
-    for run_id, ev in reversed(all_evals):
+    for _run_id, ev in reversed(all_evals):
         bench_name = ev.benchmark.get("name", "")
         if bench_name and bench_name not in latest_evals_by_benchmark:
             latest_evals_by_benchmark[bench_name] = dict(ev.metrics)

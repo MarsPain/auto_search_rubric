@@ -119,7 +119,7 @@ def _compute_diversity_score(
 
         # Count common characters at same positions
         matches = sum(
-            1 for a, b in zip(rubric_fp, other_fp) if a == b
+            1 for a, b in zip(rubric_fp, other_fp, strict=False) if a == b
         )
         similarity = matches / max_len
         distances.append(1.0 - similarity)

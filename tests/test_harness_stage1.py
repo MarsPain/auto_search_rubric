@@ -9,32 +9,22 @@ Stage 1 focuses on:
 
 from __future__ import annotations
 
-import json
-import os
 import tempfile
 import unittest
 from dataclasses import fields
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 from autosr.config import LLMBackendConfig, RuntimeConfig, SearchAlgorithmConfig
 from autosr.data_models import PromptExample, ResponseCandidate
 from autosr.factory import ComponentFactory
 from autosr.harness import (
     CheckpointCorruptedError,
-    CheckpointMetadata,
     CheckpointNotFoundError,
     CheckpointSaveError,
-    ResumeCompatibilityError,
-    ResumeValidator,
     SearchCheckpoint,
     SearchSession,
-    SessionStateError,
     StateManager,
-    StepResult,
-    compute_config_hash,
 )
-from autosr.harness.storage import StateManager
 from autosr.harness.session import _config_to_dict
 from autosr.types import BackendType, EvolutionIterationScope
 
@@ -800,8 +790,6 @@ class TestIntegrationCheckpointResume(unittest.TestCase):
         # Run 2 generations
         for _ in range(2):
             session1.run_step()
-        
-        partial_scores = dict(session1._step_state["best_scores"])  # type: ignore
         
         # Phase 2: Resume and complete
         session2 = SearchSession.resume(

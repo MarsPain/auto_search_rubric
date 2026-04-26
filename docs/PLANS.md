@@ -1,6 +1,6 @@
 # AutoSR 执行计划管理
 
-> **版本**: v1.1 | **最后更新**: 2026-04-17
+> **版本**: v1.1 | **最后更新**: 2026-04-25
 > 
 > 计划作为一等工件，活跃/已完成/技术债统一版本化管理。
 
@@ -18,11 +18,11 @@
 
 ## 活跃计划 (Active)
 
-当前活跃计划：Stage E Readiness 技术债清偿 Sprint，见 [stage-e-readiness-tech-debt-sprint.md](exec-plans/active/stage-e-readiness-tech-debt-sprint.md)。
+当前无活跃计划。
 
 | 计划 | 描述 | 创建日期 | 文档 |
 |------|------|----------|------|
-| Stage E Readiness - Tech Debt Sprint | 清偿进入 Stage E 前的阻塞债务 | 2026-04-25 | [stage-e-readiness-tech-debt-sprint.md](exec-plans/active/stage-e-readiness-tech-debt-sprint.md) |
+| - | - | - | - |
 
 ### 计划模板
 
@@ -68,6 +68,7 @@
 | Stage 1 - 可恢复执行 | StateManager、单步执行、Resume能力 | 2026-04-04 | [stage1-resume.md](exec-plans/completed/stage1-resume.md) |
 | RMArtifact 阶段B核心 | RMArtifact schema、导出、校验器、deploy manifest | 2026-04-16 | [stage2-rm-artifact.md](exec-plans/completed/stage2-rm-artifact.md) |
 | Stage D3 - Comparative Experiment View | 横向比较、baseline对比、回归检测 | 2026-04-22 | [stage-d3-comparative-view.md](exec-plans/completed/stage-d3-comparative-view.md) |
+| Stage E Readiness - Tech Debt Sprint | 清偿进入 Stage E 前的阻塞债务 | 2026-04-25 | [stage-e-readiness-tech-debt-sprint.md](exec-plans/completed/stage-e-readiness-tech-debt-sprint.md) |
 
 ---
 

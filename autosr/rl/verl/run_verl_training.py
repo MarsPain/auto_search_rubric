@@ -418,7 +418,7 @@ def main() -> None:
     args = parser.parse_args()
 
     training_run_id = args.training_run_id or generate_training_run_id(prefix="verl")
-    print(f"=== AutoSR verl Training Orchestration ===")
+    print("=== AutoSR verl Training Orchestration ===")
     print(f"training_run_id: {training_run_id}")
     print(f"rm_endpoint: {args.rm_endpoint}")
     print()

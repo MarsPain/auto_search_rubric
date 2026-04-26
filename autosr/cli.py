@@ -24,6 +24,7 @@ from .config import (
     SearchAlgorithmConfig,
     VerifierConfig,
 )
+from .search import SearchResult
 from .types import (
     AdaptiveMutationSchedule,
     BackendType,
@@ -458,7 +459,7 @@ def print_summary(
         if session_info.get('is_resumed'):
             print(f"  - resumed_from: {session_info.get('resume_source', 'unknown')}")
         if session_info.get('checkpoint_enabled'):
-            print(f"  - checkpoint_enabled: true")
+            print("  - checkpoint_enabled: true")
     
     print("Best objective scores per prompt:")
     for prompt_id, score in sorted(scores.items()):

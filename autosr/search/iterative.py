@@ -8,7 +8,6 @@ from typing import Any
 from ..evaluator import ObjectiveBreakdown, RubricEvaluator
 from ..interfaces import PreferenceJudge, RubricInitializer, RubricProposer, Verifier
 from ..data_models import PromptExample, ResponseCandidate, Rubric
-from ..types import MutationMode
 from .config import IterativeConfig, SearchResult
 from .strategies import (
     MUTATION_MODES,
