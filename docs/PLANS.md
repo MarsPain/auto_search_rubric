@@ -1,6 +1,6 @@
 # AutoSR 执行计划管理
 
-> **版本**: v1.1 | **最后更新**: 2026-04-25
+> **版本**: v1.2 | **最后更新**: 2026-04-26
 > 
 > 计划作为一等工件，活跃/已完成/技术债统一版本化管理。
 
@@ -18,11 +18,9 @@
 
 ## 活跃计划 (Active)
 
-当前无活跃计划。
-
 | 计划 | 描述 | 创建日期 | 文档 |
 |------|------|----------|------|
-| - | - | - | - |
+| Tech Debt Follow-up - Local Quality Gates | 继续清理非阻塞技术债，并优先建立本地质量门禁；中短期不引入 GitHub CI/CD | 2026-04-26 | [tech-debt-followup-local-quality-gates.md](exec-plans/active/tech-debt-followup-local-quality-gates.md) |
 
 ### 计划模板
 
@@ -76,9 +74,10 @@
 
 | 债务 | 描述 | 影响 | 计划解决 |
 |------|------|------|----------|
-| prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | Stage E前评估 |
+| prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | 按需评估；除非 Stage E 明确依赖，否则不作为当前阻塞项 |
 | Iterative模式step执行 | Iterative模式暂不支持step-wise执行 | 低 | 按需 |
-| **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，含 5 项架构级、8 项代码级、7 项质量级债务 | **高** | **Stage E前必须清偿阻塞项** |
+| 本地质量门禁收敛 | 中短期不引入 GitHub CI/CD；先在本地统一单元测试、文档校验、ruff、mypy 的执行入口与验收标准 | 中 | [Tech Debt Follow-up](exec-plans/active/tech-debt-followup-local-quality-gates.md) |
+| **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，Stage E 阻塞项已完成，剩余项进入后续清债计划 | **中** | 分阶段清偿 |
 
 ---
 

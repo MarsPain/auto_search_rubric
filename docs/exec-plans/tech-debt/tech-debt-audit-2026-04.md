@@ -36,6 +36,12 @@
 - 1.1 Searcher step/checkpoint 协议缺失
 - 3.4 静态代码质量工具链缺失（ruff lint 门禁已启用；format 与 mypy 分阶段推进）
 
+截至 2026-04-26，后续清债策略调整如下：
+
+- 3.5 不再以“立即新增 GitHub Actions CI/CD”为中短期目标；改为先建立本地质量门禁。
+- 本地质量门禁覆盖单元测试、文档校验、ruff 检查与 mypy 检查入口。
+- 后续清债由 `docs/exec-plans/active/tech-debt-followup-local-quality-gates.md` 跟踪。
+
 ---
 
 ## 一、🔴 架构级债务（Architectural Debt）
@@ -263,15 +269,16 @@
 
 ---
 
-### 3.5 缺少 CI/CD 配置
+### 3.5 本地质量门禁尚未完全收敛
 
 | 属性 | 内容 |
 |------|------|
-| **位置** | 项目根目录（无 `.github/workflows/`） |
-| **描述** | 没有 GitHub Actions 或其他 CI 配置。测试和文档校验依赖开发者本地手动执行。 |
-| **影响** | 中。在多人协作或阶段性合并时，无法保证主干代码始终通过测试；也无法在 PR 阶段拦截类型错误或测试失败。 |
-| **建议修复** | 新增 `.github/workflows/ci.yml`，包含：单元测试（`run_tests_unit.sh`）、文档校验（`validate_docs.py`）、ruff 检查、mypy 检查。 |
-| **估算** | 0.5 天 |
+| **位置** | 项目根目录、`scripts/`、`pyproject.toml` |
+| **描述** | 中短期不引入 GitHub Actions 或其他远端 CI/CD。当前测试、文档校验和 ruff 已有本地入口，但 mypy 尚未形成稳定入口，ruff format 仍处于显式报告而非硬门禁阶段。 |
+| **影响** | 中。质量保证仍依赖本地执行纪律；如果没有统一命令组合和清晰验收标准，阶段性合并前仍可能漏跑测试、文档校验、lint 或类型检查。 |
+| **建议修复** | 1. 保持本地优先策略，不新增 `.github/workflows/ci.yml`；<br>2. 明确提交前推荐运行 `./scripts/run_tests_unit.sh`、`uv run python scripts/validate_docs.py`、`./scripts/run_quality_checks.sh`；<br>3. 为 mypy 增加本地执行入口，并先限定检查范围；<br>4. 记录 ruff format 的阶段策略，完成批量格式化前作为显式报告，完成后再考虑硬门禁。 |
+| **估算** | 0.5–1 天 |
+| **清偿状态** | 未完成；已重新定性为“本地质量门禁收敛”，由后续清债计划跟踪。 |
 
 ---
 
@@ -321,7 +328,7 @@
 | 6 | 补齐 `selection_strategies.py` 测试 + `mix_reward.py` 测试 | 3.1, 3.2 |
 | 7 | 补齐 `adaptive_mutation.py` 测试 | 3.3 |
 | 8 | 配置 ruff + mypy，修复首批 critical warning | 3.4 |
-| 9 | 配置 GitHub Actions CI + 修复剩余 type/lint issues | 3.5, 3.4（续） |
+| 9 | 收敛本地质量门禁：补 mypy 入口、明确 ruff format 策略、修复剩余 type/lint issues | 3.5, 3.4（续） |
 | 10 | 视 Stage E 依赖决定是否补齐 `prompt_local` / `iterative` 的 step-wise 执行；同步文档状态与兼容层弃用策略 | 1.2, 3.6, 3.7 |
 
 ### 4.2 不可跳过的阻塞项
