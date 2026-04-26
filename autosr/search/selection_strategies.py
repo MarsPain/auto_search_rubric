@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from ..evaluator import ObjectiveBreakdown
 from ..data_models import Rubric
 from ..types import SelectionStrategy
+from .strategies import _fingerprint
 
 if TYPE_CHECKING:
     from .config import EvolutionaryConfig
@@ -60,17 +61,32 @@ def select_parents_tournament(
     Returns:
         List of selected parent rubrics
     """
-    population = [rubric for rubric, _ in scored_population]
-    scores = {id(rubric): score.total for rubric, score in scored_population}
+    population: list[Rubric] = []
+    scores: dict[str, float] = {}
+    seen: set[str] = set()
+    for rubric, score in scored_population:
+        fp = _fingerprint(rubric)
+        if fp in seen:
+            continue
+        population.append(rubric)
+        scores[fp] = score.total
+        seen.add(fp)
+
     selected: list[Rubric] = []
-    selected_ids: set[int] = set()
+    selected_fingerprints: set[str] = set()
+    target_parent_count = min(num_parents, len(population))
 
-    tournament_size = min(config.tournament_size, len(population))
+    while len(selected) < target_parent_count:
+        available = [
+            rubric
+            for rubric in population
+            if _fingerprint(rubric) not in selected_fingerprints
+        ]
+        tournament_size = min(config.tournament_size, len(available))
 
-    while len(selected) < num_parents:
         # Run tournament
-        tournament_candidates = rng.sample(population, tournament_size)
-        tournament_candidates.sort(key=lambda r: scores[id(r)], reverse=True)
+        tournament_candidates = rng.sample(available, tournament_size)
+        tournament_candidates.sort(key=lambda r: scores[_fingerprint(r)], reverse=True)
 
         # Select with probability tournament_p for best, otherwise random
         if rng.random() < config.tournament_p:
@@ -78,10 +94,8 @@ def select_parents_tournament(
         else:
             winner = rng.choice(tournament_candidates)
 
-        winner_id = id(winner)
-        if winner_id not in selected_ids:
-            selected.append(winner)
-            selected_ids.add(winner_id)
+        selected.append(winner)
+        selected_fingerprints.add(_fingerprint(winner))
 
     return selected
 

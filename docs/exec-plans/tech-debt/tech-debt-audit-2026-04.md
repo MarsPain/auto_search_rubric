@@ -35,6 +35,9 @@
 - 2.6 checkpoint 保存失败静默吞错风险
 - 1.1 Searcher step/checkpoint 协议缺失
 - 3.4 静态代码质量工具链缺失（ruff lint 门禁已启用；format 与 mypy 分阶段推进）
+- 2.7 tournament selection `id()` 去重语义不稳定
+- 3.1 `selection_strategies.py` 直接单元测试缺口
+- 3.2 `mix_reward.py` 直接单元测试缺口
 
 截至 2026-04-26，后续清债策略调整如下：
 
@@ -202,6 +205,7 @@
 | **根因** | 便捷性优先于语义正确性。 |
 | **建议修复** | 将 `id(rubric)` 替换为 `rubric.fingerprint()` 或 `_fingerprint(rubric)`（`search/strategies.py` 中已有 `_fingerprint` 函数可复用）。 |
 | **估算** | 0.25 天 |
+| **清偿状态** | 已完成：tournament selection 现在按 rubric fingerprint 去重，并只从尚未选中的语义个体中抽样，避免最佳个体重复获胜导致的死循环。 |
 
 ---
 
@@ -229,6 +233,7 @@
 | **影响** | 高。选择策略是进化搜索的核心决策逻辑；其正确性直接影响收敛速度和多样性保持。零覆盖意味着边界条件（如种群大小 < tournament_size、全同分数、极端 diversity_weight）无保护。 |
 | **建议修复** | 新增 `tests/test_selection_strategies.py`，覆盖：三种策略的基础选择、tournament 概率边界、diversity 筛选逻辑、空种群/单个体退化场景。 |
 | **估算** | 1 天 |
+| **清偿状态** | 已完成首批直接覆盖：新增 rank 基础选择、tournament 语义去重、top-k 空种群退化测试。 |
 
 ---
 
@@ -241,6 +246,7 @@
 | **影响** | 中。该模块是 Stage D 后引入的 reward blending 基础，未来 Classifier RM 蒸馏和 RM 混合打分都会依赖它。无回归保护。 |
 | **建议修复** | 新增 `tests/test_mix_reward.py`，覆盖 eta clamp、warmup/ramp 边界、progress 计算精度。 |
 | **估算** | 0.5 天 |
+| **清偿状态** | 已完成：新增 `blended_reward` eta clamp / 插值测试，以及 `EtaScheduler` warmup、linear ramp、ramp clamp、disabled ramp 边界测试。 |
 
 ---
 

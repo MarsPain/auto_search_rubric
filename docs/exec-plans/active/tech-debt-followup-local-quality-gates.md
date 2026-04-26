@@ -20,11 +20,11 @@
 - [ ] 明确本地质量门禁的唯一推荐命令组合，并同步到相关文档
 - [ ] 将 mypy 纳入本地质量检查计划，先建立可运行入口，再分阶段收紧规则
 - [ ] 决定 ruff format 的推进策略：继续作为显式报告，或在完成批量格式化后纳入硬门禁
-- [ ] 为 `selection_strategies.py` 增加直接单元测试
-- [ ] 为 `mix_reward.py` 增加直接单元测试
+- [x] 为 `selection_strategies.py` 增加直接单元测试
+- [x] 为 `mix_reward.py` 增加直接单元测试
 - [ ] 为 `adaptive_mutation.py` 增加直接单元测试
 - [ ] 修复 `rm/use_cases.py` 中 LLM 默认值重复定义问题
-- [ ] 将 tournament selection 的 `id()` 去重替换为语义稳定的指纹去重
+- [x] 将 tournament selection 的 `id()` 去重替换为语义稳定的指纹去重
 - [ ] 明确 `autosr.models` 兼容 shim 的长期保留或弃用策略
 
 ## 验收标准
@@ -44,3 +44,4 @@
 ## 变更日志
 
 - 2026-04-26: 创建后续清债计划；明确中短期采用本地质量门禁，不引入 GitHub CI/CD。
+- 2026-04-26: 补齐 `selection_strategies.py` 与 `mix_reward.py` 直接单元测试；将 tournament selection 改为基于 rubric fingerprint 去重，并修复最佳个体重复获胜时的潜在死循环。
