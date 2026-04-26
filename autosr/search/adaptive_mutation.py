@@ -162,7 +162,8 @@ class AdaptiveMutationSelector:
         if schedule is AdaptiveMutationSchedule.EXPLORATION_DECAY:
             return self._select_exploration_decay()
         if schedule is AdaptiveMutationSchedule.DIVERSITY_DRIVEN:
-            return self._select_diversity_driven(diversity_score or 0.5)
+            score = 0.5 if diversity_score is None else diversity_score
+            return self._select_diversity_driven(score)
 
         # Fallback to fixed
         return self._select_fixed()
@@ -289,8 +290,15 @@ class AdaptiveMutationSelector:
             MutationMode.FACTUAL_FOCUS,
         ]
 
-        # Compute diversity need (0-1)
-        diversity_need = max(0.0, 1.0 - diversity_score / self.config.diversity_threshold)
+        # Compute diversity need (0-1). A zero threshold means "always treat
+        # nonzero populations as sufficiently diverse" without dividing by zero.
+        if self.config.diversity_threshold == 0:
+            diversity_need = 1.0 if diversity_score <= 0 else 0.0
+        else:
+            diversity_need = max(
+                0.0,
+                1.0 - diversity_score / self.config.diversity_threshold,
+            )
 
         # Adjust weights based on diversity need
         weights = {}

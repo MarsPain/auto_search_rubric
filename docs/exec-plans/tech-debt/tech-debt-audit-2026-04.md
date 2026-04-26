@@ -38,12 +38,16 @@
 - 2.7 tournament selection `id()` 去重语义不稳定
 - 3.1 `selection_strategies.py` 直接单元测试缺口
 - 3.2 `mix_reward.py` 直接单元测试缺口
+- 3.3 `adaptive_mutation.py` 直接单元测试缺口
+- 2.3 `rm/use_cases.py` LLM 默认值重复定义
+- 3.5 本地质量门禁收敛
+- 3.7 `autosr.models` 兼容 shim 长期策略
 
 截至 2026-04-26，后续清债策略调整如下：
 
 - 3.5 不再以“立即新增 GitHub Actions CI/CD”为中短期目标；改为先建立本地质量门禁。
 - 本地质量门禁覆盖单元测试、文档校验、ruff 检查与 mypy 检查入口。
-- 后续清债由 `docs/exec-plans/active/tech-debt-followup-local-quality-gates.md` 跟踪。
+- 后续清债已由 `docs/exec-plans/completed/tech-debt-followup-local-quality-gates.md` 完成跟踪。
 
 ---
 
@@ -153,6 +157,7 @@
 | **根因** | `runtime_snapshot` 构建逻辑与配置类之间缺少单向引用。 |
 | **建议修复** | 从 `LLMBackendConfig` 的类属性或 dataclass 默认值中读取，禁止在 `use_cases.py` 中内联重复定义。 |
 | **估算** | 0.5 天 |
+| **清偿状态** | 已完成：`runtime_snapshot` 的 LLM 默认值由 `LLMBackendConfig()` 派生，避免与配置类默认值静默漂移。 |
 
 ---
 
@@ -259,6 +264,7 @@
 | **影响** | 中。自适应变异是进化搜索区别于简单搜索的关键，其调度逻辑的正确性决定搜索效率。 |
 | **建议修复** | 新增 `tests/test_adaptive_mutation.py`，覆盖各 scheduler 的 `get_state` / `from_state` 一致性、success feedback 权重变化方向、exploration decay 的单调性。 |
 | **估算** | 1 天 |
+| **清偿状态** | 已完成：新增直接单元测试覆盖 history/state roundtrip、success feedback、exploration decay、diversity 退化场景，并修复 `diversity_threshold=0` 的边界错误。 |
 
 ---
 
@@ -284,7 +290,7 @@
 | **影响** | 中。质量保证仍依赖本地执行纪律；如果没有统一命令组合和清晰验收标准，阶段性合并前仍可能漏跑测试、文档校验、lint 或类型检查。 |
 | **建议修复** | 1. 保持本地优先策略，不新增 `.github/workflows/ci.yml`；<br>2. 明确提交前推荐运行 `./scripts/run_tests_unit.sh`、`uv run python scripts/validate_docs.py`、`./scripts/run_quality_checks.sh`；<br>3. 为 mypy 增加本地执行入口，并先限定检查范围；<br>4. 记录 ruff format 的阶段策略，完成批量格式化前作为显式报告，完成后再考虑硬门禁。 |
 | **估算** | 0.5–1 天 |
-| **清偿状态** | 未完成；已重新定性为“本地质量门禁收敛”，由后续清债计划跟踪。 |
+| **清偿状态** | 已完成：README 与计划文档明确本地质量门禁组合；`run_quality_checks.sh` 增加 mypy 入口，当前先检查 `autosr/mix_reward.py`；ruff format 继续作为非硬门禁报告。 |
 
 ---
 
@@ -309,6 +315,7 @@
 | **影响** | 低。新开发者可能误用 legacy 入口，导致代码分散在两条实例化路径上。 |
 | **建议修复** | 1. 决定 `autosr.models` 是长期兼容入口还是限期弃用 shim；<br>2. 若限期弃用，在模块导入或相关对象 re-export 处添加清晰 warning / deprecated 注解，并补测试避免 warnings 破坏现有兼容测试；<br>3. 在 `DESIGN.md` 或兼容性说明中记录弃用时间表。 |
 | **估算** | 0.25–0.5 天 |
+| **清偿状态** | 已完成：`autosr.models` 明确作为长期兼容 re-export shim 保留；新代码仍统一使用 `autosr.data_models`，策略已记录在 `docs/DESIGN.md` 与 README。 |
 
 ---
 

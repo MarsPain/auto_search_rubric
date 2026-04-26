@@ -1,6 +1,6 @@
 # AutoSR 架构设计
 
-> **版本**: v1.2 | **状态**: 稳定 | **最后更新**: 2026-04-17
+> **版本**: v1.3 | **状态**: 稳定 | **最后更新**: 2026-04-26
 
 ---
 
@@ -85,6 +85,12 @@ Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distil
 ---
 
 ## 核心契约
+
+### 兼容入口策略
+
+- 新代码统一从 `autosr.data_models` 导入 `Rubric`、`Criterion`、`PromptExample` 等领域实体。
+- `autosr.models` 作为长期兼容 re-export shim 保留，用于历史导入路径和下游扩展；不在当前阶段发出导入级 `DeprecationWarning`，避免破坏既有脚本。
+- 兼容 shim 必须保持测试覆盖，确保 `autosr.models.*` 与 `autosr.data_models.*` 指向同一对象。
 
 ### Search Checkpoint（恢复用）
 

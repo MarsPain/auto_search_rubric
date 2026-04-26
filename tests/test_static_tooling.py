@@ -36,6 +36,18 @@ class TestStaticTooling(unittest.TestCase):
             '"${RUFF_CMD[@]}" format --check autosr tests scripts',
             script_content,
         )
+        self.assertIn("MYPY_CMD=(uv run --with mypy mypy)", script_content)
+        self.assertIn('"${MYPY_CMD[@]}" autosr/mix_reward.py', script_content)
+
+    def test_mypy_configuration_is_declared(self) -> None:
+        pyproject = tomllib.loads(
+            (self.repo_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+
+        mypy_config = pyproject.get("tool", {}).get("mypy", {})
+        self.assertEqual("3.11", mypy_config.get("python_version"))
+        self.assertTrue(mypy_config.get("strict"))
+        self.assertEqual("skip", mypy_config.get("follow_imports"))
 
 
 if __name__ == "__main__":

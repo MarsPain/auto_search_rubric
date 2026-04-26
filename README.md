@@ -315,6 +315,18 @@ RM server notes:
 
 ## Tests
 
+Recommended local quality gate before handing off changes:
+
+```bash
+./scripts/run_tests_unit.sh
+uv run python scripts/validate_docs.py
+./scripts/run_quality_checks.sh
+```
+
+`run_quality_checks.sh` enforces ruff lint and the current staged mypy scope.
+Ruff format remains a visible report rather than a hard gate until the repository
+is batch-formatted.
+
 Unit tests:
 
 ```bash
@@ -374,5 +386,7 @@ uv run python -m unittest \
 ## Notes
 
 - Import domain entities from `autosr.data_models` in new code.
+- `autosr.models` is a long-term compatibility re-export shim for historical
+  import paths; keep it working, but do not use it in new code.
 - Prefer `ComponentFactory(RuntimeConfig(...))` over manual runtime wiring.
 - Keep secrets in environment variables only (`LLM_API_KEY`, optional `LLM_BASE_URL`, `LLM_MODEL`).

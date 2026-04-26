@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
+from ..config import LLMBackendConfig
 from ..data_models import Rubric
 from ..harness.state import compute_config_hash
 from .data_models import ArtifactValidationError, DeployManifest, RMArtifact
@@ -36,6 +37,23 @@ def _build_config_hash(run_manifest: Mapping[str, Any] | None) -> str:
         "llm_snapshot": run_manifest.get("llm_snapshot", {}),
     }
     return compute_config_hash(hash_material)
+
+
+def _default_llm_runtime_snapshot() -> dict[str, Any]:
+    defaults = LLMBackendConfig()
+    default_model = defaults.default_model
+    return {
+        "base_url": defaults.base_url,
+        "timeout": defaults.timeout,
+        "max_retries": defaults.max_retries,
+        "retry_backoff_base": defaults.retry_backoff_base,
+        "retry_backoff_max": defaults.retry_backoff_max,
+        "retry_jitter": defaults.retry_jitter,
+        "fail_soft": defaults.fail_soft,
+        "default_model": default_model,
+        "verifier_model": defaults.verifier_model or default_model,
+        "prompt_language": defaults.prompt_language,
+    }
 
 
 def _build_runtime_snapshot(run_manifest: Mapping[str, Any] | None) -> dict[str, Any]:
@@ -74,18 +92,7 @@ def _build_runtime_snapshot(run_manifest: Mapping[str, Any] | None) -> dict[str,
             }
 
     llm_snapshot = run_manifest.get("llm_snapshot", {})
-    llm_runtime_snapshot = {
-        "base_url": "https://openrouter.ai/api/v1",
-        "timeout": 30.0,
-        "max_retries": 2,
-        "retry_backoff_base": 0.5,
-        "retry_backoff_max": 8.0,
-        "retry_jitter": 0.2,
-        "fail_soft": False,
-        "default_model": "stepfun/step-3.5-flash:free",
-        "verifier_model": "stepfun/step-3.5-flash:free",
-        "prompt_language": None,
-    }
+    llm_runtime_snapshot = _default_llm_runtime_snapshot()
     if isinstance(llm_snapshot, Mapping):
         default_model = str(llm_snapshot.get("default_model", llm_runtime_snapshot["default_model"]))
         llm_runtime_snapshot = {

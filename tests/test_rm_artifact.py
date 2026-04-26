@@ -4,7 +4,9 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from autosr.config import LLMBackendConfig
 from autosr.data_models import Criterion, GradingProtocol, Rubric
 
 
@@ -193,6 +195,39 @@ class TestRMArtifactUseCases(unittest.TestCase):
         self.assertEqual(artifact.runtime_snapshot["extraction"]["strategy"], "tag")
         self.assertEqual(artifact.runtime_snapshot["candidate_extraction"]["strategy"], "answer")
         self.assertEqual(artifact.runtime_snapshot["llm"]["verifier_model"], "model-verifier")
+
+    def test_runtime_snapshot_llm_defaults_are_sourced_from_config(self) -> None:
+        from autosr.rm import use_cases
+
+        custom_defaults = LLMBackendConfig(
+            base_url="https://example.invalid/api",
+            timeout=12.5,
+            max_retries=4,
+            retry_backoff_base=0.25,
+            retry_backoff_max=6.0,
+            retry_jitter=0.05,
+            fail_soft=True,
+            default_model="provider/default",
+        )
+
+        with patch.object(use_cases, "LLMBackendConfig", return_value=custom_defaults):
+            snapshot = use_cases._build_runtime_snapshot({"llm_snapshot": {}})
+
+        self.assertEqual(custom_defaults.base_url, snapshot["llm"]["base_url"])
+        self.assertEqual(custom_defaults.timeout, snapshot["llm"]["timeout"])
+        self.assertEqual(custom_defaults.max_retries, snapshot["llm"]["max_retries"])
+        self.assertEqual(
+            custom_defaults.retry_backoff_base,
+            snapshot["llm"]["retry_backoff_base"],
+        )
+        self.assertEqual(
+            custom_defaults.retry_backoff_max,
+            snapshot["llm"]["retry_backoff_max"],
+        )
+        self.assertEqual(custom_defaults.retry_jitter, snapshot["llm"]["retry_jitter"])
+        self.assertEqual(custom_defaults.fail_soft, snapshot["llm"]["fail_soft"])
+        self.assertEqual(custom_defaults.default_model, snapshot["llm"]["default_model"])
+        self.assertEqual(custom_defaults.default_model, snapshot["llm"]["verifier_model"])
 
     def test_validate_rm_artifact_hash_consistency(self) -> None:
         from autosr.rm.data_models import ArtifactValidationError
