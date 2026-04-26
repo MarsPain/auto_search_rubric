@@ -258,6 +258,7 @@ Iteration behavior:
   - each prompt evolves independently for up to `generations`
   - no cross-prompt batching dependency
   - can stop early per prompt when top candidates are already distinguished
+  - supports step-wise checkpoint/resume at prompt/generation boundaries
 
 ## Dataset Format
 

@@ -383,13 +383,16 @@ class TestSearchSessionStepExecution(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             session.run_step()
     
-    def test_step_execution_not_supported_prompt_local(self) -> None:
-        """Test that step execution raises NotImplementedError for prompt_local scope."""
+    def test_step_execution_supports_prompt_local(self) -> None:
+        """Test step-wise execution for evolutionary prompt_local mode."""
         config = RuntimeConfig(
             backend=BackendType.MOCK,
             search=SearchAlgorithmConfig(
                 mode="evolutionary",
+                generations=2,
+                population_size=3,
                 iteration_scope=EvolutionIterationScope.PROMPT_LOCAL,
+                stop_when_distinguished=False,
             ),
         )
         factory = ComponentFactory(config)
@@ -400,10 +403,128 @@ class TestSearchSessionStepExecution(unittest.TestCase):
             config=config,
             factory=factory,
             state_manager=state_manager,
+            checkpoint_every_generation=True,
         )
-        
-        with self.assertRaises(NotImplementedError):
-            session.run_step()
+
+        step_count = 0
+        while not session.is_finished():
+            result = session.run_step()
+            step_count += 1
+            self.assertEqual(result.generation, step_count)
+            self.assertIsNotNone(result.checkpoint_path)
+
+            if step_count > 10:
+                self.fail("Too many prompt_local steps - possible infinite loop")
+
+        self.assertEqual(step_count, len(self.prompts) * config.search.generations)
+        final_result = session.get_result()
+        self.assertEqual(set(final_result.best_scores), {"p1", "p2"})
+        self.assertEqual(
+            final_result.diagnostics["iteration_scope"],
+            EvolutionIterationScope.PROMPT_LOCAL.value,
+        )
+
+    def test_prompt_local_resume_continues_from_checkpoint(self) -> None:
+        """Test prompt_local resume continues from algorithm state."""
+        config = RuntimeConfig(
+            backend=BackendType.MOCK,
+            search=SearchAlgorithmConfig(
+                mode="evolutionary",
+                generations=2,
+                population_size=3,
+                iteration_scope=EvolutionIterationScope.PROMPT_LOCAL,
+                stop_when_distinguished=False,
+            ),
+        )
+        factory = ComponentFactory(config)
+        state_manager = StateManager(base_dir=self.temp_dir)
+
+        session1 = SearchSession.create(
+            prompts=self.prompts,
+            config=config,
+            factory=factory,
+            state_manager=state_manager,
+            checkpoint_every_generation=True,
+            session_id="prompt_local_resume",
+        )
+
+        first = session1.run_step()
+        self.assertIsNotNone(first.checkpoint_path)
+        checkpoint = state_manager.load_checkpoint(session_id="prompt_local_resume")
+        self.assertEqual(checkpoint.algorithm_state.get("iteration_scope"), "prompt_local")
+        self.assertEqual(checkpoint.algorithm_state.get("current_prompt_index"), 0)
+        self.assertEqual(checkpoint.algorithm_state.get("current_prompt_generation"), 1)
+
+        session2 = SearchSession.resume(
+            resume_from="prompt_local_resume",
+            config=config,
+            factory=factory,
+            state_manager=state_manager,
+            prompts=self.prompts,
+            checkpoint_every_generation=True,
+        )
+
+        self.assertTrue(session2.is_resumed)
+        self.assertEqual(session2.current_generation, 1)
+        self.assertEqual(
+            session2.get_session_info().get("resume_semantics"),
+            "continue_from_checkpoint",
+        )
+
+        while not session2.is_finished():
+            session2.run_step()
+
+        final_result = session2.get_result()
+        self.assertEqual(set(final_result.best_scores), {"p1", "p2"})
+        self.assertEqual(len(final_result.history["p1"]), config.search.generations)
+        self.assertEqual(len(final_result.history["p2"]), config.search.generations)
+
+    def test_prompt_local_resume_from_prompt_boundary(self) -> None:
+        """Test prompt_local resume starts the next prompt at prompt boundaries."""
+        config = RuntimeConfig(
+            backend=BackendType.MOCK,
+            search=SearchAlgorithmConfig(
+                mode="evolutionary",
+                generations=1,
+                population_size=3,
+                iteration_scope=EvolutionIterationScope.PROMPT_LOCAL,
+                stop_when_distinguished=False,
+            ),
+        )
+        factory = ComponentFactory(config)
+        state_manager = StateManager(base_dir=self.temp_dir)
+
+        session1 = SearchSession.create(
+            prompts=self.prompts,
+            config=config,
+            factory=factory,
+            state_manager=state_manager,
+            checkpoint_every_generation=True,
+            session_id="prompt_local_boundary_resume",
+        )
+
+        first = session1.run_step()
+        self.assertIsNotNone(first.checkpoint_path)
+        checkpoint = state_manager.load_checkpoint(session_id="prompt_local_boundary_resume")
+        self.assertEqual(checkpoint.algorithm_state.get("current_prompt_index"), 1)
+        self.assertNotIn("current_population", checkpoint.algorithm_state)
+        self.assertEqual(len(checkpoint.history["p1"]), 1)
+
+        session2 = SearchSession.resume(
+            resume_from="prompt_local_boundary_resume",
+            config=config,
+            factory=factory,
+            state_manager=state_manager,
+            prompts=self.prompts,
+            checkpoint_every_generation=True,
+        )
+
+        while not session2.is_finished():
+            session2.run_step()
+
+        final_result = session2.get_result()
+        self.assertEqual(len(final_result.history["p1"]), 1)
+        self.assertEqual(len(final_result.history["p2"]), 1)
     
     def test_checkpoint_saved_every_generation(self) -> None:
         """Test that checkpoints are saved after each generation."""

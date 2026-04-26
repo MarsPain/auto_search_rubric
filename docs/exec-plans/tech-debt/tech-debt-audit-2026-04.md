@@ -42,6 +42,7 @@
 - 2.3 `rm/use_cases.py` LLM 默认值重复定义
 - 3.5 本地质量门禁收敛
 - 3.7 `autosr.models` 兼容 shim 长期策略
+- 1.2 `prompt_local` scope step-wise checkpoint/resume 支持（`iterative` step-wise 仍按需评估）
 
 截至 2026-04-26，后续清债策略调整如下：
 
@@ -72,11 +73,12 @@
 | 属性 | 内容 |
 |------|------|
 | **位置** | `autosr/harness/session.py` 第 444–457 行 |
-| **描述** | `run_step()` 仅在 `evolutionary + global_batch` 组合下有效；`prompt_local` 和 `iterative` 模式显式抛出 `NotImplementedError`。 |
-| **影响** | 中。对于需要细粒度 prompt-level checkpoint 的长尾场景（大 prompt 集合、逐 prompt 恢复），当前底座无法支持。 |
+| **描述** | `run_step()` 最初仅在 `evolutionary + global_batch` 组合下有效；`prompt_local` 和 `iterative` 模式显式抛出 `NotImplementedError`。 |
+| **影响** | 中。对于需要细粒度 prompt-level checkpoint 的长尾场景（大 prompt 集合、逐 prompt 恢复），缺少 `prompt_local` step-wise 会导致中断后重复已完成 prompt。 |
 | **根因** | 实现优先级排序：先保证 `global_batch` 闭环，再扩展其他模式。 |
-| **建议修复** | 1. 为 `IterativeRTDSearcher` 和 `prompt_local` 搜索实现 step-wise 状态暴露；<br>2. 在 `SearchSession` 中统一通过协议调用，消除模式判断分支。 |
-| **估算** | 2–3 天 |
+| **建议修复** | 1. 为 `prompt_local` 搜索实现 prompt/generation 级 step-wise 状态暴露；<br>2. 后续按需为 `IterativeRTDSearcher` 实现 step-wise 状态暴露。 |
+| **估算** | `prompt_local` 已完成；`iterative` 约 1–2 天（按需） |
+| **清偿状态** | 部分完成：`evolutionary + prompt_local` 已支持 step-wise checkpoint/resume，checkpoint 中记录当前 prompt index、当前 prompt generation、当前 prompt population/best/history、prompt-local scheduler state 与已完成 prompt 结果；`iterative` step-wise 仍保留为低优先级技术债。 |
 
 ---
 
@@ -342,7 +344,7 @@
 | 7 | 补齐 `adaptive_mutation.py` 测试 | 3.3 |
 | 8 | 配置 ruff + mypy，修复首批 critical warning | 3.4 |
 | 9 | 收敛本地质量门禁：补 mypy 入口、明确 ruff format 策略、修复剩余 type/lint issues | 3.5, 3.4（续） |
-| 10 | 视 Stage E 依赖决定是否补齐 `prompt_local` / `iterative` 的 step-wise 执行；同步文档状态与兼容层弃用策略 | 1.2, 3.6, 3.7 |
+| 10 | 补齐 `prompt_local` step-wise 执行；视后续依赖决定是否补齐 `iterative` step-wise；同步文档状态与兼容层弃用策略 | 1.2, 3.6, 3.7 |
 
 ### 4.2 不可跳过的阻塞项
 
@@ -357,7 +359,7 @@
 
 以下债务可以延后到 Stage E 开发过程中顺手修复：
 
-- 1.2 `prompt_local` / `iterative` step-wise（除非 Stage E 明确需要这些搜索作用域）
+- 1.2 `iterative` step-wise（除非 Stage E 明确需要该搜索模式）
 - 2.7 `id()` 去重（当前无实际 bug）
 - 3.6 文档状态同步（纯文档维护）
 

@@ -447,7 +447,7 @@ class SearchSession:
         assert self._step_state is not None
         
         current_gen = self._current_generation
-        max_generations = searcher.max_steps
+        max_generations = int(self._step_state.get("max_steps", searcher.max_steps))
         
         if current_gen >= max_generations:
             # Finalize and finish

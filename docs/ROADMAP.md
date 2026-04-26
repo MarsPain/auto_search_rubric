@@ -1,12 +1,12 @@
 # AutoSR Roadmap: 从 Rubric Search 到 RM+RL 闭环
 
-> **版本**: v1.1 | **最后更新**: 2026-04-17
+> **版本**: v1.2 | **最后更新**: 2026-04-26
 > 
 > 将 `autosr` 从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。
 
 ---
 
-## 当前状态（截至 2026-04-17）
+## 当前状态（截至 2026-04-26）
 
 ### 已经完成且建议保留
 
@@ -14,7 +14,7 @@
 - ✅ `SearchCheckpoint` v1 schema（含 config/dataset hash）
 - ✅ `StateManager` 原子持久化
 - ✅ CLI 的 `--resume-from` / `--checkpoint-every-generation`
-- ✅ evolutionary + `global_batch` scope 的 step-wise 执行
+- ✅ evolutionary + `global_batch` / `prompt_local` scope 的 step-wise 执行
 - ✅ Harness 阶段 A 收尾：RNG 恢复、interval checkpoint、生效 resume 语义、scheduler state 恢复
 - ✅ RMArtifact 阶段 B 核心落地：schema v1、导出命令、校验器（含 hash 一致性）
 - ✅ RM deploy manifest 落地：独立 deploy CLI、部署记录 schema、按目标环境回填 previous artifact

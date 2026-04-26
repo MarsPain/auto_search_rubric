@@ -75,7 +75,7 @@
 
 | 债务 | 描述 | 影响 | 计划解决 |
 |------|------|------|----------|
-| prompt_local scope checkpoint | prompt_local作用域的checkpoint仍未支持step-wise执行 | 低 | 按需评估；除非 Stage E 明确依赖，否则不作为当前阻塞项 |
+| prompt_local scope checkpoint | prompt_local作用域已支持step-wise checkpoint/resume | 低 | ✅ 已完成：`evolutionary + prompt_local` 可按 prompt/generation 级别恢复 |
 | Iterative模式step执行 | Iterative模式暂不支持step-wise执行 | 低 | 按需 |
 | 本地质量门禁收敛 | 中短期不引入 GitHub CI/CD；本地统一单元测试、文档校验、ruff、mypy 的执行入口与验收标准 | 中 | ✅ 已完成：[Tech Debt Follow-up](exec-plans/completed/tech-debt-followup-local-quality-gates.md) |
 | **全面技术债务审计** | 详见 [tech-debt-audit-2026-04.md](exec-plans/tech-debt/tech-debt-audit-2026-04.md)，Stage E 阻塞项与本地质量门禁后续计划已完成，剩余低优先级项按需清偿 | **中** | 分阶段清偿 |

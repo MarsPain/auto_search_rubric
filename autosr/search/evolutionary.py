@@ -69,20 +69,21 @@ class EvolutionaryRTDSearcher:
 
     @property
     def supports_step_execution(self) -> bool:
-        return self.config.iteration_scope is EvolutionIterationScope.GLOBAL_BATCH
+        return self.config.iteration_scope in {
+            EvolutionIterationScope.GLOBAL_BATCH,
+            EvolutionIterationScope.PROMPT_LOCAL,
+        }
 
     @property
     def max_steps(self) -> int:
         return self.config.generations
 
     def initialize_step_state(self, prompts: list[PromptExample]) -> StepState:
-        if not self.supports_step_execution:
-            raise NotImplementedError(
-                "Step execution for prompt_local scope not yet implemented. "
-                "Use global_batch scope for checkpointable search."
-            )
+        if self.config.iteration_scope is EvolutionIterationScope.PROMPT_LOCAL:
+            return self._init_prompt_local_step_state(prompts)
         population, history, best_rubrics, best_scores, initial_margins = self._init_global_state(prompts)
         return {
+            "iteration_scope": EvolutionIterationScope.GLOBAL_BATCH.value,
             "population": population,
             "history": history,
             "best_rubrics": best_rubrics,
@@ -93,11 +94,9 @@ class EvolutionaryRTDSearcher:
         }
 
     def step(self, prompts: list[PromptExample], state: StepState, generation: int) -> None:
-        if not self.supports_step_execution:
-            raise NotImplementedError(
-                "Step execution for prompt_local scope not yet implemented. "
-                "Use global_batch scope for checkpointable search."
-            )
+        if state.get("iteration_scope") == EvolutionIterationScope.PROMPT_LOCAL.value:
+            self._step_prompt_local(prompts, state)
+            return
 
         population = state["population"]
         history = state["history"]
@@ -157,6 +156,9 @@ class EvolutionaryRTDSearcher:
         self.mutation_scheduler.next_generation()
 
     def finalize_step_result(self, prompts: list[PromptExample], state: StepState) -> SearchResult:
+        if state.get("iteration_scope") == EvolutionIterationScope.PROMPT_LOCAL.value:
+            return self._finalize_prompt_local_step_result(state)
+
         population = state["population"]
         history = state["history"]
         best_rubrics = state["best_rubrics"]
@@ -196,6 +198,9 @@ class EvolutionaryRTDSearcher:
     def get_algorithm_state(self, state: StepState | None) -> StepState:
         if state is None:
             return {}
+        if state.get("iteration_scope") == EvolutionIterationScope.PROMPT_LOCAL.value:
+            return self._get_prompt_local_algorithm_state(state)
+
         population = state.get("population")
         if not isinstance(population, dict):
             return {}
@@ -207,6 +212,7 @@ class EvolutionaryRTDSearcher:
             serialized_population[prompt_id] = [rubric.to_dict() for rubric in rubrics]
 
         return {
+            "iteration_scope": EvolutionIterationScope.GLOBAL_BATCH.value,
             "population": serialized_population,
             "initial_margins": {
                 key: float(value) for key, value in state.get("initial_margins", {}).items()
@@ -225,6 +231,15 @@ class EvolutionaryRTDSearcher:
         best_scores: dict[str, float],
         history: dict[str, list[float]],
     ) -> StepState | None:
+        if algorithm_state.get("iteration_scope") == EvolutionIterationScope.PROMPT_LOCAL.value:
+            return self._restore_prompt_local_algorithm_state(
+                algorithm_state,
+                prompt_ids=prompt_ids,
+                best_rubrics=best_rubrics,
+                best_scores=best_scores,
+                history=history,
+            )
+
         population_raw = algorithm_state.get("population")
         if not isinstance(population_raw, dict):
             return None
@@ -263,6 +278,324 @@ class EvolutionaryRTDSearcher:
             "stale_rounds": int(algorithm_state.get("stale_rounds", 0)),
             "should_stop": bool(algorithm_state.get("should_stop", False)),
         }
+
+    def _init_prompt_local_step_state(self, prompts: list[PromptExample]) -> StepState:
+        state: StepState = {
+            "iteration_scope": EvolutionIterationScope.PROMPT_LOCAL.value,
+            "history": {item.prompt_id: [] for item in prompts},
+            "best_rubrics": {},
+            "best_scores": {},
+            "current_prompt_index": 0,
+            "current_prompt_generation": 0,
+            "mutation_diagnostics": {},
+            "per_prompt_margin_stats": {},
+            "improved_prompts": 0,
+            "max_steps": len(prompts) * self.config.generations,
+            "should_stop": len(prompts) == 0,
+        }
+        return state
+
+    def _start_prompt_local_prompt(self, item: PromptExample, state: StepState) -> None:
+        logger.info("prompt-local init prompt=%s", item.prompt_id)
+        population = self._init_population(item)
+        state["current_population"] = population
+        state["current_initial_margin"] = self._score_population(
+            item,
+            [population[0]],
+        )[0][1].top_margin
+        state["current_best_score"] = -math.inf
+        state["current_best_rubric"] = population[0]
+        state["current_stale_rounds"] = 0
+        state["current_prompt_generation"] = 0
+        state["current_scheduler"] = self._build_prompt_scheduler()
+
+    def _step_prompt_local(self, prompts: list[PromptExample], state: StepState) -> None:
+        prompt_index = int(state.get("current_prompt_index", 0))
+        if prompt_index >= len(prompts):
+            state["should_stop"] = True
+            return
+
+        item = prompts[prompt_index]
+        if "current_population" not in state:
+            self._start_prompt_local_prompt(item, state)
+
+        population = state["current_population"]
+        scheduler = state["current_scheduler"]
+        generation = int(state.get("current_prompt_generation", 0))
+        initial_margin = float(state.get("current_initial_margin", 0.0))
+        best_score = float(state.get("current_best_score", -math.inf))
+        best_rubric = state.get("current_best_rubric", population[0])
+
+        scored = self._score_population(item, population)
+        best_current, best_breakdown = scored[0]
+        history = state["history"]
+        history.setdefault(item.prompt_id, []).append(best_breakdown.total)
+
+        improved = False
+        if best_breakdown.total > best_score:
+            best_score = best_breakdown.total
+            best_rubric = best_current
+            improved = True
+
+        state["current_best_score"] = best_score
+        state["current_best_rubric"] = best_rubric
+        state["best_scores"][item.prompt_id] = best_score
+        state["best_rubrics"][item.prompt_id] = best_rubric
+
+        logger.info(
+            "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f signed_margin=%.6f delta_vs_init=%.6f signed_delta=%.6f",
+            item.prompt_id,
+            generation + 1,
+            self.config.generations,
+            best_breakdown.total,
+            best_breakdown.top_margin,
+            best_breakdown.signed_top_margin,
+            best_breakdown.top_margin - initial_margin,
+            best_breakdown.signed_top_margin - initial_margin,
+        )
+
+        diversity = self.diversity_metric.compute(population, rng=self.rng)
+        self.diversity_history.append(diversity)
+
+        prompt_finished = False
+        if self._is_prompt_distinguished(best_breakdown):
+            logger.info(
+                "prompt=%s stopping early at generation=%d reason=distinguished margin=%.6f signed_margin=%.6f",
+                item.prompt_id,
+                generation + 1,
+                best_breakdown.top_margin,
+                best_breakdown.signed_top_margin,
+            )
+            prompt_finished = True
+        else:
+            stale_rounds, should_stop = self._handle_stagnation(
+                improved,
+                int(state.get("current_stale_rounds", 0)),
+            )
+            state["current_stale_rounds"] = stale_rounds
+            if should_stop:
+                logger.info(
+                    "prompt=%s stopping early at generation=%d stale_rounds=%d threshold=%d",
+                    item.prompt_id,
+                    generation + 1,
+                    stale_rounds,
+                    self.config.stagnation_generations,
+                )
+                prompt_finished = True
+
+        if not prompt_finished:
+            population = self._evolve_one_prompt(
+                item=item,
+                scored=scored,
+                population_for_prompt=population,
+                generation=generation,
+                diversity_score=diversity,
+                scheduler=scheduler,
+            )
+            scheduler.next_generation()
+            state["current_population"] = population
+
+        generation += 1
+        state["current_prompt_generation"] = generation
+        if generation >= self.config.generations:
+            prompt_finished = True
+
+        if prompt_finished:
+            self._finalize_prompt_local_prompt(
+                item=item,
+                state=state,
+                population=population,
+                scheduler=scheduler,
+            )
+            self._advance_prompt_local_prompt(prompts, state)
+
+    def _finalize_prompt_local_prompt(
+        self,
+        *,
+        item: PromptExample,
+        state: StepState,
+        population: list[Rubric],
+        scheduler: MutationScheduler,
+    ) -> None:
+        final_scored = self._score_population(item, population)
+        final_best, final_breakdown = final_scored[0]
+        best_score = float(state.get("current_best_score", -math.inf))
+        best_rubric = state.get("current_best_rubric", final_best)
+        if final_breakdown.total > best_score:
+            best_score = final_breakdown.total
+            best_rubric = final_best
+
+        state["best_scores"][item.prompt_id] = best_score
+        state["best_rubrics"][item.prompt_id] = best_rubric
+        state["mutation_diagnostics"][item.prompt_id] = scheduler.get_diagnostics()
+
+        initial_margin = float(state.get("current_initial_margin", 0.0))
+        best_margin = self._score_population(item, [best_rubric])[0][1].top_margin
+        margin_stats = _build_margin_entry(
+            initial_margin=initial_margin,
+            final_margin=best_margin,
+            tolerance=self.config.objective.tie_tolerance,
+        )
+        state["per_prompt_margin_stats"][item.prompt_id] = margin_stats
+        if bool(margin_stats.get("improved")):
+            state["improved_prompts"] = int(state.get("improved_prompts", 0)) + 1
+
+        processed = len(state["per_prompt_margin_stats"])
+        improved_prompts = int(state.get("improved_prompts", 0))
+        improvement_rate = (improved_prompts / processed) if processed > 0 else 0.0
+        logger.info(
+            "prompt-local margin-progress processed=%d improved=%d rate=%.2f%% "
+            "prompt=%s initial_margin=%.6f final_margin=%.6f delta=%.6f",
+            processed,
+            improved_prompts,
+            improvement_rate * 100.0,
+            item.prompt_id,
+            float(margin_stats["initial_margin"]),
+            float(margin_stats["final_margin"]),
+            float(margin_stats["margin_delta"]),
+        )
+        if self._checkpoint_callback is not None:
+            self._checkpoint_callback(
+                dict(state["best_rubrics"]),
+                dict(state["best_scores"]),
+                {
+                    prompt_id: list(scores)
+                    for prompt_id, scores in state["history"].items()
+                    if scores
+                },
+            )
+
+    def _advance_prompt_local_prompt(
+        self,
+        prompts: list[PromptExample],
+        state: StepState,
+    ) -> None:
+        state["current_prompt_index"] = int(state.get("current_prompt_index", 0)) + 1
+        state["current_prompt_generation"] = 0
+        for key in (
+            "current_population",
+            "current_initial_margin",
+            "current_best_score",
+            "current_best_rubric",
+            "current_stale_rounds",
+            "current_scheduler",
+        ):
+            state.pop(key, None)
+        state["should_stop"] = int(state["current_prompt_index"]) >= len(prompts)
+
+    def _finalize_prompt_local_step_result(self, state: StepState) -> SearchResult:
+        margin_improvement = _summarize_margin_improvement(state["per_prompt_margin_stats"])
+        diagnostics = {
+            "mode": "evolutionary",
+            "iteration_scope": self.config.iteration_scope.value,
+            "selection_strategy": self.config.selection_strategy.name,
+            "adaptive_mutation": self.config.adaptive_mutation.name,
+            "mutation_diagnostics": state["mutation_diagnostics"],
+            "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
+            if self.diversity_history else 0.0,
+            "margin_improvement": margin_improvement,
+        }
+        return SearchResult(
+            best_rubrics=state["best_rubrics"],
+            best_scores=state["best_scores"],
+            history=state["history"],
+            diagnostics=diagnostics,
+        )
+
+    def _get_prompt_local_algorithm_state(self, state: StepState) -> StepState:
+        payload: StepState = {
+            "iteration_scope": EvolutionIterationScope.PROMPT_LOCAL.value,
+            "current_prompt_index": int(state.get("current_prompt_index", 0)),
+            "current_prompt_generation": int(state.get("current_prompt_generation", 0)),
+            "mutation_diagnostics": state.get("mutation_diagnostics", {}),
+            "per_prompt_margin_stats": state.get("per_prompt_margin_stats", {}),
+            "improved_prompts": int(state.get("improved_prompts", 0)),
+            "max_steps": int(state.get("max_steps", 0)),
+            "should_stop": bool(state.get("should_stop", False)),
+            "diversity_history": list(self.diversity_history),
+        }
+
+        if "current_initial_margin" in state:
+            payload["current_initial_margin"] = float(state["current_initial_margin"])
+        if "current_best_score" in state:
+            payload["current_best_score"] = float(state["current_best_score"])
+        if "current_stale_rounds" in state:
+            payload["current_stale_rounds"] = int(state["current_stale_rounds"])
+
+        current_population = state.get("current_population")
+        if isinstance(current_population, list):
+            payload["current_population"] = [
+                rubric.to_dict()
+                for rubric in current_population
+                if isinstance(rubric, Rubric)
+            ]
+
+        current_best_rubric = state.get("current_best_rubric")
+        if isinstance(current_best_rubric, Rubric):
+            payload["current_best_rubric"] = current_best_rubric.to_dict()
+
+        current_scheduler = state.get("current_scheduler")
+        if current_scheduler is not None and hasattr(current_scheduler, "get_state"):
+            payload["current_scheduler_state"] = current_scheduler.get_state()
+
+        return payload
+
+    def _restore_prompt_local_algorithm_state(
+        self,
+        algorithm_state: StepState,
+        *,
+        prompt_ids: list[str],
+        best_rubrics: dict[str, Rubric],
+        best_scores: dict[str, float],
+        history: dict[str, list[float]],
+    ) -> StepState | None:
+        diversity_history = algorithm_state.get("diversity_history", [])
+        if isinstance(diversity_history, list):
+            self.diversity_history = [float(item) for item in diversity_history]
+
+        state: StepState = {
+            "iteration_scope": EvolutionIterationScope.PROMPT_LOCAL.value,
+            "history": {
+                prompt_id: list(history.get(prompt_id, []))
+                for prompt_id in prompt_ids
+            },
+            "best_rubrics": dict(best_rubrics),
+            "best_scores": dict(best_scores),
+            "current_prompt_index": int(algorithm_state.get("current_prompt_index", 0)),
+            "current_prompt_generation": int(algorithm_state.get("current_prompt_generation", 0)),
+            "current_initial_margin": float(algorithm_state.get("current_initial_margin", 0.0)),
+            "current_best_score": float(algorithm_state.get("current_best_score", -math.inf)),
+            "current_stale_rounds": int(algorithm_state.get("current_stale_rounds", 0)),
+            "mutation_diagnostics": algorithm_state.get("mutation_diagnostics", {}),
+            "per_prompt_margin_stats": algorithm_state.get("per_prompt_margin_stats", {}),
+            "improved_prompts": int(algorithm_state.get("improved_prompts", 0)),
+            "max_steps": int(
+                algorithm_state.get("max_steps", len(prompt_ids) * self.config.generations)
+            ),
+            "should_stop": bool(algorithm_state.get("should_stop", False)),
+        }
+
+        population_raw = algorithm_state.get("current_population")
+        if isinstance(population_raw, list):
+            current_population: list[Rubric] = []
+            for payload in population_raw:
+                if not isinstance(payload, dict):
+                    return None
+                current_population.append(Rubric.from_dict(payload))
+            state["current_population"] = current_population
+
+        best_rubric_raw = algorithm_state.get("current_best_rubric")
+        if isinstance(best_rubric_raw, dict):
+            state["current_best_rubric"] = Rubric.from_dict(best_rubric_raw)
+
+        if "current_population" in state:
+            scheduler = self._build_prompt_scheduler()
+            scheduler_state = algorithm_state.get("current_scheduler_state")
+            if isinstance(scheduler_state, dict) and hasattr(scheduler, "set_state"):
+                scheduler.set_state(scheduler_state)
+            state["current_scheduler"] = scheduler
+
+        return state
 
     def search(self, prompts: list[PromptExample]) -> SearchResult:
         logger.info(
@@ -363,137 +696,13 @@ class EvolutionaryRTDSearcher:
         )
 
     def _search_prompt_local(self, prompts: list[PromptExample]) -> SearchResult:
-        history: dict[str, list[float]] = {}
-        best_rubrics: dict[str, Rubric] = {}
-        best_scores: dict[str, float] = {}
-        mutation_diagnostics: dict[str, dict[str, object]] = {}
-        per_prompt_margin_stats: dict[str, dict[str, float | bool]] = {}
-        improved_prompts = 0
-
-        for item in prompts:
-            logger.info("prompt-local init prompt=%s", item.prompt_id)
-            scheduler = self._build_prompt_scheduler()
-            population = self._init_population(item)
-            initial_margin = self._score_population(item, [population[0]])[0][1].top_margin
-            best_score = -math.inf
-            best_rubric = population[0]
-            local_history: list[float] = []
-            stale_rounds = 0
-
-            for generation in range(self.config.generations):
-                scored = self._score_population(item, population)
-                best_current, best_breakdown = scored[0]
-                local_history.append(best_breakdown.total)
-
-                improved = False
-                if best_breakdown.total > best_score:
-                    best_score = best_breakdown.total
-                    best_rubric = best_current
-                    improved = True
-
-                logger.info(
-                    "prompt=%s generation=%d/%d best_score=%.4f top_margin=%.6f signed_margin=%.6f delta_vs_init=%.6f signed_delta=%.6f",
-                    item.prompt_id,
-                    generation + 1,
-                    self.config.generations,
-                    best_breakdown.total,
-                    best_breakdown.top_margin,
-                    best_breakdown.signed_top_margin,
-                    best_breakdown.top_margin - initial_margin,
-                    best_breakdown.signed_top_margin - initial_margin,
-                )
-
-                diversity = self.diversity_metric.compute(population, rng=self.rng)
-                self.diversity_history.append(diversity)
-
-                if self._is_prompt_distinguished(best_breakdown):
-                    logger.info(
-                        "prompt=%s stopping early at generation=%d reason=distinguished margin=%.6f signed_margin=%.6f",
-                        item.prompt_id,
-                        generation + 1,
-                        best_breakdown.top_margin,
-                        best_breakdown.signed_top_margin,
-                    )
-                    break
-
-                stale_rounds, should_stop = self._handle_stagnation(improved, stale_rounds)
-                if should_stop:
-                    logger.info(
-                        "prompt=%s stopping early at generation=%d stale_rounds=%d threshold=%d",
-                        item.prompt_id,
-                        generation + 1,
-                        stale_rounds,
-                        self.config.stagnation_generations,
-                    )
-                    break
-
-                population = self._evolve_one_prompt(
-                    item=item,
-                    scored=scored,
-                    population_for_prompt=population,
-                    generation=generation,
-                    diversity_score=diversity,
-                    scheduler=scheduler,
-                )
-                scheduler.next_generation()
-
-            final_scored = self._score_population(item, population)
-            final_best, final_breakdown = final_scored[0]
-            if final_breakdown.total > best_score:
-                best_score = final_breakdown.total
-                best_rubric = final_best
-
-            history[item.prompt_id] = local_history
-            best_scores[item.prompt_id] = best_score
-            best_rubrics[item.prompt_id] = best_rubric
-            mutation_diagnostics[item.prompt_id] = scheduler.get_diagnostics()
-            best_margin = self._score_population(item, [best_rubric])[0][1].top_margin
-            margin_stats = _build_margin_entry(
-                initial_margin=initial_margin,
-                final_margin=best_margin,
-                tolerance=self.config.objective.tie_tolerance,
-            )
-            per_prompt_margin_stats[item.prompt_id] = margin_stats
-            if bool(margin_stats.get("improved")):
-                improved_prompts += 1
-            processed = len(per_prompt_margin_stats)
-            improvement_rate = (improved_prompts / processed) if processed > 0 else 0.0
-            logger.info(
-                "prompt-local margin-progress processed=%d/%d improved=%d rate=%.2f%% "
-                "prompt=%s initial_margin=%.6f final_margin=%.6f delta=%.6f",
-                processed,
-                len(prompts),
-                improved_prompts,
-                improvement_rate * 100.0,
-                item.prompt_id,
-                float(margin_stats["initial_margin"]),
-                float(margin_stats["final_margin"]),
-                float(margin_stats["margin_delta"]),
-            )
-            if self._checkpoint_callback is not None:
-                self._checkpoint_callback(
-                    dict(best_rubrics),
-                    dict(best_scores),
-                    {prompt_id: list(scores) for prompt_id, scores in history.items()},
-                )
-
-        margin_improvement = _summarize_margin_improvement(per_prompt_margin_stats)
-        diagnostics = {
-            "mode": "evolutionary",
-            "iteration_scope": self.config.iteration_scope.value,
-            "selection_strategy": self.config.selection_strategy.name,
-            "adaptive_mutation": self.config.adaptive_mutation.name,
-            "mutation_diagnostics": mutation_diagnostics,
-            "avg_diversity": sum(self.diversity_history) / len(self.diversity_history)
-            if self.diversity_history else 0.0,
-            "margin_improvement": margin_improvement,
-        }
-        return SearchResult(
-            best_rubrics=best_rubrics,
-            best_scores=best_scores,
-            history=history,
-            diagnostics=diagnostics,
-        )
+        state = self._init_prompt_local_step_state(prompts)
+        steps = 0
+        max_steps = int(state.get("max_steps", 0))
+        while not state.get("should_stop", False) and steps < max_steps:
+            self._step_prompt_local(prompts, state)
+            steps += 1
+        return self._finalize_prompt_local_step_result(state)
 
     def _init_global_state(
         self,
