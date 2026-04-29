@@ -1,6 +1,6 @@
 # AutoSR 执行计划管理
 
-> **版本**: v1.3 | **最后更新**: 2026-04-26
+> **版本**: v1.4 | **最后更新**: 2026-04-29
 > 
 > 计划作为一等工件，活跃/已完成/技术债统一版本化管理。
 
@@ -20,7 +20,7 @@
 
 | 计划 | 描述 | 创建日期 | 文档 |
 |------|------|----------|------|
-| 暂无 | 当前无活跃执行计划 | - | - |
+| Rename to Reward Harness | 将项目主命名从 `auto_search_rubric` / `autosr` 平滑迁移到 `Reward Harness` / `reward_harness`，保留旧入口兼容 | 2026-04-29 | [rename-to-reward-harness.md](exec-plans/active/rename-to-reward-harness.md) |
 
 ### 计划模板
 
