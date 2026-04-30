@@ -6,7 +6,9 @@ import unittest
 
 
 class TestNoHardcodedSecrets(unittest.TestCase):
-    def test_llm_integration_file_has_no_hardcoded_secret_or_shell_exports(self) -> None:
+    def test_llm_integration_file_has_no_hardcoded_secret_or_shell_exports(
+        self,
+    ) -> None:
         target = Path(__file__).resolve().parent / "test_llm_integration.py"
         content = target.read_text(encoding="utf-8")
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 import unittest
 
-from autosr.exceptions import LLMCallError, LLMFatalCallError
-from autosr.llm_client import LLMClient
-from autosr.llm_config import LLMConfig
+from reward_harness.exceptions import LLMCallError, LLMFatalCallError
+from reward_harness.llm_client import LLMClient
+from reward_harness.llm_config import LLMConfig
 
 
 def _response_with_text(text: str) -> object:
@@ -39,7 +39,9 @@ class _AlwaysFailingChatCompletions:
 
 class _FatalAuthError(Exception):
     def __init__(self) -> None:
-        super().__init__("Error code: 401 - {'error': {'message': 'User not found.', 'code': 401}}")
+        super().__init__(
+            "Error code: 401 - {'error': {'message': 'User not found.', 'code': 401}}"
+        )
         self.status_code = 401
 
 

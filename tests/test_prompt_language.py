@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.cli import build_parser, build_runtime_config
-from autosr.config import LLMBackendConfig, RuntimeConfig
-from autosr.factory import ComponentFactory
-from autosr.prompts.loader import PromptConfig
+from reward_harness.cli import build_parser, build_runtime_config
+from reward_harness.config import LLMBackendConfig, RuntimeConfig
+from reward_harness.factory import ComponentFactory
+from reward_harness.prompts.loader import PromptConfig
 
 
 class _DummyRequester:

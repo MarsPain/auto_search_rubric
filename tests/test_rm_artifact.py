@@ -6,8 +6,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autosr.config import LLMBackendConfig
-from autosr.data_models import Criterion, GradingProtocol, Rubric
+from reward_harness.config import LLMBackendConfig
+from reward_harness.data_models import Criterion, GradingProtocol, Rubric
 
 
 def _build_test_rubric(rubric_id: str) -> Rubric:
@@ -78,7 +78,7 @@ def _write_search_output(path: Path, *, with_manifest: bool = True) -> None:
 
 class TestRMArtifactDataModel(unittest.TestCase):
     def test_artifact_roundtrip(self) -> None:
-        from autosr.rm.data_models import RMArtifact
+        from reward_harness.rm.data_models import RMArtifact
 
         artifact = RMArtifact(
             artifact_id="rm_001",
@@ -93,8 +93,16 @@ class TestRMArtifactDataModel(unittest.TestCase):
             compatibility={"artifact_type": "rm", "min_rm_api_version": "1.0"},
             runtime_snapshot={
                 "seed": 7,
-                "extraction": {"strategy": "identity", "tag_name": "content", "pattern": None, "join_separator": "\n\n"},
-                "candidate_extraction": {"strategy": "answer", "join_separator": "\n\n"},
+                "extraction": {
+                    "strategy": "identity",
+                    "tag_name": "content",
+                    "pattern": None,
+                    "join_separator": "\n\n",
+                },
+                "candidate_extraction": {
+                    "strategy": "answer",
+                    "join_separator": "\n\n",
+                },
                 "llm": {
                     "base_url": "https://example.invalid/v1",
                     "timeout": 30.0,
@@ -115,7 +123,7 @@ class TestRMArtifactDataModel(unittest.TestCase):
         self.assertEqual(restored.runtime_snapshot["seed"], 7)
 
     def test_artifact_roundtrip_without_runtime_snapshot(self) -> None:
-        from autosr.rm.data_models import RMArtifact
+        from reward_harness.rm.data_models import RMArtifact
 
         artifact = RMArtifact(
             artifact_id="rm_001",
@@ -133,7 +141,7 @@ class TestRMArtifactDataModel(unittest.TestCase):
         self.assertEqual(restored.runtime_snapshot, {})
 
     def test_artifact_validation_missing_required_field(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError, RMArtifact
+        from reward_harness.rm.data_models import ArtifactValidationError, RMArtifact
 
         with self.assertRaises(ArtifactValidationError):
             RMArtifact(
@@ -150,7 +158,7 @@ class TestRMArtifactDataModel(unittest.TestCase):
             )
 
     def test_artifact_validation_rejects_invalid_runtime_snapshot(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError, RMArtifact
+        from reward_harness.rm.data_models import ArtifactValidationError, RMArtifact
 
         with self.assertRaises(ArtifactValidationError):
             RMArtifact(
@@ -180,7 +188,7 @@ class TestRMArtifactUseCases(unittest.TestCase):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_build_rm_artifact_from_search_output(self) -> None:
-        from autosr.rm.use_cases import build_rm_artifact
+        from reward_harness.rm.use_cases import build_rm_artifact
 
         _write_search_output(self.search_output)
         artifact = build_rm_artifact(search_output_path=self.search_output)
@@ -193,11 +201,15 @@ class TestRMArtifactUseCases(unittest.TestCase):
         self.assertIn("runtime_snapshot", artifact.to_dict())
         self.assertEqual(artifact.runtime_snapshot["seed"], 7)
         self.assertEqual(artifact.runtime_snapshot["extraction"]["strategy"], "tag")
-        self.assertEqual(artifact.runtime_snapshot["candidate_extraction"]["strategy"], "answer")
-        self.assertEqual(artifact.runtime_snapshot["llm"]["verifier_model"], "model-verifier")
+        self.assertEqual(
+            artifact.runtime_snapshot["candidate_extraction"]["strategy"], "answer"
+        )
+        self.assertEqual(
+            artifact.runtime_snapshot["llm"]["verifier_model"], "model-verifier"
+        )
 
     def test_runtime_snapshot_llm_defaults_are_sourced_from_config(self) -> None:
-        from autosr.rm import use_cases
+        from reward_harness.rm import use_cases
 
         custom_defaults = LLMBackendConfig(
             base_url="https://example.invalid/api",
@@ -226,12 +238,16 @@ class TestRMArtifactUseCases(unittest.TestCase):
         )
         self.assertEqual(custom_defaults.retry_jitter, snapshot["llm"]["retry_jitter"])
         self.assertEqual(custom_defaults.fail_soft, snapshot["llm"]["fail_soft"])
-        self.assertEqual(custom_defaults.default_model, snapshot["llm"]["default_model"])
-        self.assertEqual(custom_defaults.default_model, snapshot["llm"]["verifier_model"])
+        self.assertEqual(
+            custom_defaults.default_model, snapshot["llm"]["default_model"]
+        )
+        self.assertEqual(
+            custom_defaults.default_model, snapshot["llm"]["verifier_model"]
+        )
 
     def test_validate_rm_artifact_hash_consistency(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError
-        from autosr.rm.use_cases import build_rm_artifact, validate_rm_artifact
+        from reward_harness.rm.data_models import ArtifactValidationError
+        from reward_harness.rm.use_cases import build_rm_artifact, validate_rm_artifact
 
         _write_search_output(self.search_output)
         artifact = build_rm_artifact(search_output_path=self.search_output)
@@ -242,8 +258,8 @@ class TestRMArtifactUseCases(unittest.TestCase):
             validate_rm_artifact(artifact, source_search_output_path=self.search_output)
 
     def test_export_cli_writes_artifact_file(self) -> None:
-        from autosr.rm.io import load_rm_artifact
-        from autosr.rm.use_cases import export_rm_artifact
+        from reward_harness.rm.io import load_rm_artifact
+        from reward_harness.rm.use_cases import export_rm_artifact
 
         _write_search_output(self.search_output)
         output_path = export_rm_artifact(

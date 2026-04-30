@@ -7,13 +7,13 @@ import tempfile
 import unittest
 
 from autosr import io_utils
-from autosr.io_utils import (
+from reward_harness.io_utils import (
     load_dataset,
     load_initial_rubrics,
     save_run_record_files,
     save_rubrics,
 )
-from autosr.mock_components import HeuristicRubricInitializer
+from reward_harness.mock_components import HeuristicRubricInitializer
 
 
 class TestLoadDataset(unittest.TestCase):
@@ -26,9 +26,9 @@ class TestLoadDataset(unittest.TestCase):
         self.assertGreater(len(examples), 0)
         # Verify structure
         for example in examples:
-            self.assertTrue(hasattr(example, 'prompt_id'))
-            self.assertTrue(hasattr(example, 'prompt'))
-            self.assertTrue(hasattr(example, 'candidates'))
+            self.assertTrue(hasattr(example, "prompt_id"))
+            self.assertTrue(hasattr(example, "prompt"))
+            self.assertTrue(hasattr(example, "candidates"))
             self.assertGreaterEqual(len(example.candidates), 2)
 
     def test_load_dataset_preserves_original_prompt(self) -> None:
@@ -40,8 +40,16 @@ class TestLoadDataset(unittest.TestCase):
                         "prompt_id": "p1",
                         "prompt": "Full prompt text with <content>tags</content>",
                         "candidates": [
-                            {"candidate_id": "c1", "text": "Response 1", "source": "test"},
-                            {"candidate_id": "c2", "text": "Response 2", "source": "test"},
+                            {
+                                "candidate_id": "c1",
+                                "text": "Response 1",
+                                "source": "test",
+                            },
+                            {
+                                "candidate_id": "c2",
+                                "text": "Response 2",
+                                "source": "test",
+                            },
                         ],
                     }
                 ]
@@ -51,7 +59,9 @@ class TestLoadDataset(unittest.TestCase):
 
             examples = load_dataset(f.name)
             # Original prompt should be preserved unchanged
-            self.assertEqual(examples[0].prompt, "Full prompt text with <content>tags</content>")
+            self.assertEqual(
+                examples[0].prompt, "Full prompt text with <content>tags</content>"
+            )
 
             Path(f.name).unlink()
 
@@ -69,9 +79,16 @@ class TestLoadInitialRubrics(unittest.TestCase):
                         "rubric": {
                             "rubric_id": "r1",
                             "criteria": [
-                                {"criterion_id": "c1", "text": "Test criterion", "weight": 1.0}
+                                {
+                                    "criterion_id": "c1",
+                                    "text": "Test criterion",
+                                    "weight": 1.0,
+                                }
                             ],
-                            "grading_protocol": {"output_format": "json", "num_votes": 3},
+                            "grading_protocol": {
+                                "output_format": "json",
+                                "num_votes": 3,
+                            },
                         },
                         "score": 0.85,
                     }
@@ -96,7 +113,11 @@ class TestLoadInitialRubrics(unittest.TestCase):
                         "rubric": {
                             "rubric_id": "r1",
                             "criteria": [
-                                {"criterion_id": "c1", "text": "Test criterion", "weight": 1.0}
+                                {
+                                    "criterion_id": "c1",
+                                    "text": "Test criterion",
+                                    "weight": 1.0,
+                                }
                             ],
                         },
                     }
@@ -123,7 +144,11 @@ class TestLoadInitialRubrics(unittest.TestCase):
                 "p2": {
                     "rubric_id": "r2",
                     "criteria": [
-                        {"criterion_id": "c2", "text": "Another criterion", "weight": 1.0}
+                        {
+                            "criterion_id": "c2",
+                            "text": "Another criterion",
+                            "weight": 1.0,
+                        }
                     ],
                 },
             }
@@ -181,8 +206,7 @@ class TestSaveRubrics(unittest.TestCase):
             # best_candidate_id is stored in the rubric entry
             entry = payload["best_rubrics"][0]
             self.assertEqual(
-                entry["best_candidate_id"],
-                item.candidates[0].candidate_id
+                entry["best_candidate_id"], item.candidates[0].candidate_id
             )
 
     def test_save_rubrics_writes_candidate_scores(self) -> None:
@@ -239,7 +263,9 @@ class TestSaveRubrics(unittest.TestCase):
             )
             payload = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertIn("run_manifest", payload)
-            self.assertEqual(payload["run_manifest"]["run_id"], "20260222T100000_000000Z")
+            self.assertEqual(
+                payload["run_manifest"]["run_id"], "20260222T100000_000000Z"
+            )
 
     def test_save_rubrics_writes_search_diagnostics(self) -> None:
         """Test that search diagnostics are included when provided."""
@@ -276,7 +302,9 @@ class TestSaveRubrics(unittest.TestCase):
             self.assertIn("search_diagnostics", payload)
             self.assertEqual(payload["search_diagnostics"]["mode"], "iterative")
             self.assertEqual(
-                payload["search_diagnostics"]["margin_improvement"]["global"]["improved_prompts"],
+                payload["search_diagnostics"]["margin_improvement"]["global"][
+                    "improved_prompts"
+                ],
                 1,
             )
 
@@ -319,7 +347,9 @@ class TestSaveRubrics(unittest.TestCase):
                     best_scores={item.prompt_id: score},
                 )
                 payload = json.loads(output_path.read_text(encoding="utf-8"))
-                self.assertEqual(payload["best_objective_scores"][item.prompt_id], score)
+                self.assertEqual(
+                    payload["best_objective_scores"][item.prompt_id], score
+                )
 
             self.assertEqual(list(output_path.parent.glob("out.json.*.tmp")), [])
 
@@ -335,7 +365,9 @@ class TestAtomicWrites(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             output_path = Path(tmp_dir) / "nested" / "payload.json"
 
-            written_path = io_utils.atomic_write_json(output_path, {"value": 3, "label": "ok"})
+            written_path = io_utils.atomic_write_json(
+                output_path, {"value": 3, "label": "ok"}
+            )
 
             self.assertEqual(written_path, output_path)
             self.assertEqual(

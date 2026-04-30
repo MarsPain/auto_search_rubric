@@ -1,7 +1,7 @@
 [project]
-name = "autosr"
+name = "reward_harness"
 version = "0.1.0"
-description = "Tail-focused rubric search framework inspired by Chasing the Tail"
+description = "Reward Harness — automated rubric search and reward model engineering"
 requires-python = ">=3.11"
 dependencies = [
   "openai>=1.0.0",
@@ -23,7 +23,7 @@ package = false
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-src = ["autosr", "tests", "scripts"]
+src = ["autosr", "reward_harness", "tests", "scripts"]
 extend-exclude = [
   "artifacts",
   "docs/generated",

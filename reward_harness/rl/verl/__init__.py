@@ -1,9 +1,20 @@
-"""RL reference adapters for Reward Harness.
+"""AutoSR RL integration reference adapters for external RL frameworks.
 
-Re-exports ``autosr.rl.verl`` public surface.
+This subpackage provides reference implementations for connecting external
+RL training repositories (e.g. verl) to the AutoSR RM server and experiment
+registry. It is not a mandatory dependency; external projects may reimplement
+these patterns in their own codebase.
+
+Reference flow:
+1. prepare_training_run  -> generate TrainingManifest + healthz handshake
+2. run_training          -> external trainer consumes RM endpoint
+3. finalize_training_run -> generate TrainingResultManifest + EvalReport
 """
 
-from __future__ import annotations
+from .reward_client import RMHealthzError, RMScoringClient, ScoreError
 
-from autosr.rl.verl import *  # noqa: F401,F403
-from autosr.rl.verl import __all__  # noqa: F401
+__all__ = [
+    "RMScoringClient",
+    "RMHealthzError",
+    "ScoreError",
+]

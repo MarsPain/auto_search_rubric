@@ -1,9 +1,8 @@
+"""Backward-compatible CLI entrypoint for record_result."""
+
 from __future__ import annotations
 
-"""Backward-compatible CLI entrypoint for recording TrainingResultManifest."""
-
-from .cli.record_result import main
-
+from reward_harness.rl.record_result import main
 
 if __name__ == "__main__":
     main()

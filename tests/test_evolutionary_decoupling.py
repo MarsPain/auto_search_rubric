@@ -2,15 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.mock_components import (
+from reward_harness.mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
     HeuristicVerifier,
     TemplateProposer,
 )
-from autosr.models import PromptExample, ResponseCandidate
-from autosr.search import EvolutionaryConfig, EvolutionaryRTDSearcher
-from autosr.types import MutationMode
+from reward_harness.models import PromptExample, ResponseCandidate
+from reward_harness.search import EvolutionaryConfig, EvolutionaryRTDSearcher
+from reward_harness.types import MutationMode
 
 
 def _build_prompt(prompt_id: str) -> PromptExample:
@@ -18,9 +18,21 @@ def _build_prompt(prompt_id: str) -> PromptExample:
         prompt_id=prompt_id,
         prompt="Assess the response quality.",
         candidates=[
-            ResponseCandidate(candidate_id="a", text="First response with concrete example.", source="s1"),
-            ResponseCandidate(candidate_id="b", text="Second response with details and steps.", source="s2"),
-            ResponseCandidate(candidate_id="c", text="Third response with concise structure.", source="s3"),
+            ResponseCandidate(
+                candidate_id="a",
+                text="First response with concrete example.",
+                source="s1",
+            ),
+            ResponseCandidate(
+                candidate_id="b",
+                text="Second response with details and steps.",
+                source="s2",
+            ),
+            ResponseCandidate(
+                candidate_id="c",
+                text="Third response with concise structure.",
+                source="s3",
+            ),
         ],
     )
 
@@ -61,7 +73,9 @@ class CountingDiversityMetric:
 
 
 class TestEvolutionaryDecoupling(unittest.TestCase):
-    def test_search_uses_injected_scheduler_and_single_pass_diversity_metric(self) -> None:
+    def test_search_uses_injected_scheduler_and_single_pass_diversity_metric(
+        self,
+    ) -> None:
         prompts = [_build_prompt("p1"), _build_prompt("p2")]
         config = EvolutionaryConfig(
             generations=2,
@@ -91,7 +105,9 @@ class TestEvolutionaryDecoupling(unittest.TestCase):
         self.assertGreater(len(scheduler.select_calls), 0)
         self.assertTrue(all(score == 0.42 for score in scheduler.select_calls))
         self.assertGreater(len(scheduler.record_calls), 0)
-        self.assertEqual(result.diagnostics["mutation_diagnostics"], {"source": "stub-scheduler"})
+        self.assertEqual(
+            result.diagnostics["mutation_diagnostics"], {"source": "stub-scheduler"}
+        )
         self.assertAlmostEqual(result.diagnostics["avg_diversity"], 0.42)
 
 

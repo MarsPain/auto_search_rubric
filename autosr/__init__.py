@@ -1,4 +1,12 @@
-from .content_extraction import (
+"""AutoSR — legacy compatibility shim for Reward Harness.
+
+All implementations have moved to ``reward_harness``. Importing from ``autosr``
+still works and returns the same objects as ``reward_harness``.
+"""
+
+from __future__ import annotations
+
+from reward_harness import (  # noqa: F401
     AnswerExtractor,
     ContentExtractingVerifier,
     IdentityExtractor,
@@ -7,16 +15,16 @@ from .content_extraction import (
     create_candidate_text_extractor,
     create_content_extractor,
     create_verifier_with_extraction,
-)
-from .data_models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
-from .search import (
+    Criterion,
+    GradingProtocol,
+    PromptExample,
+    ResponseCandidate,
+    Rubric,
     EvolutionaryConfig,
     EvolutionaryRTDSearcher,
     IterativeConfig,
     IterativeRTDSearcher,
     SearchResult,
-)
-from .types import (
     AdaptiveMutationSchedule,
     BackendType,
     CandidateExtractionStrategy,
@@ -29,7 +37,6 @@ from .types import (
 )
 
 __all__ = [
-    # Content extraction strategies
     "AnswerExtractor",
     "ContentExtractingVerifier",
     "IdentityExtractor",
@@ -38,26 +45,23 @@ __all__ = [
     "create_candidate_text_extractor",
     "create_content_extractor",
     "create_verifier_with_extraction",
-    # Models
     "Criterion",
     "GradingProtocol",
     "PromptExample",
     "ResponseCandidate",
     "Rubric",
-    # Search
     "EvolutionaryConfig",
     "EvolutionaryRTDSearcher",
     "IterativeConfig",
     "IterativeRTDSearcher",
     "SearchResult",
-    # Types/Enums
-    "BackendType",
-    "SelectionStrategy",
     "AdaptiveMutationSchedule",
+    "BackendType",
     "CandidateExtractionStrategy",
     "ExtractionStrategy",
     "InitializerStrategy",
     "LLMRole",
     "MutationMode",
     "SearchMode",
+    "SelectionStrategy",
 ]

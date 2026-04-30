@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.mix_reward import EtaScheduler, blended_reward
+from reward_harness.mix_reward import EtaScheduler, blended_reward
 
 
 class MixRewardTest(unittest.TestCase):

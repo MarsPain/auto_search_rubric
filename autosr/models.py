@@ -1,14 +1,5 @@
-"""Backward-compatible re-exports for historical import path.
+"""Legacy compatibility shim."""
 
-Canonical data model definitions now live in ``autosr.data_models``.
-"""
+from __future__ import annotations
 
-from .data_models import Criterion, GradingProtocol, PromptExample, ResponseCandidate, Rubric
-
-__all__ = [
-    "Criterion",
-    "GradingProtocol",
-    "Rubric",
-    "ResponseCandidate",
-    "PromptExample",
-]
+from reward_harness.models import *  # noqa: F401,F403

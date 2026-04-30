@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.content_extraction import (
+from reward_harness.content_extraction import (
     AnswerExtractor,
     ContentExtractingVerifier,
     IdentityExtractor,
@@ -14,7 +14,7 @@ from autosr.content_extraction import (
     create_content_extractor,
     create_verifier_with_extraction,
 )
-from autosr.models import Criterion, GradingProtocol, ResponseCandidate, Rubric
+from reward_harness.models import Criterion, GradingProtocol, ResponseCandidate, Rubric
 
 
 class MockVerifier:

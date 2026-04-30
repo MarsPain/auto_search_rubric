@@ -1,9 +1,45 @@
-"""Prompt management domain for Reward Harness.
+"""Prompt management package for AutoSR.
 
-Re-exports ``autosr.prompts`` public surface.
+This package provides:
+    - constants: Hardcoded prompt templates
+    - loader: Configuration loading from YAML/JSON files
+    - PromptConfig: Data class for prompt configurations
+    - PromptRepository: Protocol for prompt storage backends
+
+Usage:
+    # Using constants (step 1)
+    from reward_harness.prompts import constants as prompts
+
+    system = prompts.RUBRIC_INITIALIZER_SYSTEM
+    user = prompts.RUBRIC_INITIALIZER_USER_TEMPLATE.format(...)
+
+    # Using external config (step 4)
+    from reward_harness.prompts.loader import create_repository
+
+    repo = create_repository("prompts/")
+    config = repo.get("rubric_initializer")
+    system, user = config.render(prompt_json="...", ...)
 """
 
 from __future__ import annotations
 
-from autosr.prompts import *  # noqa: F401,F403
-from autosr.prompts import __all__  # noqa: F401
+# Re-export key classes for convenience
+from .loader import (
+    PromptConfig,
+    PromptRepository,
+    FileSystemPromptRepository,
+    ConstantPromptRepository,
+    create_repository,
+)
+
+__all__ = [
+    # Submodules
+    "constants",
+    "loader",
+    # Classes
+    "PromptConfig",
+    "PromptRepository",
+    "FileSystemPromptRepository",
+    "ConstantPromptRepository",
+    "create_repository",
+]

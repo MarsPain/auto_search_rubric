@@ -3,14 +3,14 @@ from __future__ import annotations
 import random
 import unittest
 
-from autosr.data_models import Criterion, Rubric
-from autosr.search.adaptive_mutation import (
+from reward_harness.data_models import Criterion, Rubric
+from reward_harness.search.adaptive_mutation import (
     AdaptiveMutationSelector,
     MutationHistory,
     compute_population_diversity,
 )
-from autosr.search.config import EvolutionaryConfig
-from autosr.types import AdaptiveMutationSchedule, MutationMode
+from reward_harness.search.config import EvolutionaryConfig
+from reward_harness.types import AdaptiveMutationSchedule, MutationMode
 
 
 class FixedRandom(random.Random):
@@ -58,7 +58,9 @@ class AdaptiveMutationTest(unittest.TestCase):
         restored = AdaptiveMutationSelector(config, random.Random(7))
         restored.set_state(selector.get_state())
 
-        self.assertEqual(selector.get_state()["history"], restored.get_state()["history"])
+        self.assertEqual(
+            selector.get_state()["history"], restored.get_state()["history"]
+        )
         self.assertEqual(
             selector.get_diagnostics()["success_rates"],
             restored.get_diagnostics()["success_rates"],
@@ -106,7 +108,9 @@ class AdaptiveMutationTest(unittest.TestCase):
 
         self.assertIsInstance(selected, MutationMode)
 
-    def test_population_diversity_handles_degenerate_and_distinct_populations(self) -> None:
+    def test_population_diversity_handles_degenerate_and_distinct_populations(
+        self,
+    ) -> None:
         single = [_rubric("r1", "Reward direct answers.")]
         identical = [
             _rubric("r1", "Reward direct answers."),

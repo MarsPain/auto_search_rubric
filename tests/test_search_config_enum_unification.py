@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.cli import build_parser, build_runtime_config
-from autosr.config import SearchAlgorithmConfig
-from autosr.search import (
+from reward_harness.cli import build_parser, build_runtime_config
+from reward_harness.config import SearchAlgorithmConfig
+from reward_harness.search import (
     AdaptiveMutationSchedule,
     EvolutionIterationScope,
     SelectionStrategy,

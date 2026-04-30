@@ -6,14 +6,18 @@ import unittest
 
 from autosr import factory as factory_module
 from autosr import interfaces
-from autosr.config import ObjectiveFunctionConfig, RuntimeConfig, SearchAlgorithmConfig
-from autosr.factory import ComponentFactory
-from autosr.harness import SearchSession
-from autosr.interfaces import SteppableSearcher
-from autosr.models import PromptExample, ResponseCandidate
-from autosr.search import evolutionary as evolutionary_module
-from autosr.search import EvolutionaryRTDSearcher, IterativeRTDSearcher
-from autosr.types import EvolutionIterationScope
+from reward_harness.config import (
+    ObjectiveFunctionConfig,
+    RuntimeConfig,
+    SearchAlgorithmConfig,
+)
+from reward_harness.factory import ComponentFactory
+from reward_harness.harness import SearchSession
+from reward_harness.interfaces import SteppableSearcher
+from reward_harness.models import PromptExample, ResponseCandidate
+from reward_harness.search import evolutionary as evolutionary_module
+from reward_harness.search import EvolutionaryRTDSearcher, IterativeRTDSearcher
+from reward_harness.types import EvolutionIterationScope
 
 
 def _build_prompt() -> PromptExample:
@@ -49,44 +53,54 @@ class TestArchitectureRefactor(unittest.TestCase):
 
     def test_split_architecture_modules_are_importable(self) -> None:
         modules = [
-            "autosr.search.use_cases",
-            "autosr.search.strategies",
-            "autosr.llm_components.use_cases",
-            "autosr.llm_components.parsers",
-            "autosr.content_extraction.use_cases",
-            "autosr.content_extraction.strategies",
-            "autosr.run_records.use_cases",
-            "autosr.rm.use_cases",
-            "autosr.rm.data_models",
+            "reward_harness.search.use_cases",
+            "reward_harness.search.strategies",
+            "reward_harness.llm_components.use_cases",
+            "reward_harness.llm_components.parsers",
+            "reward_harness.content_extraction.use_cases",
+            "reward_harness.content_extraction.strategies",
+            "reward_harness.run_records.use_cases",
+            "reward_harness.rm.use_cases",
+            "reward_harness.rm.data_models",
         ]
         for name in modules:
             with self.subTest(module=name):
                 imported = importlib.import_module(name)
                 self.assertIsNotNone(imported)
 
-    def test_factory_accepts_checkpoint_callback_and_wires_evolutionary_searcher(self) -> None:
+    def test_factory_accepts_checkpoint_callback_and_wires_evolutionary_searcher(
+        self,
+    ) -> None:
         config = RuntimeConfig(search=SearchAlgorithmConfig(mode="evolutionary"))
         factory = ComponentFactory(config)
         callback = lambda _r, _s, _h: None  # noqa: E731
 
-        searcher = factory.create_searcher([_build_prompt()], checkpoint_callback=callback)
+        searcher = factory.create_searcher(
+            [_build_prompt()], checkpoint_callback=callback
+        )
 
         self.assertIsInstance(searcher, EvolutionaryRTDSearcher)
         self.assertIs(searcher._checkpoint_callback, callback)
 
-    def test_factory_accepts_checkpoint_callback_for_iterative_without_wiring(self) -> None:
+    def test_factory_accepts_checkpoint_callback_for_iterative_without_wiring(
+        self,
+    ) -> None:
         config = RuntimeConfig(search=SearchAlgorithmConfig(mode="iterative"))
         factory = ComponentFactory(config)
         callback = lambda _r, _s, _h: None  # noqa: E731
 
-        searcher = factory.create_searcher([_build_prompt()], checkpoint_callback=callback)
+        searcher = factory.create_searcher(
+            [_build_prompt()], checkpoint_callback=callback
+        )
 
         self.assertIsInstance(searcher, IterativeRTDSearcher)
 
     def test_checkpoint_callback_type_is_defined_once_in_interfaces(self) -> None:
         self.assertTrue(hasattr(interfaces, "CheckpointCallback"))
         self.assertIs(factory_module.CheckpointCallback, interfaces.CheckpointCallback)
-        self.assertIs(evolutionary_module.CheckpointCallback, interfaces.CheckpointCallback)
+        self.assertIs(
+            evolutionary_module.CheckpointCallback, interfaces.CheckpointCallback
+        )
 
     def test_evolutionary_searcher_exposes_steppable_protocol(self) -> None:
         config = RuntimeConfig(
@@ -100,7 +114,9 @@ class TestArchitectureRefactor(unittest.TestCase):
         self.assertIsInstance(searcher, EvolutionaryRTDSearcher)
         self.assertIsInstance(searcher, SteppableSearcher)
 
-    def test_search_session_does_not_call_evolutionary_private_step_methods(self) -> None:
+    def test_search_session_does_not_call_evolutionary_private_step_methods(
+        self,
+    ) -> None:
         source = inspect.getsource(SearchSession)
         forbidden = [
             "._init_global_state",

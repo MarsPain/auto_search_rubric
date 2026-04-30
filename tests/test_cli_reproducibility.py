@@ -3,8 +3,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from autosr.cli import build_runtime_config
-from autosr.run_records.use_cases import build_reproducible_script, build_run_manifest
+from reward_harness.cli import build_runtime_config
+from reward_harness.run_records.use_cases import (
+    build_reproducible_script,
+    build_run_manifest,
+)
 
 
 class TestCliReproducibility(unittest.TestCase):
@@ -65,7 +68,14 @@ class TestCliReproducibility(unittest.TestCase):
             config=config,
             dataset_path=Path(args.dataset),
             output_path=Path(args.output),
-            raw_cli_args=["--dataset", args.dataset, "--output", args.output, "--backend", "mock"],
+            raw_cli_args=[
+                "--dataset",
+                args.dataset,
+                "--output",
+                args.output,
+                "--backend",
+                "mock",
+            ],
             run_id="20260222T120000_123456Z",
             repo_root=Path.cwd(),
         )
@@ -85,7 +95,14 @@ class TestCliReproducibility(unittest.TestCase):
         manifest = {
             "workspace": {"repo_root": "/tmp/project"},
             "backend": {"resolved": "llm", "api_key_env": "LLM_API_KEY"},
-            "command": {"normalized_argv": ["--dataset", "/tmp/d.json", "--output", "/tmp/o.json"]},
+            "command": {
+                "normalized_argv": [
+                    "--dataset",
+                    "/tmp/d.json",
+                    "--output",
+                    "/tmp/o.json",
+                ]
+            },
         }
         script = build_reproducible_script(manifest)
         self.assertIn('if [[ -z "${LLM_API_KEY:-}" ]]; then', script)

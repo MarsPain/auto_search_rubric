@@ -22,7 +22,8 @@
 ## 项目结构
 
 ```
-reward_harness/              # 推荐核心包（兼容：autosr/）
+reward_harness/              # 核心包
+autosr/                      # legacy 兼容 shim（从 reward_harness re-export）
 ├── cli.py                   # CLI入口
 ├── harness/                 # 搜索会话底座
 │   ├── session.py           # SearchSession
@@ -60,7 +61,7 @@ uv run python -m reward_harness.cli \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
 
-# 兼容入口
+# legacy 兼容入口
 uv run python -m autosr.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
@@ -82,7 +83,7 @@ uv run python scripts/validate_docs.py
 ## 核心约束
 
 1. **所有密钥必须走环境变量** (`LLM_API_KEY`)
-2. **保持现有CLI兼容**: `uv run python -m autosr.cli` 继续可用
+2. **保持 legacy CLI 兼容**: `uv run python -m autosr.cli` 继续可用
 3. **Harness底座不可回退**: 搜索会话化能力是上层RM/RL的依赖
 4. **文档与代码同步**: 修改架构时必须更新对应设计文档
 

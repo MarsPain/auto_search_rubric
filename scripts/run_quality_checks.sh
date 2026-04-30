@@ -19,12 +19,12 @@ else
 fi
 
 echo "Running ruff lint..."
-"${RUFF_CMD[@]}" check autosr tests scripts
+"${RUFF_CMD[@]}" check autosr reward_harness tests scripts
 
 echo "Running mypy type checks..."
-"${MYPY_CMD[@]}" autosr/mix_reward.py
+"${MYPY_CMD[@]}" reward_harness/mix_reward.py
 
 echo "Checking ruff formatting..."
-if ! "${RUFF_CMD[@]}" format --check autosr tests scripts; then
+if ! "${RUFF_CMD[@]}" format --check autosr reward_harness tests scripts; then
   echo "Ruff formatting differences detected; formatter enforcement is staged." >&2
 fi

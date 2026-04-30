@@ -1,9 +1,8 @@
+"""Backward-compatible CLI entrypoint for compare_artifacts."""
+
 from __future__ import annotations
 
-"""Backward-compatible CLI entrypoint for comparing RM artifacts."""
-
-from .cli.compare_artifacts import main
-
+from reward_harness.rl.compare_artifacts import main
 
 if __name__ == "__main__":
     main()

@@ -10,21 +10,21 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from autosr.rl.data_models import (
+from reward_harness.rl.data_models import (
     EvalReport,
     LineageIndex,
     TrainingManifest,
     TrainingResultManifest,
     TrainingValidationError,
 )
-from autosr.rl.registry import (
+from reward_harness.rl.registry import (
     DuplicateEntryError,
     ExperimentRegistry,
     MissingManifestError,
     RegistryError,
 )
-from autosr.rl.io import save_eval_report
-from autosr.rl.validation import (
+from reward_harness.rl.io import save_eval_report
+from reward_harness.rl.validation import (
     LineageValidationError,
     validate_cross_consistency,
     validate_eval_report,
@@ -32,7 +32,12 @@ from autosr.rl.validation import (
     validate_training_manifest,
     validate_training_result,
 )
-from autosr.rl.lineage import LineageView, build_lineage_view, format_lineage_text, list_all_training_runs
+from reward_harness.rl.lineage import (
+    LineageView,
+    build_lineage_view,
+    format_lineage_text,
+    list_all_training_runs,
+)
 
 
 def _build_valid_manifest(training_run_id: str = "train_001") -> TrainingManifest:
@@ -54,7 +59,12 @@ def _build_valid_manifest(training_run_id: str = "train_001") -> TrainingManifes
             "entrypoint": "python train.py",
         },
         trainer_config={"lr": 0.001},
-        execution={"launcher": "local", "host": "gpu-node-1", "accelerator": "cuda", "num_workers": 4},
+        execution={
+            "launcher": "local",
+            "host": "gpu-node-1",
+            "accelerator": "cuda",
+            "num_workers": 4,
+        },
         tags=["exp1"],
         notes="test run",
     )
@@ -77,7 +87,9 @@ def _build_valid_result(
     )
 
 
-def _build_valid_eval(eval_run_id: str = "eval_001", training_run_id: str = "train_001") -> EvalReport:
+def _build_valid_eval(
+    eval_run_id: str = "eval_001", training_run_id: str = "train_001"
+) -> EvalReport:
     return EvalReport(
         eval_run_id=eval_run_id,
         training_run_id=training_run_id,
@@ -152,7 +164,9 @@ class TestTrainingManifestDataModel(unittest.TestCase):
         source = inspect.getsource(TrainingManifest)
 
         self.assertEqual(source.count("def from_json"), 1)
-        self.assertEqual(TrainingManifest.from_json.__annotations__["return"], "TrainingManifest")
+        self.assertEqual(
+            TrainingManifest.from_json.__annotations__["return"], "TrainingManifest"
+        )
 
 
 class TestTrainingResultManifestDataModel(unittest.TestCase):
@@ -398,8 +412,14 @@ class TestExperimentRegistry(unittest.TestCase):
                 return super().get_eval(eval_run_id)
 
         registry = CountingRegistry(self.tmpdir.name)
-        save_eval_report(registry.evals_dir / "eval_001.json", _build_valid_eval("eval_001", "train_001"))
-        save_eval_report(registry.evals_dir / "eval_002.json", _build_valid_eval("eval_002", "train_002"))
+        save_eval_report(
+            registry.evals_dir / "eval_001.json",
+            _build_valid_eval("eval_001", "train_001"),
+        )
+        save_eval_report(
+            registry.evals_dir / "eval_002.json",
+            _build_valid_eval("eval_002", "train_002"),
+        )
 
         evals = registry.list_evals_for_training_run("train_001")
 
@@ -543,7 +563,9 @@ class TestLineageView(unittest.TestCase):
         self.registry.record_manifest(_build_valid_manifest("train_002"))
         views = list_all_training_runs(self.registry)
         self.assertEqual(len(views), 2)
-        self.assertEqual(sorted(v.training_run_id for v in views), ["train_001", "train_002"])
+        self.assertEqual(
+            sorted(v.training_run_id for v in views), ["train_001", "train_002"]
+        )
 
     def test_lineage_view_with_failure(self) -> None:
         m = _build_valid_manifest("train_001")
@@ -573,36 +595,50 @@ class TestCLIScripts(unittest.TestCase):
 
     def _write_json(self, name: str, data: dict[str, Any]) -> Path:
         path = self.registry_dir / name
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
         return path
 
     def test_record_manifest_cli(self) -> None:
-        from autosr.rl.cli.record_manifest import build_parser
+        from reward_harness.rl.record_manifest import build_parser
 
-        manifest_path = self._write_json("manifest.json", _build_valid_manifest("train_cli_001").to_dict())
+        manifest_path = self._write_json(
+            "manifest.json", _build_valid_manifest("train_cli_001").to_dict()
+        )
         parser = build_parser()
-        args = parser.parse_args([f"--manifest={manifest_path}", f"--registry-dir={self.registry_dir}"])
+        args = parser.parse_args(
+            [f"--manifest={manifest_path}", f"--registry-dir={self.registry_dir}"]
+        )
         # Just verify parser builds; main writes to stdout/registry
         self.assertEqual(args.manifest, str(manifest_path))
 
     def test_record_result_cli(self) -> None:
-        from autosr.rl.cli.record_result import build_parser
+        from reward_harness.rl.record_result import build_parser
 
-        result_path = self._write_json("result.json", _build_valid_result("train_cli_001").to_dict())
+        result_path = self._write_json(
+            "result.json", _build_valid_result("train_cli_001").to_dict()
+        )
         parser = build_parser()
-        args = parser.parse_args([f"--result={result_path}", f"--registry-dir={self.registry_dir}"])
+        args = parser.parse_args(
+            [f"--result={result_path}", f"--registry-dir={self.registry_dir}"]
+        )
         self.assertEqual(args.result, str(result_path))
 
     def test_record_eval_cli(self) -> None:
-        from autosr.rl.cli.record_eval import build_parser
+        from reward_harness.rl.record_eval import build_parser
 
-        eval_path = self._write_json("eval.json", _build_valid_eval("eval_cli_001", "train_cli_001").to_dict())
+        eval_path = self._write_json(
+            "eval.json", _build_valid_eval("eval_cli_001", "train_cli_001").to_dict()
+        )
         parser = build_parser()
-        args = parser.parse_args([f"--report={eval_path}", f"--registry-dir={self.registry_dir}"])
+        args = parser.parse_args(
+            [f"--report={eval_path}", f"--registry-dir={self.registry_dir}"]
+        )
         self.assertEqual(args.report, str(eval_path))
 
     def test_show_lineage_cli(self) -> None:
-        from autosr.rl.cli.show_lineage import build_parser
+        from reward_harness.rl.show_lineage import build_parser
 
         parser = build_parser()
         args = parser.parse_args([f"--registry-dir={self.registry_dir}"])
@@ -610,7 +646,7 @@ class TestCLIScripts(unittest.TestCase):
 
     def test_compat_module_entrypoint_exists_for_docs_command(self) -> None:
         proc = subprocess.run(
-            [sys.executable, "-m", "autosr.rl.record_manifest", "--help"],
+            [sys.executable, "-m", "reward_harness.rl.record_manifest", "--help"],
             capture_output=True,
             text=True,
         )

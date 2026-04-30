@@ -1,8 +1,250 @@
-"""Shared enums and types for Reward Harness.
+"""Type definitions and enumerations for AutoSR.
 
-Re-exports ``autosr.types``.
+This module provides strongly-typed enumerations to replace string-based
+type identifiers, enabling better IDE support, type safety, and runtime validation.
 """
 
 from __future__ import annotations
 
-from autosr.types import *  # noqa: F401,F403
+from enum import Enum, auto
+from typing import Self
+
+
+class MutationMode(Enum):
+    """Mutation strategies for rubric evolution.
+
+    Each mode represents a different approach to modifying a rubric
+    to explore the search space effectively.
+    """
+
+    RAISE_BAR = "raise_bar"
+    DECOMPOSE = "decompose"
+    FACTUAL_FOCUS = "factual_focus"
+    ANTI_FLUFF = "anti_fluff"
+    COUNTEREXAMPLE_TRIGGER = "counterexample_trigger"
+    WEIGHT_PERTURB = "weight_perturb"
+
+    def __str__(self) -> str:
+        """Return the string value for serialization."""
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a MutationMode from its string representation.
+
+        Args:
+            value: The string value of the mutation mode.
+
+        Returns:
+            The corresponding MutationMode enum member.
+
+        Raises:
+            ValueError: If the string does not match any known mode.
+        """
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_modes = [m.value for m in cls]
+            raise ValueError(
+                f"Unknown mutation mode: {value!r}. Valid modes are: {valid_modes}"
+            ) from e
+
+    @classmethod
+    def default_cycle(cls) -> tuple[Self, ...]:
+        """Return the default cycle of mutation modes for round-robin selection.
+
+        Returns:
+            A tuple of all mutation modes in the standard order.
+        """
+        return tuple(cls)
+
+
+class SearchMode(Enum):
+    """Search algorithm modes for rubric optimization."""
+
+    ITERATIVE = "iterative"
+    EVOLUTIONARY = "evolutionary"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a SearchMode from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_modes = [m.value for m in cls]
+            raise ValueError(
+                f"Unknown search mode: {value!r}. Valid modes are: {valid_modes}"
+            ) from e
+
+
+class EvolutionIterationScope(Enum):
+    """Iteration scope for evolutionary search scheduling."""
+
+    GLOBAL_BATCH = "global_batch"
+    PROMPT_LOCAL = "prompt_local"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an EvolutionIterationScope from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [scope.value for scope in cls]
+            raise ValueError(
+                f"Unknown evolutionary iteration scope: {value!r}. "
+                f"Valid scopes are: {valid_values}"
+            ) from e
+
+
+class SelectionStrategy(Enum):
+    """Parent selection strategies for evolutionary search."""
+
+    RANK = "rank"
+    TOURNAMENT = "tournament"
+    TOP_K = "top_k"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a SelectionStrategy from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown selection strategy: {value!r}. "
+                f"Valid strategies are: {valid_values}"
+            ) from e
+
+
+class AdaptiveMutationSchedule(Enum):
+    """Schedules for adaptive mutation mode selection."""
+
+    FIXED = "fixed"
+    SUCCESS_FEEDBACK = "success_feedback"
+    EXPLORATION_DECAY = "exploration_decay"
+    DIVERSITY_DRIVEN = "diversity_driven"
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an AdaptiveMutationSchedule from its string representation."""
+        try:
+            return cls(value.lower())
+        except ValueError as e:
+            valid_values = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown adaptive mutation schedule: {value!r}. "
+                f"Valid schedules are: {valid_values}"
+            ) from e
+
+
+class BackendType(Enum):
+    """Backend implementation types for component creation."""
+
+    AUTO = "auto"  # Automatically select based on configuration
+    MOCK = "mock"  # Use heuristic/mock implementations
+    LLM = "llm"  # Use LLM-based implementations
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a BackendType from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_types = [t.value for t in cls]
+            raise ValueError(
+                f"Unknown backend type: {value!r}. Valid types are: {valid_types}"
+            ) from e
+
+
+class InitializerStrategy(Enum):
+    """Strategies for rubric initialization."""
+
+    BACKEND = "backend"  # Use the configured backend (LLM or mock)
+    PRESET = "preset"  # Load from preset rubrics file
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an InitializerStrategy from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_strategies = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown initializer strategy: {value!r}. "
+                f"Valid strategies are: {valid_strategies}"
+            ) from e
+
+
+class ExtractionStrategy(Enum):
+    """Content extraction strategies for verifier prompt preprocessing."""
+
+    IDENTITY = "identity"  # No transformation, pass through as-is
+    TAG = "tag"  # Extract content from XML-style tags
+    REGEX = "regex"  # Extract content using regex pattern
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create an ExtractionStrategy from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_strategies = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown extraction strategy: {value!r}. "
+                f"Valid strategies are: {valid_strategies}"
+            ) from e
+
+
+class CandidateExtractionStrategy(Enum):
+    """Candidate text extraction strategies for verifier candidate processing."""
+
+    IDENTITY = "identity"  # No transformation, pass through as-is
+    ANSWER = "answer"  # Prefer <answer> blocks, else strip <think> blocks
+
+    def __str__(self) -> str:
+        return self.value
+
+    @classmethod
+    def from_string(cls, value: str) -> Self:
+        """Create a CandidateExtractionStrategy from its string representation."""
+        try:
+            return cls(value)
+        except ValueError as e:
+            valid_strategies = [s.value for s in cls]
+            raise ValueError(
+                f"Unknown candidate extraction strategy: {value!r}. "
+                f"Valid strategies are: {valid_strategies}"
+            ) from e
+
+
+class LLMRole(Enum):
+    """LLM component roles for model selection."""
+
+    INITIALIZER = auto()
+    PROPOSER = auto()
+    VERIFIER = auto()
+    JUDGE = auto()
+
+    def __str__(self) -> str:
+        return self.name.lower()

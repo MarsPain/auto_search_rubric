@@ -3,11 +3,11 @@ from __future__ import annotations
 import random
 import unittest
 
-from autosr.cli import compute_best_candidates
-from autosr.config import RuntimeConfig, VerifierConfig
-from autosr.factory import ComponentFactory
-from autosr.io_utils import load_dataset
-from autosr.mock_components import HeuristicRubricInitializer, HeuristicVerifier
+from reward_harness.cli import compute_best_candidates
+from reward_harness.config import RuntimeConfig, VerifierConfig
+from reward_harness.factory import ComponentFactory
+from reward_harness.io_utils import load_dataset
+from reward_harness.mock_components import HeuristicRubricInitializer, HeuristicVerifier
 
 
 class TestCliBestCandidates(unittest.TestCase):
@@ -18,11 +18,11 @@ class TestCliBestCandidates(unittest.TestCase):
             item.prompt_id: initializer.initialize(item, rng=random.Random(7))
             for item in prompts
         }
-        
+
         # Create factory and compute best candidates using new API
         config = RuntimeConfig(verifier=VerifierConfig(noise=0.0))
         factory = ComponentFactory(config)
-        
+
         best_candidates, candidate_scores = compute_best_candidates(
             prompts=prompts,
             rubrics=rubrics,
@@ -33,13 +33,17 @@ class TestCliBestCandidates(unittest.TestCase):
         self.assertEqual(set(best_candidates.keys()), set(rubrics.keys()))
         prompt_map = {item.prompt_id: item for item in prompts}
         for prompt_id, candidate_id in best_candidates.items():
-            candidate_ids = {candidate.candidate_id for candidate in prompt_map[prompt_id].candidates}
+            candidate_ids = {
+                candidate.candidate_id for candidate in prompt_map[prompt_id].candidates
+            }
             self.assertIn(candidate_id, candidate_ids)
 
         # Verify candidate_scores structure and content
         self.assertEqual(set(candidate_scores.keys()), set(rubrics.keys()))
         for prompt_id, scores in candidate_scores.items():
-            candidate_ids = {candidate.candidate_id for candidate in prompt_map[prompt_id].candidates}
+            candidate_ids = {
+                candidate.candidate_id for candidate in prompt_map[prompt_id].candidates
+            }
             self.assertEqual(set(scores.keys()), candidate_ids)
             for _candidate_id, score in scores.items():
                 self.assertIsInstance(score, float)
@@ -66,7 +70,9 @@ class TestCliBestCandidates(unittest.TestCase):
 
             def create_verifier(self) -> HeuristicVerifier:
                 self.create_verifier_called = True
-                raise AssertionError("compute_best_candidates should not call create_verifier")
+                raise AssertionError(
+                    "compute_best_candidates should not call create_verifier"
+                )
 
             def create_verifier_with_extraction(self, prompts_arg):  # noqa: ANN001 - test spy
                 self.create_verifier_with_extraction_called = True

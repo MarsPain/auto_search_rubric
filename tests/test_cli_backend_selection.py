@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.config import LLMBackendConfig, RuntimeConfig
-from autosr.cli import build_parser
-from autosr.types import BackendType
+from reward_harness.config import LLMBackendConfig, RuntimeConfig
+from reward_harness.cli import build_parser
+from reward_harness.types import BackendType
 
 
 class TestCliBackendSelection(unittest.TestCase):
     def test_default_model_is_stepfun_flash(self) -> None:
-        self.assertEqual(LLMBackendConfig().default_model, "stepfun/step-3.5-flash:free")
+        self.assertEqual(
+            LLMBackendConfig().default_model, "stepfun/step-3.5-flash:free"
+        )
 
         parser = build_parser()
         args = parser.parse_args(["--dataset", "d.json", "--output", "o.json"])
@@ -41,9 +43,15 @@ class TestCliBackendSelection(unittest.TestCase):
             verifier_model=None,
             judge_model=None,
         )
-        self.assertEqual(llm_config.get_model_for_role("initializer"), "openai/gpt-4o-mini")
-        self.assertEqual(llm_config.get_model_for_role("proposer"), "anthropic/claude-3.5-sonnet")
-        self.assertEqual(llm_config.get_model_for_role("verifier"), "openai/gpt-4o-mini")
+        self.assertEqual(
+            llm_config.get_model_for_role("initializer"), "openai/gpt-4o-mini"
+        )
+        self.assertEqual(
+            llm_config.get_model_for_role("proposer"), "anthropic/claude-3.5-sonnet"
+        )
+        self.assertEqual(
+            llm_config.get_model_for_role("verifier"), "openai/gpt-4o-mini"
+        )
         self.assertEqual(llm_config.get_model_for_role("judge"), "openai/gpt-4o-mini")
 
 

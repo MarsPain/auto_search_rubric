@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.models import Criterion, GradingProtocol, Rubric
+from reward_harness.models import Criterion, GradingProtocol, Rubric
 
 
 class TestModels(unittest.TestCase):

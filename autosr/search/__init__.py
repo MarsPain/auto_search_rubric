@@ -1,24 +1,6 @@
-from ..types import MutationMode
-from .config import (
-    AdaptiveMutationSchedule,
-    EvolutionIterationScope,
-    EvolutionaryConfig,
-    IterativeConfig,
-    SearchResult,
-    SelectionStrategy,
-)
-from .strategies import MUTATION_MODES
-from .use_cases import EvolutionaryRTDSearcher, IterativeRTDSearcher
+"""Legacy compatibility shim."""
 
-__all__ = [
-    "AdaptiveMutationSchedule",
-    "EvolutionIterationScope",
-    "MUTATION_MODES",
-    "EvolutionaryConfig",
-    "EvolutionaryRTDSearcher",
-    "IterativeConfig",
-    "IterativeRTDSearcher",
-    "MutationMode",
-    "SearchResult",
-    "SelectionStrategy",
-]
+from __future__ import annotations
+
+from reward_harness.search import *  # noqa: F401,F403
+from reward_harness.search import __all__  # noqa: F401

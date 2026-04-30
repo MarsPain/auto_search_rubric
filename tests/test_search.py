@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.io_utils import load_dataset
-from autosr.mock_components import (
+from reward_harness.io_utils import load_dataset
+from reward_harness.mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
     HeuristicVerifier,
     TemplateProposer,
 )
-from autosr.search import (
+from reward_harness.search import (
     EvolutionaryConfig,
     EvolutionaryRTDSearcher,
     IterativeConfig,
@@ -54,7 +54,9 @@ class TestSearch(unittest.TestCase):
 
         stats = result.diagnostics["margin_improvement"]
         self.assertEqual(stats["global"]["total_prompts"], len(prompts))
-        self.assertEqual(set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts})
+        self.assertEqual(
+            set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts}
+        )
 
         improved_count = sum(
             1 for item in stats["per_prompt"].values() if item["improved"]
@@ -74,7 +76,7 @@ class TestSearch(unittest.TestCase):
             self.initializer,
             config=IterativeConfig(iterations=2, seed=42),
         )
-        with self.assertLogs("autosr.search", level="INFO") as captured:
+        with self.assertLogs("reward_harness.search", level="INFO") as captured:
             searcher.search(self.prompts[:2])
         logs = "\n".join(captured.output)
         self.assertIn("margin-progress processed=", logs)
@@ -184,7 +186,7 @@ class TestSearch(unittest.TestCase):
             ),
         )
 
-        with self.assertLogs("autosr.search", level="INFO") as captured:
+        with self.assertLogs("reward_harness.search", level="INFO") as captured:
             searcher.search(self.prompts[:1])
 
         logs = "\n".join(captured.output)
@@ -213,7 +215,9 @@ class TestSearch(unittest.TestCase):
 
         stats = result.diagnostics["margin_improvement"]
         self.assertEqual(stats["global"]["total_prompts"], len(prompts))
-        self.assertEqual(set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts})
+        self.assertEqual(
+            set(stats["per_prompt"].keys()), {item.prompt_id for item in prompts}
+        )
         improved_count = sum(
             1 for item in stats["per_prompt"].values() if item["improved"]
         )
@@ -264,8 +268,14 @@ class TestSearch(unittest.TestCase):
             ),
         ).search(prompts)
 
-        expected_extra_calls = len(prompts) * shared_kwargs["generations"] * shared_kwargs["mutations_per_round"]
-        expected_global_calls = shared_kwargs["generations"] * shared_kwargs["mutations_per_round"]
+        expected_extra_calls = (
+            len(prompts)
+            * shared_kwargs["generations"]
+            * shared_kwargs["mutations_per_round"]
+        )
+        expected_global_calls = (
+            shared_kwargs["generations"] * shared_kwargs["mutations_per_round"]
+        )
         self.assertEqual(
             local_proposer.call_count - global_proposer.call_count,
             expected_extra_calls - expected_global_calls,

@@ -17,6 +17,7 @@ class TestStaticTooling(unittest.TestCase):
         ruff_config = pyproject.get("tool", {}).get("ruff", {})
         self.assertEqual(ruff_config.get("target-version"), "py311")
         self.assertIn("autosr", ruff_config.get("src", []))
+        self.assertIn("reward_harness", ruff_config.get("src", []))
         self.assertIn("tests", ruff_config.get("src", []))
         self.assertGreaterEqual(ruff_config.get("line-length", 0), 88)
 
@@ -31,13 +32,15 @@ class TestStaticTooling(unittest.TestCase):
         script_content = script_path.read_text(encoding="utf-8")
         self.assertIn("command -v uv", script_content)
         self.assertIn("RUFF_CMD=(uv run --with ruff ruff)", script_content)
-        self.assertIn('"${RUFF_CMD[@]}" check autosr tests scripts', script_content)
         self.assertIn(
-            '"${RUFF_CMD[@]}" format --check autosr tests scripts',
+            '"${RUFF_CMD[@]}" check autosr reward_harness tests scripts', script_content
+        )
+        self.assertIn(
+            '"${RUFF_CMD[@]}" format --check autosr reward_harness tests scripts',
             script_content,
         )
         self.assertIn("MYPY_CMD=(uv run --with mypy mypy)", script_content)
-        self.assertIn('"${MYPY_CMD[@]}" autosr/mix_reward.py', script_content)
+        self.assertIn('"${MYPY_CMD[@]}" reward_harness/mix_reward.py', script_content)
 
     def test_mypy_configuration_is_declared(self) -> None:
         pyproject = tomllib.loads(

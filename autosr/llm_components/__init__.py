@@ -1,15 +1,6 @@
-from .factory import create_llm_components
-from .use_cases import (
-    LLMPreferenceJudge,
-    LLMRubricInitializer,
-    LLMRubricProposer,
-    LLMVerifier,
-)
+"""Legacy compatibility shim."""
 
-__all__ = [
-    "LLMPreferenceJudge",
-    "LLMRubricInitializer",
-    "LLMRubricProposer",
-    "LLMVerifier",
-    "create_llm_components",
-]
+from __future__ import annotations
+
+from reward_harness.llm_components import *  # noqa: F401,F403
+from reward_harness.llm_components import __all__  # noqa: F401

@@ -3,10 +3,10 @@ from __future__ import annotations
 import random
 import unittest
 
-from autosr.data_models import Criterion, Rubric
-from autosr.evaluator import ObjectiveBreakdown
-from autosr.search.config import EvolutionaryConfig
-from autosr.search.selection_strategies import (
+from reward_harness.data_models import Criterion, Rubric
+from reward_harness.evaluator import ObjectiveBreakdown
+from reward_harness.search.config import EvolutionaryConfig
+from reward_harness.search.selection_strategies import (
     select_parents_rank,
     select_parents_top_k_diverse,
     select_parents_tournament,

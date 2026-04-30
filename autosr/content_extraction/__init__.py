@@ -1,25 +1,6 @@
-from .factory import (
-    create_candidate_text_extractor,
-    create_content_extractor,
-    create_verifier_with_extraction,
-)
-from .strategies import (
-    AnswerExtractor,
-    ContentExtractor,
-    IdentityExtractor,
-    RegexExtractor,
-    TagExtractor,
-)
-from .use_cases import ContentExtractingVerifier
+"""Legacy compatibility shim."""
 
-__all__ = [
-    "AnswerExtractor",
-    "ContentExtractingVerifier",
-    "ContentExtractor",
-    "IdentityExtractor",
-    "RegexExtractor",
-    "TagExtractor",
-    "create_candidate_text_extractor",
-    "create_content_extractor",
-    "create_verifier_with_extraction",
-]
+from __future__ import annotations
+
+from reward_harness.content_extraction import *  # noqa: F401,F403
+from reward_harness.content_extraction import __all__  # noqa: F401

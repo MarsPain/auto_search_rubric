@@ -1,7 +1,5 @@
-from .evolutionary import EvolutionaryRTDSearcher
-from .iterative import IterativeRTDSearcher
+"""Legacy compatibility shim."""
 
-__all__ = [
-    "EvolutionaryRTDSearcher",
-    "IterativeRTDSearcher",
-]
+from __future__ import annotations
+
+from reward_harness.search.use_cases import *  # noqa: F401,F403

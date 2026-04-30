@@ -124,8 +124,12 @@ def _validate_markdown_links(errors: list[str]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate docs context structure and links.")
-    parser.add_argument("--verbose", action="store_true", help="Print additional details.")
+    parser = argparse.ArgumentParser(
+        description="Validate docs context structure and links."
+    )
+    parser.add_argument(
+        "--verbose", action="store_true", help="Print additional details."
+    )
     args = parser.parse_args()
 
     errors: list[str] = []

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import unittest
 
-from autosr.exceptions import LLMCallError, LLMFatalCallError, LLMParseError
-from autosr.llm_client import LLMCallError as ClientLLMCallError
-from autosr.llm_client import LLMFatalCallError as ClientLLMFatalCallError
-from autosr.llm_client import LLMParseError as ClientLLMParseError
+from reward_harness.exceptions import LLMCallError, LLMFatalCallError, LLMParseError
+from reward_harness.llm_client import LLMCallError as ClientLLMCallError
+from reward_harness.llm_client import LLMFatalCallError as ClientLLMFatalCallError
+from reward_harness.llm_client import LLMParseError as ClientLLMParseError
 
 
 class TestExceptionsModule(unittest.TestCase):

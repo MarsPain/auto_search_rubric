@@ -1,8 +1,20 @@
-"""Compatibility re-export layer for Reward Harness.
+"""Backward-compatible re-exports for historical import path.
 
-Re-exports ``autosr.models``.
+Canonical data model definitions now live in ``reward_harness.data_models``.
 """
 
-from __future__ import annotations
+from .data_models import (
+    Criterion,
+    GradingProtocol,
+    PromptExample,
+    ResponseCandidate,
+    Rubric,
+)
 
-from autosr.models import *  # noqa: F401,F403
+__all__ = [
+    "Criterion",
+    "GradingProtocol",
+    "Rubric",
+    "ResponseCandidate",
+    "PromptExample",
+]

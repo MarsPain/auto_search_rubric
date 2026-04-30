@@ -3,19 +3,19 @@ from __future__ import annotations
 import random
 import unittest
 
-from autosr.evaluator import (
+from reward_harness.evaluator import (
     CandidateEvaluation,
     ObjectiveConfig,
     RubricEvaluator,
     compute_objective,
 )
-from autosr.io_utils import load_dataset
-from autosr.mock_components import (
+from reward_harness.io_utils import load_dataset
+from reward_harness.mock_components import (
     HeuristicPreferenceJudge,
     HeuristicRubricInitializer,
     HeuristicVerifier,
 )
-from autosr.models import Criterion, PromptExample, ResponseCandidate, Rubric
+from reward_harness.models import Criterion, PromptExample, ResponseCandidate, Rubric
 
 
 class _StaticEvaluator:
@@ -32,12 +32,16 @@ class _StaticJudge:
     def __init__(self, pref: int) -> None:
         self._pref = pref
 
-    def compare(self, prompt: str, left: ResponseCandidate, right: ResponseCandidate) -> int:
+    def compare(
+        self, prompt: str, left: ResponseCandidate, right: ResponseCandidate
+    ) -> int:
         return self._pref
 
 
 class _AlwaysTieJudge:
-    def compare(self, prompt: str, left: ResponseCandidate, right: ResponseCandidate) -> int:
+    def compare(
+        self, prompt: str, left: ResponseCandidate, right: ResponseCandidate
+    ) -> int:
         return 0
 
 
@@ -70,11 +74,21 @@ class TestEvaluatorObjective(unittest.TestCase):
         judge = HeuristicPreferenceJudge()
         config = ObjectiveConfig(tail_fraction=1.0)
 
-        full = compute_objective(item, rubric, evaluator, judge, config, pair_budget=None)
-        full_explicit = compute_objective(item, rubric, evaluator, judge, config, pair_budget=15)
-        over_budget = compute_objective(item, rubric, evaluator, judge, config, pair_budget=16)
-        sampled_once = compute_objective(item, rubric, evaluator, judge, config, pair_budget=5)
-        sampled_twice = compute_objective(item, rubric, evaluator, judge, config, pair_budget=5)
+        full = compute_objective(
+            item, rubric, evaluator, judge, config, pair_budget=None
+        )
+        full_explicit = compute_objective(
+            item, rubric, evaluator, judge, config, pair_budget=15
+        )
+        over_budget = compute_objective(
+            item, rubric, evaluator, judge, config, pair_budget=16
+        )
+        sampled_once = compute_objective(
+            item, rubric, evaluator, judge, config, pair_budget=5
+        )
+        sampled_twice = compute_objective(
+            item, rubric, evaluator, judge, config, pair_budget=5
+        )
 
         self.assertEqual(full, full_explicit)
         self.assertEqual(full, over_budget)
@@ -106,9 +120,15 @@ class TestEvaluatorObjective(unittest.TestCase):
         rubric = _build_test_rubric()
         tolerance = 1e-8
         scored = [
-            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
             CandidateEvaluation(
-                "b", score=0.9 - (tolerance / 2.0), variance=0.0, majority_grades={}, vote_scores=[]
+                "a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b",
+                score=0.9 - (tolerance / 2.0),
+                variance=0.0,
+                majority_grades={},
+                vote_scores=[],
             ),
         ]
         result = compute_objective(
@@ -132,8 +152,12 @@ class TestEvaluatorObjective(unittest.TestCase):
         item = _build_two_candidate_item("same", "diverse")
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -150,8 +174,12 @@ class TestEvaluatorObjective(unittest.TestCase):
         item = _build_two_candidate_item("same", "same")
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -175,8 +203,12 @@ class TestEvaluatorObjective(unittest.TestCase):
         item = _build_two_candidate_item("same", "diverse")
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -199,8 +231,12 @@ class TestEvaluatorObjective(unittest.TestCase):
         item = _build_two_candidate_item("same", "diverse")
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.9, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.2, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -219,11 +255,17 @@ class TestEvaluatorObjective(unittest.TestCase):
         self.assertEqual(result.total, 1.0)
 
     def test_signed_top_margin_positive_when_aligned(self) -> None:
-        item = _build_two_candidate_item_with_quality("same", "diverse", quality_a=1.0, quality_b=0.5)
+        item = _build_two_candidate_item_with_quality(
+            "same", "diverse", quality_a=1.0, quality_b=0.5
+        )
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -236,11 +278,17 @@ class TestEvaluatorObjective(unittest.TestCase):
         self.assertAlmostEqual(result.top_margin, 0.5, places=8)
 
     def test_signed_top_margin_negative_when_reversed(self) -> None:
-        item = _build_two_candidate_item_with_quality("same", "diverse", quality_a=1.0, quality_b=0.5)
+        item = _build_two_candidate_item_with_quality(
+            "same", "diverse", quality_a=1.0, quality_b=0.5
+        )
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -252,12 +300,18 @@ class TestEvaluatorObjective(unittest.TestCase):
         self.assertAlmostEqual(result.signed_top_margin, -0.5, places=8)
         self.assertAlmostEqual(result.top_margin, 0.5, places=8)
 
-    def test_signed_top_margin_fallback_to_top_margin_without_ground_truth(self) -> None:
+    def test_signed_top_margin_fallback_to_top_margin_without_ground_truth(
+        self,
+    ) -> None:
         item = _build_two_candidate_item("same", "diverse")
         rubric = _build_test_rubric()
         scored = [
-            CandidateEvaluation("a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]),
-            CandidateEvaluation("b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]),
+            CandidateEvaluation(
+                "a", score=0.3, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
+            CandidateEvaluation(
+                "b", score=0.8, variance=0.0, majority_grades={}, vote_scores=[]
+            ),
         ]
         result = compute_objective(
             item,
@@ -295,8 +349,12 @@ def _build_two_candidate_item_with_quality(
         prompt_id="p_test",
         prompt="test prompt",
         candidates=[
-            ResponseCandidate("a", "left", source=source_a, metadata={"quality": quality_a}),
-            ResponseCandidate("b", "right", source=source_b, metadata={"quality": quality_b}),
+            ResponseCandidate(
+                "a", "left", source=source_a, metadata={"quality": quality_a}
+            ),
+            ResponseCandidate(
+                "b", "right", source=source_b, metadata={"quality": quality_b}
+            ),
         ],
     )
 

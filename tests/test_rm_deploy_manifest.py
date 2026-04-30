@@ -8,7 +8,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
-from autosr.data_models import Criterion, GradingProtocol, Rubric
+from reward_harness.data_models import Criterion, GradingProtocol, Rubric
 
 
 def _build_test_rubric(rubric_id: str) -> Rubric:
@@ -38,7 +38,7 @@ def _write_artifact(path: Path, *, artifact_id: str = "rm_001") -> None:
 
 class TestDeployManifestDataModel(unittest.TestCase):
     def test_roundtrip(self) -> None:
-        from autosr.rm.data_models import DeployManifest
+        from reward_harness.rm.data_models import DeployManifest
 
         manifest = DeployManifest(
             deploy_id="deploy_20260416T120000_000000Z",
@@ -59,7 +59,10 @@ class TestDeployManifestDataModel(unittest.TestCase):
         self.assertEqual(restored.deployment_target, "dev")
 
     def test_rejects_invalid_deployment_target(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError, DeployManifest
+        from reward_harness.rm.data_models import (
+            ArtifactValidationError,
+            DeployManifest,
+        )
 
         with self.assertRaises(ArtifactValidationError):
             DeployManifest(
@@ -90,8 +93,8 @@ class TestDeployManifestUseCases(unittest.TestCase):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_first_deploy_has_no_previous_artifact(self) -> None:
-        from autosr.rm.io import load_deploy_manifest
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.io import load_deploy_manifest
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         manifest_path = record_deploy_manifest(
             artifact_path=self.artifact_path,
@@ -104,8 +107,8 @@ class TestDeployManifestUseCases(unittest.TestCase):
         self.assertEqual(manifest.artifact_id, "rm_001")
 
     def test_auto_resolves_previous_artifact_on_same_target(self) -> None:
-        from autosr.rm.io import load_deploy_manifest
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.io import load_deploy_manifest
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         first_manifest_path = record_deploy_manifest(
             artifact_path=self.artifact_path,
@@ -125,12 +128,14 @@ class TestDeployManifestUseCases(unittest.TestCase):
         )
         second_manifest = load_deploy_manifest(second_manifest_path)
 
-        self.assertEqual(second_manifest.previous_artifact_id, first_manifest.artifact_id)
+        self.assertEqual(
+            second_manifest.previous_artifact_id, first_manifest.artifact_id
+        )
         self.assertEqual(second_manifest.artifact_id, "rm_002")
 
     def test_explicit_previous_artifact_overrides_auto_resolution(self) -> None:
-        from autosr.rm.io import load_deploy_manifest
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.io import load_deploy_manifest
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         record_deploy_manifest(
             artifact_path=self.artifact_path,
@@ -152,8 +157,8 @@ class TestDeployManifestUseCases(unittest.TestCase):
         self.assertEqual(second_manifest.previous_artifact_id, "rm_manual_previous")
 
     def test_rejects_self_reference_previous_artifact(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.data_models import ArtifactValidationError
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         with self.assertRaises(ArtifactValidationError):
             record_deploy_manifest(
@@ -165,7 +170,7 @@ class TestDeployManifestUseCases(unittest.TestCase):
             )
 
     def test_missing_artifact_path_raises_file_not_found(self) -> None:
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         with self.assertRaises(FileNotFoundError):
             record_deploy_manifest(
@@ -176,8 +181,8 @@ class TestDeployManifestUseCases(unittest.TestCase):
             )
 
     def test_corrupted_artifact_raises_validation_error(self) -> None:
-        from autosr.rm.data_models import ArtifactValidationError
-        from autosr.rm.use_cases import record_deploy_manifest
+        from reward_harness.rm.data_models import ArtifactValidationError
+        from reward_harness.rm.use_cases import record_deploy_manifest
 
         broken_artifact = Path(self.temp_dir) / "broken_artifact.json"
         broken_artifact.write_text("{not json", encoding="utf-8")
@@ -203,8 +208,8 @@ class TestDeployManifestCli(unittest.TestCase):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_cli_creates_manifest_and_prints_summary(self) -> None:
-        from autosr.rm.deploy import main
-        from autosr.rm.io import load_deploy_manifest
+        from reward_harness.rm.deploy import main
+        from reward_harness.rm.io import load_deploy_manifest
 
         stdout = io.StringIO()
         with patch(
@@ -235,7 +240,7 @@ class TestDeployManifestCli(unittest.TestCase):
         self.assertEqual(manifest.artifact_id, "rm_001")
 
     def test_cli_errors_on_invalid_target(self) -> None:
-        from autosr.rm.deploy import main
+        from reward_harness.rm.deploy import main
 
         stderr = io.StringIO()
         with patch(

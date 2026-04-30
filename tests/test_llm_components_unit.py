@@ -5,15 +5,15 @@ import random
 from typing import Any
 import unittest
 
-from autosr.exceptions import LLMCallError, LLMFatalCallError, LLMParseError
-from autosr.llm_components import (
+from reward_harness.exceptions import LLMCallError, LLMFatalCallError, LLMParseError
+from reward_harness.llm_components import (
     LLMPreferenceJudge,
     LLMRubricInitializer,
     LLMRubricProposer,
     LLMVerifier,
 )
-from autosr.models import Criterion, PromptExample, ResponseCandidate, Rubric
-from autosr.types import MutationMode
+from reward_harness.models import Criterion, PromptExample, ResponseCandidate, Rubric
+from reward_harness.types import MutationMode
 
 
 class _StubRequester:
@@ -22,7 +22,9 @@ class _StubRequester:
         self.calls = 0
         self.requests: list[dict[str, str]] = []
 
-    def request_json(self, *, model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    def request_json(
+        self, *, model: str, system_prompt: str, user_prompt: str
+    ) -> dict[str, Any]:
         self.requests.append(
             {
                 "model": model,
@@ -40,7 +42,9 @@ class _RaisingRequester:
         self.error = error
         self.calls = 0
 
-    def request_json(self, *, model: str, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+    def request_json(
+        self, *, model: str, system_prompt: str, user_prompt: str
+    ) -> dict[str, Any]:
         del model, system_prompt, user_prompt
         self.calls += 1
         raise self.error
@@ -81,11 +85,17 @@ class TestLLMComponents(unittest.TestCase):
                             "criterion_type": "factual",
                         }
                     ],
-                    "grading_protocol": {"num_votes": 1, "allow_na": True, "vote_method": "majority"},
+                    "grading_protocol": {
+                        "num_votes": 1,
+                        "allow_na": True,
+                        "vote_method": "majority",
+                    },
                 }
             ]
         )
-        component = LLMRubricInitializer(requester, model="openai/gpt-4o-mini", max_retries=1)
+        component = LLMRubricInitializer(
+            requester, model="openai/gpt-4o-mini", max_retries=1
+        )
         rubric = component.initialize(_build_item(), rng=random.Random(1))
 
         self.assertEqual(rubric.rubric_id, "rubric_from_llm")
@@ -104,7 +114,9 @@ class TestLLMComponents(unittest.TestCase):
                 }
             ]
         )
-        component = LLMRubricProposer(requester, model="openai/gpt-4o-mini", max_retries=1)
+        component = LLMRubricProposer(
+            requester, model="openai/gpt-4o-mini", max_retries=1
+        )
         mutated = component.propose(
             _build_item().prompt,
             _build_item().candidates[0],
@@ -140,7 +152,9 @@ class TestLLMComponents(unittest.TestCase):
 
     def test_judge_invalid_output_retries_then_fails(self) -> None:
         requester = _StubRequester([{"preference": 2}, {"preference": 9}])
-        component = LLMPreferenceJudge(requester, model="openai/gpt-4o-mini", max_retries=1)
+        component = LLMPreferenceJudge(
+            requester, model="openai/gpt-4o-mini", max_retries=1
+        )
 
         with self.assertRaises(LLMParseError):
             component.compare(
@@ -161,7 +175,9 @@ class TestLLMComponents(unittest.TestCase):
                 }
             ]
         )
-        component = LLMRubricInitializer(requester, model="openai/gpt-4o-mini", max_retries=0)
+        component = LLMRubricInitializer(
+            requester, model="openai/gpt-4o-mini", max_retries=0
+        )
 
         rubric = component.initialize(_build_item(), rng=random.Random(1))
 
@@ -174,17 +190,23 @@ class TestLLMComponents(unittest.TestCase):
             [
                 {
                     "rubric_id": "r1",
-                    "criteria": [{"criterion_id": "c1", "text": "Task fit", "weight": 1.0}],
+                    "criteria": [
+                        {"criterion_id": "c1", "text": "Task fit", "weight": 1.0}
+                    ],
                 }
             ]
         )
-        component = LLMRubricInitializer(requester, model="openai/gpt-4o-mini", max_retries=0)
+        component = LLMRubricInitializer(
+            requester, model="openai/gpt-4o-mini", max_retries=0
+        )
 
         component.initialize(_build_item(), rng=random.Random(1))
 
         payload = json.loads(requester.requests[0]["user_prompt"])
         constraints = payload["constraints"]
-        self.assertEqual(constraints["criterion_required_fields"], ["criterion_id", "text", "weight"])
+        self.assertEqual(
+            constraints["criterion_required_fields"], ["criterion_id", "text", "weight"]
+        )
         self.assertTrue(constraints["return_full_rubric"])
 
     def test_proposer_prompt_requires_full_rubric_not_patch(self) -> None:
@@ -192,11 +214,15 @@ class TestLLMComponents(unittest.TestCase):
             [
                 {
                     "rubric_id": "r2",
-                    "criteria": [{"criterion_id": "c1", "text": "Task fit", "weight": 1.0}],
+                    "criteria": [
+                        {"criterion_id": "c1", "text": "Task fit", "weight": 1.0}
+                    ],
                 }
             ]
         )
-        component = LLMRubricProposer(requester, model="openai/gpt-4o-mini", max_retries=0)
+        component = LLMRubricProposer(
+            requester, model="openai/gpt-4o-mini", max_retries=0
+        )
 
         component.propose(
             _build_item().prompt,
@@ -220,11 +246,15 @@ class TestLLMComponents(unittest.TestCase):
             [
                 {
                     "rubric_id": "r3",
-                    "criteria": [{"criterion_id": "c1", "text": "Task fit", "weight": 1.0}],
+                    "criteria": [
+                        {"criterion_id": "c1", "text": "Task fit", "weight": 1.0}
+                    ],
                 }
             ]
         )
-        component = LLMRubricProposer(requester, model="openai/gpt-4o-mini", max_retries=0)
+        component = LLMRubricProposer(
+            requester, model="openai/gpt-4o-mini", max_retries=0
+        )
 
         component.propose(
             _build_item().prompt,
@@ -249,7 +279,9 @@ class TestLLMComponents(unittest.TestCase):
         }
         self.assertEqual(set(mode_requirements.keys()), expected_modes)
         self.assertTrue(mode_requirements["decompose"]["must_split_one_criterion"])
-        self.assertTrue(mode_requirements["weight_perturb"]["must_preserve_criterion_text"])
+        self.assertTrue(
+            mode_requirements["weight_perturb"]["must_preserve_criterion_text"]
+        )
 
     def test_initializer_fail_soft_falls_back_to_heuristic(self) -> None:
         requester = _RaisingRequester(LLMCallError("timeout"))

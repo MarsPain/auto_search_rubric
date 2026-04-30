@@ -1,6 +1,6 @@
 # Reward Harness
 
-> **历史名称**：`auto_search_rubric` / `autosr` — 迁移期内两个包名均继续受支持。
+> **历史名称**：`auto_search_rubric` / `autosr` — `autosr` 作为 legacy 兼容 shim 继续受支持。
 
 [English](README.md) | 中文
 
@@ -14,12 +14,12 @@
 
 - 使用类型化枚举（`reward_harness.types`）和分层配置 dataclass（`reward_harness.config`）统一运行配置
 - 通过组合根 `ComponentFactory` 进行后端感知的依赖装配
-- 领域模型以 `reward_harness.data_models` 为主，`autosr.models` 仅保留兼容导出
+- 领域模型以 `reward_harness.data_models` 为主，`autosr.models` 保留兼容导出
 - 搜索策略可扩展：
   - 父代选择：`rank`、`tournament`、`top_k`
   - 自适应变异：`fixed`、`success_feedback`、`exploration_decay`、`diversity_driven`
   - 迭代范围：`global_batch`（数据集级）与 `prompt_local`（按 prompt 独立进化）
-- LLM 架构分离为传输配置（`autosr.llm_config`）与运行时配置（`autosr.config`）
+- LLM 架构分离为传输配置（`reward_harness.llm_config`）与运行时配置（`reward_harness.config`）
 - 支持导出可部署 RM artifact，内含通过校验的 schema 与 server 启动所需 runtime snapshot
 - 通过 `reward_harness.rm.deploy` 记录部署 manifest，并按目标环境自动回填 `previous_artifact_id`
 - 提供 RM Server MVP（`reward_harness.rm.server`），暴露 `/healthz`、`/score`、`/batch_score` 闭环评分接口
@@ -33,26 +33,26 @@
 
 ### 入口与组合
 
-- `reward_harness/cli.py`（兼容：`autosr/cli.py`）
+- `reward_harness/cli.py`（legacy 兼容：`autosr/cli.py`）
   - 仅负责 CLI 参数解析
   - 构建 `RuntimeConfig`
   - 将运行时装配委托给 `ComponentFactory`
-- `reward_harness/factory.py`（兼容：`autosr/factory.py`）
+- `reward_harness/factory.py`（legacy 兼容：`autosr/factory.py`）
   - 统一组合根：后端选择与组件组装
   - 当所有候选都带 `metadata.rank` 时自动启用 rank judge
 
 ### 配置与类型
 
-- `reward_harness/config.py`（兼容：`autosr/config.py`）
+- `reward_harness/config.py`（legacy 兼容：`autosr/config.py`）
   - 运行时配置：
     - `RuntimeConfig`
     - `LLMBackendConfig`
     - `SearchAlgorithmConfig`
     - `ObjectiveConfig`（兼容别名：`ObjectiveFunctionConfig`）
     - `InitializerStrategyConfig`、`ContentExtractionConfig`、`VerifierConfig`
-- `reward_harness/llm_config.py`（兼容：`autosr/llm_config.py`）
+- `reward_harness/llm_config.py`（legacy 兼容：`autosr/llm_config.py`）
   - LLM 传输/模型底层配置（`LLMConfig`、`RoleModelConfig`）
-- `reward_harness/types.py`（兼容：`autosr/types.py`）
+- `reward_harness/types.py`（legacy 兼容：`autosr/types.py`）
   - 共享枚举：
     - `BackendType`、`SearchMode`、`EvolutionIterationScope`、`SelectionStrategy`
     - `AdaptiveMutationSchedule`、`InitializerStrategy`、`ExtractionStrategy`、`LLMRole`
@@ -60,7 +60,7 @@
 ### 领域与共享模块
 
 - `reward_harness/data_models.py`：规范领域实体（`Rubric`、`Criterion`、`PromptExample` 等）
-- `autosr/models.py`：兼容导入层
+- `reward_harness/models.py`：领域模型主模块（legacy 兼容：`autosr/models.py`）
 - `reward_harness/exceptions.py`：共享 LLM 异常（`LLMCallError`、`LLMParseError`）
 - `reward_harness/io_utils.py`：数据集/结果 I/O 与 run-record 持久化
 - `reward_harness/run_records/use_cases.py`：run manifest 与可复现实验脚本生成
@@ -102,7 +102,7 @@
 
 ## 项目结构
 
-- `reward_harness/`：推荐核心包（兼容：`autosr/`）
+- `reward_harness/`：核心包（legacy 兼容：`autosr/`）
 - `reward_harness/rm/`：RM artifact / export / deploy / server 模块
 - `reward_harness/rl/`：RL 实验血统与外部训练流程引用模块
 - `prompts/`：提示词模板（支持 `prompts/zh/`、`prompts/en/` 等 locale 子目录）

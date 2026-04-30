@@ -8,15 +8,19 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from autosr.rl.comparison import (
+from reward_harness.rl.comparison import (
     compare_artifacts,
     compare_runs,
     detect_anomalies,
     detect_regression,
     summarize_artifact,
 )
-from autosr.rl.data_models import EvalReport, TrainingManifest, TrainingResultManifest
-from autosr.rl.registry import ExperimentRegistry
+from reward_harness.rl.data_models import (
+    EvalReport,
+    TrainingManifest,
+    TrainingResultManifest,
+)
+from reward_harness.rl.registry import ExperimentRegistry
 
 
 def _build_manifest(
@@ -42,7 +46,12 @@ def _build_manifest(
             "entrypoint": "python train.py",
         },
         trainer_config={"lr": 0.001},
-        execution={"launcher": "local", "host": "gpu-node-1", "accelerator": "cuda", "num_workers": 4},
+        execution={
+            "launcher": "local",
+            "host": "gpu-node-1",
+            "accelerator": "cuda",
+            "num_workers": 4,
+        },
         tags=["exp1"],
         notes="test run",
     )
@@ -101,8 +110,12 @@ class TestCompareRuns(unittest.TestCase):
         self.registry.record_manifest(m2)
         self.registry.record_result(_build_result("train_001"))
         self.registry.record_result(_build_result("train_002"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75, "f1": 0.70}))
-        self.registry.record_eval(_build_eval("eval_002", "train_002", metrics={"accuracy": 0.80, "f1": 0.72}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75, "f1": 0.70})
+        )
+        self.registry.record_eval(
+            _build_eval("eval_002", "train_002", metrics={"accuracy": 0.80, "f1": 0.72})
+        )
 
     def test_compare_runs_same_benchmark(self) -> None:
         self._setup_two_runs()
@@ -128,9 +141,13 @@ class TestCompareRuns(unittest.TestCase):
 
     def test_compare_runs_filter_benchmark(self) -> None:
         self._setup_two_runs()
-        comps = compare_runs(self.registry, "train_001", "train_002", benchmark_name="hellaswag")
+        comps = compare_runs(
+            self.registry, "train_001", "train_002", benchmark_name="hellaswag"
+        )
         self.assertEqual(len(comps), 1)
-        comps = compare_runs(self.registry, "train_001", "train_002", benchmark_name="nonexistent")
+        comps = compare_runs(
+            self.registry, "train_001", "train_002", benchmark_name="nonexistent"
+        )
         self.assertEqual(len(comps), 0)
 
     def test_compare_runs_different_benchmark(self) -> None:
@@ -140,8 +157,16 @@ class TestCompareRuns(unittest.TestCase):
         self.registry.record_manifest(m2)
         self.registry.record_result(_build_result("train_001"))
         self.registry.record_result(_build_result("train_002"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", benchmark="bench_a", metrics={"acc": 0.5}))
-        self.registry.record_eval(_build_eval("eval_002", "train_002", benchmark="bench_b", metrics={"acc": 0.6}))
+        self.registry.record_eval(
+            _build_eval(
+                "eval_001", "train_001", benchmark="bench_a", metrics={"acc": 0.5}
+            )
+        )
+        self.registry.record_eval(
+            _build_eval(
+                "eval_002", "train_002", benchmark="bench_b", metrics={"acc": 0.6}
+            )
+        )
         comps = compare_runs(self.registry, "train_001", "train_002")
         self.assertEqual(len(comps), 0)
 
@@ -152,7 +177,9 @@ class TestCompareRuns(unittest.TestCase):
         self.registry.record_manifest(m2)
         self.registry.record_result(_build_result("train_001"))
         self.registry.record_result(_build_result("train_002"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"acc": 0.5}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"acc": 0.5})
+        )
         # train_002 has no eval
         comps = compare_runs(self.registry, "train_001", "train_002")
         self.assertEqual(len(comps), 0)
@@ -165,10 +192,14 @@ class TestCompareRuns(unittest.TestCase):
         self.registry.record_result(_build_result("train_001"))
         self.registry.record_result(_build_result("train_002"))
         self.registry.record_eval(
-            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75, "notes": "good"})
+            _build_eval(
+                "eval_001", "train_001", metrics={"accuracy": 0.75, "notes": "good"}
+            )
         )
         self.registry.record_eval(
-            _build_eval("eval_002", "train_002", metrics={"accuracy": 0.80, "notes": "better"})
+            _build_eval(
+                "eval_002", "train_002", metrics={"accuracy": 0.80, "notes": "better"}
+            )
         )
         comps = compare_runs(self.registry, "train_001", "train_002")
         names = [m.name for m in comps[0].metric_deltas]
@@ -188,12 +219,16 @@ class TestCompareArtifacts(unittest.TestCase):
         # Artifact rm_a: train_a1 succeeded
         self.registry.record_manifest(_build_manifest("train_a1", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_a1", duration=3600.0))
-        self.registry.record_eval(_build_eval("eval_a1", "train_a1", metrics={"accuracy": 0.75}))
+        self.registry.record_eval(
+            _build_eval("eval_a1", "train_a1", metrics={"accuracy": 0.75})
+        )
 
         # Artifact rm_b: train_b1 succeeded
         self.registry.record_manifest(_build_manifest("train_b1", artifact_id="rm_b"))
         self.registry.record_result(_build_result("train_b1", duration=7200.0))
-        self.registry.record_eval(_build_eval("eval_b1", "train_b1", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_b1", "train_b1", metrics={"accuracy": 0.80})
+        )
 
         tables = compare_artifacts(self.registry, ["rm_a", "rm_b"])
         self.assertEqual(len(tables), 1)
@@ -208,7 +243,9 @@ class TestCompareArtifacts(unittest.TestCase):
     def test_compare_artifacts_filter_benchmark(self) -> None:
         self.registry.record_manifest(_build_manifest("train_a1", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_a1"))
-        self.registry.record_eval(_build_eval("eval_a1", "train_a1", benchmark="math", metrics={"score": 0.9}))
+        self.registry.record_eval(
+            _build_eval("eval_a1", "train_a1", benchmark="math", metrics={"score": 0.9})
+        )
 
         tables = compare_artifacts(self.registry, ["rm_a"], benchmark_name="math")
         self.assertEqual(len(tables), 1)
@@ -219,18 +256,32 @@ class TestCompareArtifacts(unittest.TestCase):
 
     def test_compare_artifacts_no_succeeded(self) -> None:
         self.registry.record_manifest(_build_manifest("train_a1", artifact_id="rm_a"))
-        self.registry.record_result(_build_result("train_a1", status="failed", failure={"type": "OOM", "message": "out of memory", "stage": "training"}))
+        self.registry.record_result(
+            _build_result(
+                "train_a1",
+                status="failed",
+                failure={
+                    "type": "OOM",
+                    "message": "out of memory",
+                    "stage": "training",
+                },
+            )
+        )
         tables = compare_artifacts(self.registry, ["rm_a"])
         self.assertEqual(len(tables), 0)
 
     def test_compare_artifacts_partial_metrics(self) -> None:
         self.registry.record_manifest(_build_manifest("train_a1", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_a1"))
-        self.registry.record_eval(_build_eval("eval_a1", "train_a1", metrics={"accuracy": 0.75, "f1": 0.70}))
+        self.registry.record_eval(
+            _build_eval("eval_a1", "train_a1", metrics={"accuracy": 0.75, "f1": 0.70})
+        )
 
         self.registry.record_manifest(_build_manifest("train_b1", artifact_id="rm_b"))
         self.registry.record_result(_build_result("train_b1"))
-        self.registry.record_eval(_build_eval("eval_b1", "train_b1", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_b1", "train_b1", metrics={"accuracy": 0.80})
+        )
 
         tables = compare_artifacts(self.registry, ["rm_a", "rm_b"])
         # accuracy should be present for both; f1 only for rm_a
@@ -252,13 +303,19 @@ class TestDetectRegression(unittest.TestCase):
     def test_detect_regression_explicit_baseline(self) -> None:
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"accuracy": 0.80})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"accuracy": 0.70}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"accuracy": 0.70})
+        )
 
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 1)
         s = signals[0]
         self.assertEqual(s.metric, "accuracy")
@@ -268,56 +325,82 @@ class TestDetectRegression(unittest.TestCase):
     def test_detect_regression_critical(self) -> None:
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"accuracy": 0.80})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"accuracy": 0.50}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"accuracy": 0.50})
+        )
 
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 1)
         self.assertEqual(signals[0].severity, "critical")
 
     def test_detect_regression_no_regression(self) -> None:
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"accuracy": 0.80})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"accuracy": 0.81}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"accuracy": 0.81})
+        )
 
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 0)
 
     def test_detect_regression_threshold_boundary(self) -> None:
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"accuracy": 0.80})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"accuracy": 0.76}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"accuracy": 0.76})
+        )
 
         # delta_pct = -5.0%, exactly at threshold
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 1)
 
         # threshold 6.0 should not trigger
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=6.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=6.0
+        )
         self.assertEqual(len(signals), 0)
 
     def test_detect_regression_minimize_metric(self) -> None:
         # loss increases -> regression for minimize metrics
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"loss": 0.10}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"loss": 0.10})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"loss": 0.15}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"loss": 0.15})
+        )
 
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 1)
         self.assertEqual(signals[0].metric, "loss")
         self.assertAlmostEqual(signals[0].delta_pct, 50.0)
@@ -326,23 +409,37 @@ class TestDetectRegression(unittest.TestCase):
         # loss decreases -> improvement, not regression
         self.registry.record_manifest(_build_manifest("train_base"))
         self.registry.record_result(_build_result("train_base"))
-        self.registry.record_eval(_build_eval("eval_base", "train_base", metrics={"loss": 0.20}))
+        self.registry.record_eval(
+            _build_eval("eval_base", "train_base", metrics={"loss": 0.20})
+        )
 
         self.registry.record_manifest(_build_manifest("train_new"))
         self.registry.record_result(_build_result("train_new"))
-        self.registry.record_eval(_build_eval("eval_new", "train_new", metrics={"loss": 0.10}))
+        self.registry.record_eval(
+            _build_eval("eval_new", "train_new", metrics={"loss": 0.10})
+        )
 
-        signals = detect_regression(self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0)
+        signals = detect_regression(
+            self.registry, "train_new", baseline_run_id="train_base", threshold_pct=5.0
+        )
         self.assertEqual(len(signals), 0)
 
     def test_detect_regression_auto_baseline(self) -> None:
-        self.registry.record_manifest(_build_manifest("train_001", dataset_version="v1.0"))
+        self.registry.record_manifest(
+            _build_manifest("train_001", dataset_version="v1.0")
+        )
         self.registry.record_result(_build_result("train_001"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.80}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.80})
+        )
 
-        self.registry.record_manifest(_build_manifest("train_002", dataset_version="v1.0"))
+        self.registry.record_manifest(
+            _build_manifest("train_002", dataset_version="v1.0")
+        )
         self.registry.record_result(_build_result("train_002"))
-        self.registry.record_eval(_build_eval("eval_002", "train_002", metrics={"accuracy": 0.70}))
+        self.registry.record_eval(
+            _build_eval("eval_002", "train_002", metrics={"accuracy": 0.70})
+        )
 
         # No explicit baseline -> auto-infer train_001
         signals = detect_regression(self.registry, "train_002", threshold_pct=5.0)
@@ -353,13 +450,19 @@ class TestDetectRegression(unittest.TestCase):
         self.registry.record_manifest(_build_manifest("train_001"))
         self.registry.record_result(_build_result("train_001"))
         # No eval
-        signals = detect_regression(self.registry, "train_001", baseline_run_id="train_base")
+        signals = detect_regression(
+            self.registry, "train_001", baseline_run_id="train_base"
+        )
         self.assertEqual(len(signals), 0)
 
     def test_detect_regression_no_baseline(self) -> None:
-        self.registry.record_manifest(_build_manifest("train_001", dataset_version="v1.0"))
+        self.registry.record_manifest(
+            _build_manifest("train_001", dataset_version="v1.0")
+        )
         self.registry.record_result(_build_result("train_001"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.70}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.70})
+        )
         # No other runs with same dataset_version
         signals = detect_regression(self.registry, "train_001", threshold_pct=5.0)
         self.assertEqual(len(signals), 0)
@@ -375,7 +478,18 @@ class TestDetectAnomalies(unittest.TestCase):
 
     def test_detect_anomalies_failed_run(self) -> None:
         self.registry.record_manifest(_build_manifest("train_001"))
-        self.registry.record_result(_build_result("train_001", status="failed", duration=0.0, failure={"type": "OOM", "message": "out of memory", "stage": "training"}))
+        self.registry.record_result(
+            _build_result(
+                "train_001",
+                status="failed",
+                duration=0.0,
+                failure={
+                    "type": "OOM",
+                    "message": "out of memory",
+                    "stage": "training",
+                },
+            )
+        )
         anomalies = detect_anomalies(self.registry)
         self.assertIn("train_001", anomalies)
 
@@ -389,7 +503,11 @@ class TestDetectAnomalies(unittest.TestCase):
                 finished_at_utc="2026-04-17T01:00:00+00:00",
                 duration_seconds=1800.0,
                 trainer_code_version="abc123",
-                failure={"type": "user", "message": "user canceled", "stage": "training"},
+                failure={
+                    "type": "user",
+                    "message": "user canceled",
+                    "stage": "training",
+                },
             )
         )
         anomalies = detect_anomalies(self.registry)
@@ -411,7 +529,9 @@ class TestDetectAnomalies(unittest.TestCase):
     def test_detect_anomalies_normal_run(self) -> None:
         self.registry.record_manifest(_build_manifest("train_001"))
         self.registry.record_result(_build_result("train_001"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75})
+        )
         anomalies = detect_anomalies(self.registry)
         self.assertNotIn("train_001", anomalies)
 
@@ -427,7 +547,9 @@ class TestSummarizeArtifact(unittest.TestCase):
     def test_summarize_artifact_basic(self) -> None:
         self.registry.record_manifest(_build_manifest("train_001", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_001", duration=3600.0))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75})
+        )
 
         summary = summarize_artifact(self.registry, "rm_a")
         self.assertEqual(summary.artifact_id, "rm_a")
@@ -436,15 +558,30 @@ class TestSummarizeArtifact(unittest.TestCase):
         self.assertEqual(summary.failed_count, 0)
         self.assertEqual(summary.avg_duration, 3600.0)
         self.assertIn("hellaswag", summary.latest_evals_by_benchmark)
-        self.assertEqual(summary.latest_evals_by_benchmark["hellaswag"]["accuracy"], 0.75)
+        self.assertEqual(
+            summary.latest_evals_by_benchmark["hellaswag"]["accuracy"], 0.75
+        )
 
     def test_summarize_artifact_multiple_runs(self) -> None:
         self.registry.record_manifest(_build_manifest("train_001", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_001", duration=3600.0))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75})
+        )
 
         self.registry.record_manifest(_build_manifest("train_002", artifact_id="rm_a"))
-        self.registry.record_result(_build_result("train_002", status="failed", duration=1800.0, failure={"type": "OOM", "message": "out of memory", "stage": "training"}))
+        self.registry.record_result(
+            _build_result(
+                "train_002",
+                status="failed",
+                duration=1800.0,
+                failure={
+                    "type": "OOM",
+                    "message": "out of memory",
+                    "stage": "training",
+                },
+            )
+        )
 
         summary = summarize_artifact(self.registry, "rm_a")
         self.assertEqual(summary.run_count, 2)
@@ -456,14 +593,20 @@ class TestSummarizeArtifact(unittest.TestCase):
         # Later run should take precedence for "latest eval"
         self.registry.record_manifest(_build_manifest("train_001", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_001"))
-        self.registry.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75}))
+        self.registry.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75})
+        )
 
         self.registry.record_manifest(_build_manifest("train_002", artifact_id="rm_a"))
         self.registry.record_result(_build_result("train_002"))
-        self.registry.record_eval(_build_eval("eval_002", "train_002", metrics={"accuracy": 0.85}))
+        self.registry.record_eval(
+            _build_eval("eval_002", "train_002", metrics={"accuracy": 0.85})
+        )
 
         summary = summarize_artifact(self.registry, "rm_a")
-        self.assertEqual(summary.latest_evals_by_benchmark["hellaswag"]["accuracy"], 0.85)
+        self.assertEqual(
+            summary.latest_evals_by_benchmark["hellaswag"]["accuracy"], 0.85
+        )
 
     def test_summarize_artifact_empty(self) -> None:
         summary = summarize_artifact(self.registry, "rm_nonexistent")
@@ -494,9 +637,15 @@ class TestRegistryQueries(unittest.TestCase):
         self.assertEqual(runs, [])
 
     def test_list_runs_by_dataset_version(self) -> None:
-        self.registry.record_manifest(_build_manifest("train_001", dataset_version="v1.0"))
-        self.registry.record_manifest(_build_manifest("train_002", dataset_version="v1.0"))
-        self.registry.record_manifest(_build_manifest("train_003", dataset_version="v2.0"))
+        self.registry.record_manifest(
+            _build_manifest("train_001", dataset_version="v1.0")
+        )
+        self.registry.record_manifest(
+            _build_manifest("train_002", dataset_version="v1.0")
+        )
+        self.registry.record_manifest(
+            _build_manifest("train_003", dataset_version="v2.0")
+        )
 
         runs = self.registry.list_runs_by_dataset_version("v1.0")
         self.assertEqual(sorted(runs), ["train_001", "train_002"])
@@ -509,7 +658,17 @@ class TestRegistryQueries(unittest.TestCase):
         self.registry.record_result(_build_result("train_001", status="succeeded"))
 
         self.registry.record_manifest(_build_manifest("train_002"))
-        self.registry.record_result(_build_result("train_002", status="failed", failure={"type": "OOM", "message": "out of memory", "stage": "training"}))
+        self.registry.record_result(
+            _build_result(
+                "train_002",
+                status="failed",
+                failure={
+                    "type": "OOM",
+                    "message": "out of memory",
+                    "stage": "training",
+                },
+            )
+        )
 
         self.registry.record_manifest(_build_manifest("train_003"))
         # No result -> not matched
@@ -534,42 +693,73 @@ class TestCLIIntegration(unittest.TestCase):
         reg = ExperimentRegistry(base_dir=self.registry_dir)
         reg.record_manifest(_build_manifest("train_001"))
         reg.record_result(_build_result("train_001"))
-        reg.record_eval(_build_eval("eval_001", "train_001", metrics={"accuracy": 0.75}))
+        reg.record_eval(
+            _build_eval("eval_001", "train_001", metrics={"accuracy": 0.75})
+        )
 
         reg.record_manifest(_build_manifest("train_002"))
         reg.record_result(_build_result("train_002"))
-        reg.record_eval(_build_eval("eval_002", "train_002", metrics={"accuracy": 0.80}))
+        reg.record_eval(
+            _build_eval("eval_002", "train_002", metrics={"accuracy": 0.80})
+        )
 
         reg.record_manifest(_build_manifest("train_003"))
-        reg.record_result(_build_result("train_003", status="failed", failure={"type": "OOM", "message": "out of memory", "stage": "training"}))
+        reg.record_result(
+            _build_result(
+                "train_003",
+                status="failed",
+                failure={
+                    "type": "OOM",
+                    "message": "out of memory",
+                    "stage": "training",
+                },
+            )
+        )
 
     def _run_cli(self, module: str, *args: str) -> subprocess.CompletedProcess:
         cmd = [
-            sys.executable, "-m", module,
-            "--registry-dir", str(self.registry_dir),
+            sys.executable,
+            "-m",
+            module,
+            "--registry-dir",
+            str(self.registry_dir),
             *args,
         ]
-        return subprocess.run(cmd, capture_output=True, text=True, cwd=Path(__file__).parent.parent)
+        return subprocess.run(
+            cmd, capture_output=True, text=True, cwd=Path(__file__).parent.parent
+        )
 
     def test_compare_runs_cli(self) -> None:
-        result = self._run_cli("autosr.rl.compare_runs", "--run-a", "train_001", "--run-b", "train_002", "--json")
+        result = self._run_cli(
+            "reward_harness.rl.compare_runs",
+            "--run-a",
+            "train_001",
+            "--run-b",
+            "train_002",
+            "--json",
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["benchmark"], "hellaswag")
 
     def test_compare_artifacts_cli(self) -> None:
-        result = self._run_cli("autosr.rl.compare_artifacts", "--artifact-ids", "rm_001", "--json")
+        result = self._run_cli(
+            "reward_harness.rl.compare_artifacts", "--artifact-ids", "rm_001", "--json"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual(len(data), 1)
 
     def test_check_regression_cli(self) -> None:
         result = self._run_cli(
-            "autosr.rl.check_regression",
-            "--training-run-id", "train_001",
-            "--baseline-run-id", "train_002",
-            "--threshold-pct", "5.0",
+            "reward_harness.rl.check_regression",
+            "--training-run-id",
+            "train_001",
+            "--baseline-run-id",
+            "train_002",
+            "--threshold-pct",
+            "5.0",
             "--json",
         )
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -579,20 +769,24 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertEqual(data[0]["metric"], "accuracy")
 
     def test_list_runs_cli(self) -> None:
-        result = self._run_cli("autosr.rl.list_runs", "--json")
+        result = self._run_cli("reward_harness.rl.list_runs", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual(len(data), 3)
 
     def test_list_runs_filter_status(self) -> None:
-        result = self._run_cli("autosr.rl.list_runs", "--status", "failed", "--json")
+        result = self._run_cli(
+            "reward_harness.rl.list_runs", "--status", "failed", "--json"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["training_run_id"], "train_003")
 
     def test_list_runs_anomalies_only(self) -> None:
-        result = self._run_cli("autosr.rl.list_runs", "--anomalies-only", "--json")
+        result = self._run_cli(
+            "reward_harness.rl.list_runs", "--anomalies-only", "--json"
+        )
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         ids = [d["training_run_id"] for d in data]
@@ -602,11 +796,17 @@ class TestCLIIntegration(unittest.TestCase):
         # Need evals with comparison_baseline set
         reg = ExperimentRegistry(base_dir=self.registry_dir)
         reg.record_eval(
-            _build_eval("eval_001b", "train_001", metrics={"accuracy": 0.75}, baseline="train_002")
+            _build_eval(
+                "eval_001b",
+                "train_001",
+                metrics={"accuracy": 0.75},
+                baseline="train_002",
+            )
         )
         result = self._run_cli(
-            "autosr.rl.show_lineage",
-            "--training-run-id", "train_001",
+            "reward_harness.rl.show_lineage",
+            "--training-run-id",
+            "train_001",
             "--with-baseline-delta",
             "--json",
         )

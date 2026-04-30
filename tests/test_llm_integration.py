@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 
-from autosr.cli import DEFAULT_MODEL
+from reward_harness.cli import DEFAULT_MODEL
 
 
 LLM_API_KEY = os.getenv("LLM_API_KEY")
@@ -25,12 +25,14 @@ class TestLLMIntegration(unittest.TestCase):
             dataset_path = tmp_path / "dataset.json"
             iterative_output = tmp_path / "iterative.json"
             evolutionary_output = tmp_path / "evolutionary.json"
-            dataset_path.write_text(json.dumps(_tiny_dataset(), ensure_ascii=False), encoding="utf-8")
+            dataset_path.write_text(
+                json.dumps(_tiny_dataset(), ensure_ascii=False), encoding="utf-8"
+            )
 
             iterative_cmd = [
                 sys.executable,
                 "-m",
-                "autosr.cli",
+                "reward_harness.cli",
                 "--dataset",
                 str(dataset_path),
                 "--mode",
@@ -51,7 +53,7 @@ class TestLLMIntegration(unittest.TestCase):
             evolutionary_cmd = [
                 sys.executable,
                 "-m",
-                "autosr.cli",
+                "reward_harness.cli",
                 "--dataset",
                 str(dataset_path),
                 "--mode",
@@ -116,7 +118,9 @@ class TestLLMIntegration(unittest.TestCase):
             self.assertTrue(evolutionary_output.exists())
 
             iterative_payload = json.loads(iterative_output.read_text(encoding="utf-8"))
-            evolutionary_payload = json.loads(evolutionary_output.read_text(encoding="utf-8"))
+            evolutionary_payload = json.loads(
+                evolutionary_output.read_text(encoding="utf-8")
+            )
             self.assertIn("best_rubrics", iterative_payload)
             self.assertIn("best_scores", iterative_payload)
             self.assertIn("best_rubrics", evolutionary_payload)

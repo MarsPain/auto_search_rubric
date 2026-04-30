@@ -36,9 +36,9 @@ CLI / Integration Boundary
 
 - 目标：让搜索过程可长时运行、可恢复、可追溯。
 - 核心包：
-  - `reward_harness/harness/session.py`（兼容：`autosr/harness/session.py`）
-  - `reward_harness/harness/state.py`（兼容：`autosr/harness/state.py`）
-  - `reward_harness/harness/storage.py`（兼容：`autosr/harness/storage.py`）
+  - `reward_harness/harness/session.py`（legacy 兼容：`autosr/harness/session.py`）
+  - `reward_harness/harness/state.py`（legacy 兼容：`autosr/harness/state.py`）
+  - `reward_harness/harness/storage.py`（legacy 兼容：`autosr/harness/storage.py`）
 - 关键边界：Harness 只通过 `Searcher` / `SteppableSearcher` 公共协议驱动算法，不调用具体搜索器私有方法。
 
 ### 3.2 Search 域（算法层）
@@ -100,7 +100,7 @@ CLI / Integration Boundary
 
 ```text
 Entry Layer:
-  reward_harness/cli.py (legacy: autosr/cli.py)
+  reward_harness/cli.py (legacy compatible: autosr/cli.py)
     -> Composition Layer:
          reward_harness/factory.py
          reward_harness/config.py

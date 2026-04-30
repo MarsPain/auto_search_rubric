@@ -20,6 +20,7 @@
 
 | 计划 | 描述 | 创建日期 | 文档 |
 |------|------|----------|------|
+| Complete Migration to Reward Harness | 将代码主体从 `autosr/` 物理迁移到 `reward_harness/`，完成引用收敛与配置更新 | 2026-04-30 | [complete-reward-harness-migration.md](exec-plans/active/complete-reward-harness-migration.md) |
 
 
 ### 计划模板

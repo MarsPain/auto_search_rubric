@@ -1,6 +1,6 @@
 # Reward Harness
 
-> **Legacy name**: `auto_search_rubric` / `autosr` — both package names remain supported during the migration period.
+> **Legacy name**: `auto_search_rubric` / `autosr` — `autosr` remains supported as a legacy compatibility shim.
 
 English | [中文](README.zh.md)
 
@@ -19,7 +19,7 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
   - Parent selection: `rank`, `tournament`, `top_k`
   - Adaptive mutation: `fixed`, `success_feedback`, `exploration_decay`, `diversity_driven`
   - Iteration scope: `global_batch` (dataset-level) and `prompt_local` (prompt-level independent evolution)
-- LLM architecture split into transport config (`autosr.llm_config`) and runtime config (`autosr.config`)
+- LLM architecture split into transport config (`reward_harness.llm_config`) and runtime config (`reward_harness.config`)
 - Deployable RM artifacts with validated schema and embedded runtime snapshot for server startup
 - Deployment tracking via `reward_harness.rm.deploy` manifests with per-target `previous_artifact_id` resolution
 - RM Server MVP (`reward_harness.rm.server`) exposing `/healthz`, `/score`, and `/batch_score` with closed-loop LLM scoring
@@ -33,26 +33,26 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 
 ### Entry and Composition
 
-- `reward_harness/cli.py` (legacy: `autosr/cli.py`)
+- `reward_harness/cli.py` (legacy compatible: `autosr/cli.py`)
   - Parses CLI args only
   - Builds `RuntimeConfig`
   - Delegates runtime wiring to `ComponentFactory`
-- `reward_harness/factory.py` (legacy: `autosr/factory.py`)
+- `reward_harness/factory.py` (legacy compatible: `autosr/factory.py`)
   - Single composition root for backend selection and component assembly
   - Auto-resolves rank-based judge when all candidates provide `metadata.rank`
 
 ### Config and Types
 
-- `reward_harness/config.py` (legacy: `autosr/config.py`)
+- `reward_harness/config.py` (legacy compatible: `autosr/config.py`)
   - Runtime-level configuration:
     - `RuntimeConfig`
     - `LLMBackendConfig`
     - `SearchAlgorithmConfig`
     - `ObjectiveConfig` (compat alias: `ObjectiveFunctionConfig`)
     - `InitializerStrategyConfig`, `ContentExtractionConfig`, `VerifierConfig`
-- `reward_harness/llm_config.py` (legacy: `autosr/llm_config.py`)
+- `reward_harness/llm_config.py` (legacy compatible: `autosr/llm_config.py`)
   - Low-level LLM transport/model config (`LLMConfig`, `RoleModelConfig`)
-- `reward_harness/types.py` (legacy: `autosr/types.py`)
+- `reward_harness/types.py` (legacy compatible: `autosr/types.py`)
   - Shared enums:
     - `BackendType`, `SearchMode`, `EvolutionIterationScope`, `SelectionStrategy`
     - `AdaptiveMutationSchedule`, `InitializerStrategy`, `ExtractionStrategy`, `LLMRole`
@@ -60,7 +60,7 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 ### Domain and Shared Modules
 
 - `reward_harness/data_models.py`: canonical domain entities (`Rubric`, `Criterion`, `PromptExample`, ...)
-- `autosr/models.py`: legacy compatibility import layer
+- `reward_harness/models.py`: canonical models (legacy compatible via `autosr/models.py`)
 - `reward_harness/exceptions.py`: shared LLM exceptions (`LLMCallError`, `LLMParseError`)
 - `reward_harness/io_utils.py`: dataset/rubric I/O and run-record persistence
 - `reward_harness/run_records/use_cases.py`: run manifest + reproducible shell script generation
@@ -102,7 +102,7 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 
 ## Project Layout
 
-- `reward_harness/`: recommended core package (legacy: `autosr/`)
+- `reward_harness/`: core package (legacy compatible: `autosr/`)
 - `reward_harness/rm/`: RM artifact/export/deploy/server modules
 - `reward_harness/rl/`: RL experiment lineage and external training-run reference modules
 - `prompts/`: prompt templates (supports locale folders such as `prompts/zh/` and `prompts/en/`)
@@ -390,7 +390,7 @@ uv run python -m unittest \
 ## Notes
 
 - Import domain entities from `reward_harness.data_models` in new code.
-- `autosr.models` is a long-term compatibility re-export shim for historical
+- `reward_harness.models` is the canonical module; `autosr.models` is a long-term compatibility re-export shim for historical
   import paths; keep it working, but do not use it in new code.
 - Prefer `ComponentFactory(RuntimeConfig(...))` over manual runtime wiring.
 - Keep secrets in environment variables only (`LLM_API_KEY`, optional `LLM_BASE_URL`, `LLM_MODEL`).

@@ -8,9 +8,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autosr.rl.data_models import TrainingManifest, EvalReport
-from autosr.rl.registry import ExperimentRegistry
-from autosr.rl.verl.reward_client import RMHealthzError, RMScoringClient, ScoreError
+from reward_harness.rl.data_models import TrainingManifest, EvalReport
+from reward_harness.rl.registry import ExperimentRegistry
+from reward_harness.rl.verl.reward_client import (
+    RMHealthzError,
+    RMScoringClient,
+    ScoreError,
+)
 
 
 class MockHTTPResponse:
@@ -41,13 +45,15 @@ class TestRMScoringClient(unittest.TestCase):
         schema_version: str = "1.0",
         rm_api_version: str = "1.0",
     ) -> bytes:
-        return json.dumps({
-            "status": status,
-            "artifact_id": artifact_id,
-            "source_session_id": source_session_id,
-            "schema_version": schema_version,
-            "rm_api_version": rm_api_version,
-        }).encode("utf-8")
+        return json.dumps(
+            {
+                "status": status,
+                "artifact_id": artifact_id,
+                "source_session_id": source_session_id,
+                "schema_version": schema_version,
+                "rm_api_version": rm_api_version,
+            }
+        ).encode("utf-8")
 
     @patch("urllib.request.urlopen")
     def test_healthz_check_success(self, mock_urlopen) -> None:
@@ -107,6 +113,7 @@ class TestRMScoringClient(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_healthz_check_connection_error(self, mock_urlopen) -> None:
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("Connection refused")
         with self.assertRaises(RMHealthzError) as ctx:
             self.client.healthz_check()
@@ -116,12 +123,14 @@ class TestRMScoringClient(unittest.TestCase):
     def test_score_success(self, mock_urlopen) -> None:
         mock_urlopen.return_value.__enter__.return_value = MockHTTPResponse(
             200,
-            json.dumps({
-                "request_id": "req_001",
-                "artifact_id": "artifact_001",
-                "score": 0.85,
-                "majority_grades": {"c1": 4.0},
-            }).encode("utf-8"),
+            json.dumps(
+                {
+                    "request_id": "req_001",
+                    "artifact_id": "artifact_001",
+                    "score": 0.85,
+                    "majority_grades": {"c1": 4.0},
+                }
+            ).encode("utf-8"),
         )
         result = self.client.score(
             prompt_id="p1",
@@ -135,6 +144,7 @@ class TestRMScoringClient(unittest.TestCase):
     @patch("urllib.request.urlopen")
     def test_score_http_error(self, mock_urlopen) -> None:
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.HTTPError(
             url="http://127.0.0.1:8080/score",
             code=500,
@@ -156,14 +166,16 @@ class TestRMScoringClient(unittest.TestCase):
     def test_batch_score_success(self, mock_urlopen) -> None:
         mock_urlopen.return_value.__enter__.return_value = MockHTTPResponse(
             200,
-            json.dumps({
-                "request_id": "req_002",
-                "artifact_id": "artifact_001",
-                "results": [
-                    {"index": 0, "ok": True, "score": 0.9},
-                    {"index": 1, "ok": True, "score": 0.7},
-                ],
-            }).encode("utf-8"),
+            json.dumps(
+                {
+                    "request_id": "req_002",
+                    "artifact_id": "artifact_001",
+                    "results": [
+                        {"index": 0, "ok": True, "score": 0.9},
+                        {"index": 1, "ok": True, "score": 0.7},
+                    ],
+                }
+            ).encode("utf-8"),
         )
         items = [
             {
@@ -190,25 +202,38 @@ class TestPrepareTrainingRunCLI(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_prepare_creates_manifest_and_dirs(self) -> None:
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.prepare_training_run",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--rm-deploy-id", "deploy_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--trainer-entrypoint", "python train.py",
-            "--training-run-id", "train_test_001",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.prepare_training_run",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--rm-deploy-id",
+            "deploy_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--trainer-entrypoint",
+            "python train.py",
+            "--training-run-id",
+            "train_test_001",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -238,18 +263,29 @@ class TestPrepareTrainingRunCLI(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.prepare_training_run",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--trainer-entrypoint", "python train.py",
-            "--training-run-id", "train_test_002",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.prepare_training_run",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--trainer-entrypoint",
+            "python train.py",
+            "--training-run-id",
+            "train_test_002",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -268,30 +304,46 @@ class TestFinalizeTrainingRunCLI(unittest.TestCase):
             rm_artifact_id="artifact_001",
             search_session_id="session_001",
             dataset={"dataset_id": "gsm8k", "dataset_version": "v1.0"},
-            trainer={"project": "p", "code_version": "v1", "entrypoint": "python train.py"},
+            trainer={
+                "project": "p",
+                "code_version": "v1",
+                "entrypoint": "python train.py",
+            },
         )
         self.registry.record_manifest(manifest)
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_finalize_success(self) -> None:
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.finalize_training_run",
-            "--training-run-id", "train_test_003",
-            "--status", "succeeded",
-            "--started-at", "2026-04-19T10:00:00+00:00",
-            "--finished-at", "2026-04-19T11:00:00+00:00",
-            "--duration-seconds", "3600",
-            "--trainer-code-version", "abc123",
-            "--checkpoint-path", "/tmp/checkpoint",
-            "--log-path", "/tmp/log",
-            "--training-summary-json", '{"final_loss": 0.1}',
-            "--reward-summary-json", '{"mean": 0.8}',
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.finalize_training_run",
+            "--training-run-id",
+            "train_test_003",
+            "--status",
+            "succeeded",
+            "--started-at",
+            "2026-04-19T10:00:00+00:00",
+            "--finished-at",
+            "2026-04-19T11:00:00+00:00",
+            "--duration-seconds",
+            "3600",
+            "--trainer-code-version",
+            "abc123",
+            "--checkpoint-path",
+            "/tmp/checkpoint",
+            "--log-path",
+            "/tmp/log",
+            "--training-summary-json",
+            '{"final_loss": 0.1}',
+            "--reward-summary-json",
+            '{"mean": 0.8}',
+            "--registry-dir",
+            str(self.registry_dir),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -306,17 +358,27 @@ class TestFinalizeTrainingRunCLI(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.finalize_training_run",
-            "--training-run-id", "train_test_003",
-            "--status", "failed",
-            "--started-at", "2026-04-19T10:00:00+00:00",
-            "--finished-at", "2026-04-19T10:05:00+00:00",
-            "--duration-seconds", "300",
-            "--trainer-code-version", "abc123",
-            "--failure-type", "OOMError",
-            "--failure-message", "CUDA out of memory",
-            "--failure-stage", "training",
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.finalize_training_run",
+            "--training-run-id",
+            "train_test_003",
+            "--status",
+            "failed",
+            "--started-at",
+            "2026-04-19T10:00:00+00:00",
+            "--finished-at",
+            "2026-04-19T10:05:00+00:00",
+            "--duration-seconds",
+            "300",
+            "--trainer-code-version",
+            "abc123",
+            "--failure-type",
+            "OOMError",
+            "--failure-message",
+            "CUDA out of memory",
+            "--failure-stage",
+            "training",
+            "--registry-dir",
+            str(self.registry_dir),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -341,17 +403,27 @@ class TestFinalizeTrainingRunCLI(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.finalize_training_run",
-            "--training-run-id", "train_test_003",
-            "--status", "succeeded",
-            "--started-at", "2026-04-19T10:00:00+00:00",
-            "--finished-at", "2026-04-19T11:00:00+00:00",
-            "--duration-seconds", "3600",
-            "--trainer-code-version", "abc123",
-            "--checkpoint-path", "/tmp/checkpoint",
-            "--training-summary-json", '{"final_loss": 0.1}',
-            "--registry-dir", str(self.registry_dir),
-            "--eval-report-json", str(eval_path),
+            "reward_harness.rl.verl.finalize_training_run",
+            "--training-run-id",
+            "train_test_003",
+            "--status",
+            "succeeded",
+            "--started-at",
+            "2026-04-19T10:00:00+00:00",
+            "--finished-at",
+            "2026-04-19T11:00:00+00:00",
+            "--duration-seconds",
+            "3600",
+            "--trainer-code-version",
+            "abc123",
+            "--checkpoint-path",
+            "/tmp/checkpoint",
+            "--training-summary-json",
+            '{"final_loss": 0.1}',
+            "--registry-dir",
+            str(self.registry_dir),
+            "--eval-report-json",
+            str(eval_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -369,26 +441,37 @@ class TestRunVerlTrainingOrchestration(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_dry_run_outputs_commands(self) -> None:
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.run_verl_training",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.run_verl_training",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
             "--dry-run",
             "--",
-            "echo", "hello",
+            "echo",
+            "hello",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -400,20 +483,32 @@ class TestRunVerlTrainingOrchestration(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.run_verl_training",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.run_verl_training",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
-            "--training-run-id", "orch_test_001",
+            "--training-run-id",
+            "orch_test_001",
             "--",
-            sys.executable, "-c", "import os; print('RM_ENDPOINT:', os.environ.get('RM_ENDPOINT')); print('TRAINING_RUN_ID:', os.environ.get('TRAINING_RUN_ID'))",
+            sys.executable,
+            "-c",
+            "import os; print('RM_ENDPOINT:', os.environ.get('RM_ENDPOINT')); print('TRAINING_RUN_ID:', os.environ.get('TRAINING_RUN_ID'))",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, msg=result.stderr)
@@ -433,20 +528,32 @@ class TestRunVerlTrainingOrchestration(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.run_verl_training",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.run_verl_training",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
-            "--training-run-id", "orch_test_002",
+            "--training-run-id",
+            "orch_test_002",
             "--",
-            sys.executable, "-c", "import sys; sys.exit(1)",
+            sys.executable,
+            "-c",
+            "import sys; sys.exit(1)",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
@@ -464,21 +571,33 @@ class TestRunVerlTrainingOrchestration(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.run_verl_training",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.run_verl_training",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
-            "--trainer-config-json", "{invalid_json",
-            "--training-run-id", "orch_test_preflight_001",
+            "--trainer-config-json",
+            "{invalid_json",
+            "--training-run-id",
+            "orch_test_preflight_001",
             "--",
-            "echo", "hello",
+            "echo",
+            "hello",
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
@@ -496,18 +615,28 @@ class TestRunVerlTrainingOrchestration(unittest.TestCase):
         cmd = [
             sys.executable,
             "-m",
-            "autosr.rl.verl.run_verl_training",
-            "--rm-endpoint", "http://127.0.0.1:8080",
-            "--rm-artifact-id", "artifact_001",
-            "--search-session-id", "session_001",
-            "--dataset-id", "gsm8k",
-            "--dataset-version", "v1.0",
-            "--trainer-project", "verl_grpo",
-            "--trainer-code-version", "abc123",
-            "--output-dir", str(self.output_dir),
-            "--registry-dir", str(self.registry_dir),
+            "reward_harness.rl.verl.run_verl_training",
+            "--rm-endpoint",
+            "http://127.0.0.1:8080",
+            "--rm-artifact-id",
+            "artifact_001",
+            "--search-session-id",
+            "session_001",
+            "--dataset-id",
+            "gsm8k",
+            "--dataset-version",
+            "v1.0",
+            "--trainer-project",
+            "verl_grpo",
+            "--trainer-code-version",
+            "abc123",
+            "--output-dir",
+            str(self.output_dir),
+            "--registry-dir",
+            str(self.registry_dir),
             "--skip-healthz",
-            "--training-run-id", "orch_test_003",
+            "--training-run-id",
+            "orch_test_003",
             "--",
             "does_not_exist_cmd",
         ]

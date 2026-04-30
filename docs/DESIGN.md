@@ -6,7 +6,7 @@
 
 ## 设计目标
 
-将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。新代码优先使用 `reward_harness` 包名；`autosr` 在迁移期内保持兼容。
+将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。`reward_harness` 是代码的 canonical 位置；`autosr` 作为 legacy 兼容 shim 保留。
 
 ```
 Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distillation -> Eval & Monitoring -> Search Refresh
@@ -89,7 +89,7 @@ Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distil
 ### 兼容入口策略
 
 - 新代码统一从 `reward_harness.data_models` 导入 `Rubric`、`Criterion`、`PromptExample` 等领域实体。
-- `autosr.models` 作为长期兼容 re-export shim 保留，用于历史导入路径和下游扩展；不在当前阶段发出导入级 `DeprecationWarning`，避免破坏既有脚本。
+- `reward_harness.models` 是 canonical 模块；`autosr.models` 作为长期兼容 re-export shim 保留，用于历史导入路径和下游扩展。
 - 兼容 shim 必须保持测试覆盖，确保 `reward_harness.data_models.*` 与 `autosr.data_models.*` 指向同一对象。
 
 ### Search Checkpoint（恢复用）
@@ -295,7 +295,7 @@ EvalReport(
 ### 当前API（稳定）
 
 ```bash
-# 搜索（推荐入口；兼容入口：autosr.cli）
+# 搜索（canonical 入口：reward_harness.cli；legacy 兼容：autosr.cli）
 uv run python -m reward_harness.cli --dataset ... --mode evolutionary --output ...
 
 # 导出RM artifact

@@ -9,11 +9,16 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from autosr.data_models import Criterion, GradingProtocol, ResponseCandidate, Rubric
-from autosr.evaluator import RubricEvaluator
-from autosr.rm.data_models import ArtifactValidationError, RMArtifact
-from autosr.rm.io import save_rm_artifact
-from autosr.rm.server import (
+from reward_harness.data_models import (
+    Criterion,
+    GradingProtocol,
+    ResponseCandidate,
+    Rubric,
+)
+from reward_harness.evaluator import RubricEvaluator
+from reward_harness.rm.data_models import ArtifactValidationError, RMArtifact
+from reward_harness.rm.io import save_rm_artifact
+from reward_harness.rm.server import (
     RMScoringService,
     RMServerRuntime,
     RequestAuditLogger,
@@ -116,7 +121,9 @@ class TestRMScoringService(unittest.TestCase):
             response = service.score(
                 prompt_id="p1",
                 prompt="Prompt",
-                candidate=next(c for c in candidates if c.candidate_id == expected.candidate_id),
+                candidate=next(
+                    c for c in candidates if c.candidate_id == expected.candidate_id
+                ),
             )
             self.assertAlmostEqual(response["score"], expected.score, places=8)
             self.assertEqual(response["majority_grades"], expected.majority_grades)

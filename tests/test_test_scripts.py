@@ -33,7 +33,9 @@ class TestTestScripts(unittest.TestCase):
         self.assertIn("LLM_API_KEY is not set", result.stderr)
 
     def test_test_scripts_support_virtualenv_python(self) -> None:
-        unit_script = (self.scripts_dir / "run_tests_unit.sh").read_text(encoding="utf-8")
+        unit_script = (self.scripts_dir / "run_tests_unit.sh").read_text(
+            encoding="utf-8"
+        )
         integration_script = (self.scripts_dir / "run_tests_integration.sh").read_text(
             encoding="utf-8"
         )
