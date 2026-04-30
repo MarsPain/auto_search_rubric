@@ -1,4 +1,4 @@
-# AutoSR 架构设计
+# Reward Harness 架构设计
 
 > **版本**: v1.3 | **状态**: 稳定 | **最后更新**: 2026-04-26
 
@@ -6,7 +6,7 @@
 
 ## 设计目标
 
-将 `autosr` 从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。
+将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。新代码优先使用 `reward_harness` 包名；`autosr` 在迁移期内保持兼容。
 
 ```
 Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distillation -> Eval & Monitoring -> Search Refresh
@@ -88,9 +88,9 @@ Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distil
 
 ### 兼容入口策略
 
-- 新代码统一从 `autosr.data_models` 导入 `Rubric`、`Criterion`、`PromptExample` 等领域实体。
+- 新代码统一从 `reward_harness.data_models` 导入 `Rubric`、`Criterion`、`PromptExample` 等领域实体。
 - `autosr.models` 作为长期兼容 re-export shim 保留，用于历史导入路径和下游扩展；不在当前阶段发出导入级 `DeprecationWarning`，避免破坏既有脚本。
-- 兼容 shim 必须保持测试覆盖，确保 `autosr.models.*` 与 `autosr.data_models.*` 指向同一对象。
+- 兼容 shim 必须保持测试覆盖，确保 `reward_harness.data_models.*` 与 `autosr.data_models.*` 指向同一对象。
 
 ### Search Checkpoint（恢复用）
 
@@ -275,18 +275,18 @@ EvalReport(
 
 | 模块 | 职责 | 关键类 |
 |------|------|--------|
-| `autosr/harness/session.py` | 搜索会话生命周期 | `SearchSession` |
-| `autosr/harness/state.py` | Checkpoint schema | `SearchCheckpoint`, `ResumeValidator` |
-| `autosr/harness/storage.py` | 状态持久化 | `StateManager` |
-| `autosr/interfaces.py` | 跨域协议边界 | `Searcher`, `SteppableSearcher`, `CheckpointCallback` |
-| `autosr/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
-| `autosr/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
-| `autosr/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |
-| `autosr/rl/` | RL接入契约、实验记录、lineage查询与比较视图 | `TrainingManifest`, `TrainingResultManifest`, `EvalReport` |
-| `autosr/classifier_rm/` | RL 采样蒸馏与 classifier RM 训练契约（规划） | `RLSampleBatchManifest`, `PreferenceDatasetManifest`, `ClassifierRMTrainingManifest` |
-| `autosr/config.py` | 运行时配置 | `RuntimeConfig` |
-| `autosr/data_models.py` | 领域实体 | `Rubric`, `Criterion` |
-| `autosr/types.py` | 统一枚举 | `BackendType`, `SearchMode` |
+| `reward_harness/harness/session.py` | 搜索会话生命周期 | `SearchSession` |
+| `reward_harness/harness/state.py` | Checkpoint schema | `SearchCheckpoint`, `ResumeValidator` |
+| `reward_harness/harness/storage.py` | 状态持久化 | `StateManager` |
+| `reward_harness/interfaces.py` | 跨域协议边界 | `Searcher`, `SteppableSearcher`, `CheckpointCallback` |
+| `reward_harness/search/` | 搜索算法实现 | `IterativeSearcher`, `EvolutionarySearcher` |
+| `reward_harness/llm_components/` | LLM交互组件 | `LLMInitializer`, `LLMProposer`, `LLMVerifier` |
+| `reward_harness/rm/` | RM Artifact管理 + 服务化评分 | `RMArtifact`, `ArtifactExporter`, `RMScoringService` |
+| `reward_harness/rl/` | RL接入契约、实验记录、lineage查询与比较视图 | `TrainingManifest`, `TrainingResultManifest`, `EvalReport` |
+| `reward_harness/classifier_rm/` | RL 采样蒸馏与 classifier RM 训练契约（规划） | `RLSampleBatchManifest`, `PreferenceDatasetManifest`, `ClassifierRMTrainingManifest` |
+| `reward_harness/config.py` | 运行时配置 | `RuntimeConfig` |
+| `reward_harness/data_models.py` | 领域实体 | `Rubric`, `Criterion` |
+| `reward_harness/types.py` | 统一枚举 | `BackendType`, `SearchMode` |
 
 ---
 
@@ -295,46 +295,46 @@ EvalReport(
 ### 当前API（稳定）
 
 ```bash
-# 搜索
-uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
+# 搜索（推荐入口；兼容入口：autosr.cli）
+uv run python -m reward_harness.cli --dataset ... --mode evolutionary --output ...
 
 # 导出RM artifact
-uv run python -m autosr.rm.export --search-output ... --out-artifact ...
+uv run python -m reward_harness.rm.export --search-output ... --out-artifact ...
 
 # 启动RM server（闭环LLM评分）
-uv run python -m autosr.rm.server \
+uv run python -m reward_harness.rm.server \
   --artifact artifacts/rm_artifacts/rm_v1.json \
   --host 0.0.0.0 \
   --port 8080 \
   --request-log-path artifacts/rm_server_logs/requests.jsonl
 
 # 记录训练前 manifest
-uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
+uv run python -m reward_harness.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
 
 # 训练结果回填
-uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
+uv run python -m reward_harness.rl.record_result --result artifacts/training_runs/results/run_001.json
 
 # 评测结果回填
-uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
+uv run python -m reward_harness.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
 
 # 查询 lineage
-uv run python -m autosr.rl.show_lineage --training-run-id run_001
+uv run python -m reward_harness.rl.show_lineage --training-run-id run_001
 ```
 
 ### 规划API
 
 ```bash
 # 登记 RL 采样批次（规划）
-uv run python -m autosr.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
+uv run python -m reward_harness.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
 
 # 构建重复打分数据（规划）
-uv run python -m autosr.classifier_rm.build_score_dataset --sample-batch sample_batch_001 --repeat-count 5 --aggregation mean
+uv run python -m reward_harness.classifier_rm.build_score_dataset --sample-batch sample_batch_001 --repeat-count 5 --aggregation mean
 
 # 构建偏好数据（规划）
-uv run python -m autosr.classifier_rm.build_preference_dataset --score-dataset score_dataset_001 --pairing-policy hybrid
+uv run python -m reward_harness.classifier_rm.build_preference_dataset --score-dataset score_dataset_001 --pairing-policy hybrid
 
 # 准备 classifier RM 训练 manifest（规划）
-uv run python -m autosr.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
+uv run python -m reward_harness.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
 ```
 
 ---

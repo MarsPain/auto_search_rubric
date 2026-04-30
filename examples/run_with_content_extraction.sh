@@ -1,5 +1,5 @@
 #!/bin/bash
-# Example: Run auto_search_rubric with content extraction for call summary dataset
+# Example: Run Reward Harness with content extraction for call summary dataset
 # This demonstrates extracting <通话内容> tags before passing to verifier
 
 set -e
@@ -12,7 +12,7 @@ echo "=========================================="
 echo ""
 echo "1. Mock backend with tag content extraction:"
 echo "----------------------------------------"
-python3 -m autosr.cli \
+python3 -m reward_harness.cli \
     --dataset examples/demo_dataset.json \
     --mode evolutionary \
     --backend mock \

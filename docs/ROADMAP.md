@@ -1,8 +1,8 @@
-# AutoSR Roadmap: 从 Rubric Search 到 RM+RL 闭环
+# Reward Harness Roadmap: 从 Rubric Search 到 RM+RL 闭环
 
 > **版本**: v1.2 | **最后更新**: 2026-04-26
 > 
-> 将 `autosr` 从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。
+> 将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。新代码优先使用 `reward_harness` 包名；`autosr` 在迁移期内保持兼容。
 
 ---
 
@@ -235,38 +235,38 @@
 保持现有入口：
 
 ```bash
-uv run python -m autosr.cli --dataset ... --output ...
+uv run python -m reward_harness.cli --dataset ... --output ...
 ```
 
 新能力通过新增命令或可选参数引入：
 
 ```bash
 # 1) 搜索并得到 best rubrics（已有）
-uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
+uv run python -m reward_harness.cli --dataset ... --mode evolutionary --output ...
 
 # 2) 导出可部署 RM artifact（已实现）
-uv run python -m autosr.rm.export --search-output ... --out-artifact ...
+uv run python -m reward_harness.rm.export --search-output ... --out-artifact ...
 
 # 3) 记录 RM 部署 manifest（已实现）
-uv run python -m autosr.rm.deploy --artifact ... --deployment-target prod
+uv run python -m reward_harness.rm.deploy --artifact ... --deployment-target prod
 
 # 4) 启动 RM server（已实现）
-uv run python -m autosr.rm.server --artifact ... --host 0.0.0.0 --port 8080 --request-log-path artifacts/rm_server_logs/requests.jsonl
+uv run python -m reward_harness.rm.server --artifact ... --host 0.0.0.0 --port 8080 --request-log-path artifacts/rm_server_logs/requests.jsonl
 
 # 5) RL 训练消费 RM endpoint（已实现参考流）
-uv run python -m autosr.rl.verl.run_verl_training --rm-endpoint http://127.0.0.1:8080 ...
+uv run python -m reward_harness.rl.verl.run_verl_training --rm-endpoint http://127.0.0.1:8080 ...
 
 # 6) 登记 RL 采样批次（规划）
-uv run python -m autosr.classifier_rm.record_sample_batch --manifest ...
+uv run python -m reward_harness.classifier_rm.record_sample_batch --manifest ...
 
 # 7) 构建重复打分数据集（规划）
-uv run python -m autosr.classifier_rm.build_score_dataset --sample-batch sample_batch_001 --repeat-count 5
+uv run python -m reward_harness.classifier_rm.build_score_dataset --sample-batch sample_batch_001 --repeat-count 5
 
 # 8) 构建偏好数据集（规划）
-uv run python -m autosr.classifier_rm.build_preference_dataset --score-dataset score_dataset_001 --pairing-policy hybrid
+uv run python -m reward_harness.classifier_rm.build_preference_dataset --score-dataset score_dataset_001 --pairing-policy hybrid
 
 # 9) 准备 classifier RM 训练 manifest（规划）
-uv run python -m autosr.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
+uv run python -m reward_harness.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
 ```
 
 ---

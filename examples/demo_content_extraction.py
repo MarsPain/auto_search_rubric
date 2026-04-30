@@ -8,12 +8,12 @@ before passing to the underlying verifier.
 
 from __future__ import annotations
 
-from autosr.content_extraction import (
+from reward_harness.content_extraction import (
     ContentExtractingVerifier,
     RegexExtractor,
     TagExtractor,
 )
-from autosr.models import Criterion, GradingProtocol, ResponseCandidate, Rubric
+from reward_harness.data_models import Criterion, GradingProtocol, ResponseCandidate, Rubric
 
 
 class DebugVerifier:

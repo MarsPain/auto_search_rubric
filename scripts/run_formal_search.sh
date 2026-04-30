@@ -93,7 +93,7 @@ DIVERSITY_THRESHOLD="${DIVERSITY_THRESHOLD:-0.05}"
 # =============================================================================
 
 cmd=(
-  "${PYTHON_CMD[@]}" -u -m autosr.cli
+  "${PYTHON_CMD[@]}" -u -m reward_harness.cli
   --dataset "${DATASET_PATH}"
   --mode "${MODE}"
   --output "${OUTPUT_PATH}"

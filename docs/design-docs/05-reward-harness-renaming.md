@@ -2,7 +2,7 @@
 
 > **版本**: v1.0 | **状态**: 草案 | **最后更新**: 2026-04-29
 
-本文档记录项目从 `auto_search_rubric` / `autosr` 迁移到 `Reward Harness` / `reward_harness` 的命名决策。执行计划见 [rename-to-reward-harness.md](../exec-plans/active/rename-to-reward-harness.md)。
+本文档记录项目从 `auto_search_rubric` / `autosr` 迁移到 `Reward Harness` / `reward_harness` 的命名决策。执行计划见 [rename-to-reward-harness.md](../exec-plans/completed/rename-to-reward-harness.md)。
 
 ---
 

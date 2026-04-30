@@ -4,7 +4,7 @@ This example demonstrates how to use the new selection strategies
 and adaptive mutation schedules for improved diversity and convergence.
 """
 
-from autosr.search import EvolutionaryConfig, SelectionStrategy, AdaptiveMutationSchedule
+from reward_harness.search import EvolutionaryConfig, SelectionStrategy, AdaptiveMutationSchedule
 
 # =============================================================================
 # Example 1: Tournament Selection with Success Feedback

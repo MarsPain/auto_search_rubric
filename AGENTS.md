@@ -1,4 +1,4 @@
-# AutoSR Agent Context Map
+# Reward Harness Agent Context Map
 
 > **Harness Engineering 最佳实践**: 本文档是目录与入口地图，全部详细知识沉淀于 `docs/` 目录。
 > 
@@ -22,7 +22,7 @@
 ## 项目结构
 
 ```
-autosr/                      # 核心包
+reward_harness/              # 推荐核心包（兼容：autosr/）
 ├── cli.py                   # CLI入口
 ├── harness/                 # 搜索会话底座
 │   ├── session.py           # SearchSession
@@ -54,7 +54,13 @@ docs/                        # 知识库
 ## 常用命令
 
 ```bash
-# 运行搜索
+# 运行搜索（推荐入口）
+uv run python -m reward_harness.cli \
+  --dataset examples/demo_dataset.json \
+  --mode evolutionary \
+  --output artifacts/best_rubrics.json
+
+# 兼容入口
 uv run python -m autosr.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
@@ -86,7 +92,7 @@ uv run python scripts/validate_docs.py
 
 - **命名**: `snake_case` 变量/函数, `PascalCase` 类
 - **架构**: `use_cases.py` 编排, `strategies.py` 工具, `factory.py` 组装
-- **导入**: 从 `autosr.data_models` 导入实体; `autosr.types` 导入枚举
+- **导入**: 从 `reward_harness.data_models` 导入实体; `reward_harness.types` 导入枚举
 - **提交**: 使用 Conventional Commits (`feat:`, `fix:`, `docs:`)
 
 ---

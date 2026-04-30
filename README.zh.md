@@ -1,4 +1,6 @@
-# auto_search_rubric
+# Reward Harness
+
+> **历史名称**：`auto_search_rubric` / `autosr` — 迁移期内两个包名均继续受支持。
 
 [English](README.md) | 中文
 
@@ -10,17 +12,17 @@
 
 ## 亮点
 
-- 使用类型化枚举（`autosr.types`）和分层配置 dataclass（`autosr.config`）统一运行配置
+- 使用类型化枚举（`reward_harness.types`）和分层配置 dataclass（`reward_harness.config`）统一运行配置
 - 通过组合根 `ComponentFactory` 进行后端感知的依赖装配
-- 领域模型以 `autosr.data_models` 为主，`autosr.models` 仅保留兼容导出
+- 领域模型以 `reward_harness.data_models` 为主，`autosr.models` 仅保留兼容导出
 - 搜索策略可扩展：
   - 父代选择：`rank`、`tournament`、`top_k`
   - 自适应变异：`fixed`、`success_feedback`、`exploration_decay`、`diversity_driven`
   - 迭代范围：`global_batch`（数据集级）与 `prompt_local`（按 prompt 独立进化）
 - LLM 架构分离为传输配置（`autosr.llm_config`）与运行时配置（`autosr.config`）
 - 支持导出可部署 RM artifact，内含通过校验的 schema 与 server 启动所需 runtime snapshot
-- 通过 `autosr.rm.deploy` 记录部署 manifest，并按目标环境自动回填 `previous_artifact_id`
-- 提供 RM Server MVP（`autosr.rm.server`），暴露 `/healthz`、`/score`、`/batch_score` 闭环评分接口
+- 通过 `reward_harness.rm.deploy` 记录部署 manifest，并按目标环境自动回填 `previous_artifact_id`
+- 提供 RM Server MVP（`reward_harness.rm.server`），暴露 `/healthz`、`/score`、`/batch_score` 闭环评分接口
 - 可复现实验产物：
   - 输出 JSON 内嵌 `run_manifest`
   - `<output_parent>/run_records/` 下归档 manifest 与复现脚本
@@ -31,78 +33,78 @@
 
 ### 入口与组合
 
-- `autosr/cli.py`
+- `reward_harness/cli.py`（兼容：`autosr/cli.py`）
   - 仅负责 CLI 参数解析
   - 构建 `RuntimeConfig`
   - 将运行时装配委托给 `ComponentFactory`
-- `autosr/factory.py`
+- `reward_harness/factory.py`（兼容：`autosr/factory.py`）
   - 统一组合根：后端选择与组件组装
   - 当所有候选都带 `metadata.rank` 时自动启用 rank judge
 
 ### 配置与类型
 
-- `autosr/config.py`
+- `reward_harness/config.py`（兼容：`autosr/config.py`）
   - 运行时配置：
     - `RuntimeConfig`
     - `LLMBackendConfig`
     - `SearchAlgorithmConfig`
     - `ObjectiveConfig`（兼容别名：`ObjectiveFunctionConfig`）
     - `InitializerStrategyConfig`、`ContentExtractionConfig`、`VerifierConfig`
-- `autosr/llm_config.py`
+- `reward_harness/llm_config.py`（兼容：`autosr/llm_config.py`）
   - LLM 传输/模型底层配置（`LLMConfig`、`RoleModelConfig`）
-- `autosr/types.py`
+- `reward_harness/types.py`（兼容：`autosr/types.py`）
   - 共享枚举：
     - `BackendType`、`SearchMode`、`EvolutionIterationScope`、`SelectionStrategy`
     - `AdaptiveMutationSchedule`、`InitializerStrategy`、`ExtractionStrategy`、`LLMRole`
 
 ### 领域与共享模块
 
-- `autosr/data_models.py`：规范领域实体（`Rubric`、`Criterion`、`PromptExample` 等）
+- `reward_harness/data_models.py`：规范领域实体（`Rubric`、`Criterion`、`PromptExample` 等）
 - `autosr/models.py`：兼容导入层
-- `autosr/exceptions.py`：共享 LLM 异常（`LLMCallError`、`LLMParseError`）
-- `autosr/io_utils.py`：数据集/结果 I/O 与 run-record 持久化
-- `autosr/run_records/use_cases.py`：run manifest 与可复现实验脚本生成
+- `reward_harness/exceptions.py`：共享 LLM 异常（`LLMCallError`、`LLMParseError`）
+- `reward_harness/io_utils.py`：数据集/结果 I/O 与 run-record 持久化
+- `reward_harness/run_records/use_cases.py`：run manifest 与可复现实验脚本生成
 
 ### 搜索域
 
-- `autosr/search/config.py`：`IterativeConfig`、`EvolutionaryConfig`、`SearchResult`
-- `autosr/search/iterative.py`：迭代基线实现
-- `autosr/search/evolutionary.py`：进化搜索实现
-- `autosr/search/strategies.py`：可复用搜索辅助策略
-- `autosr/search/selection_strategies.py`：父代选择策略
-- `autosr/search/adaptive_mutation.py`：变异调度与多样性指标
-- `autosr/search/use_cases.py`：searcher 对外入口导出
+- `reward_harness/search/config.py`：`IterativeConfig`、`EvolutionaryConfig`、`SearchResult`
+- `reward_harness/search/iterative.py`：迭代基线实现
+- `reward_harness/search/evolutionary.py`：进化搜索实现
+- `reward_harness/search/strategies.py`：可复用搜索辅助策略
+- `reward_harness/search/selection_strategies.py`：父代选择策略
+- `reward_harness/search/adaptive_mutation.py`：变异调度与多样性指标
+- `reward_harness/search/use_cases.py`：searcher 对外入口导出
 
 ### LLM 与提取域
 
-- `autosr/llm_components/base.py`：请求/重试基类与 prompt 回退渲染
-- `autosr/llm_components/parsers.py`：响应归一化与校验
-- `autosr/llm_components/use_cases.py`：initializer/proposer/verifier/judge 实现
-- `autosr/llm_components/factory.py`：保留的兼容工厂
-- `autosr/content_extraction/strategies.py`：`tag` / `regex` / `identity` 提取策略
-- `autosr/content_extraction/use_cases.py`：带提取装饰器的 verifier
-- `autosr/prompts/loader.py` + `autosr/prompts/constants.py`：模板加载与常量回退
+- `reward_harness/llm_components/base.py`：请求/重试基类与 prompt 回退渲染
+- `reward_harness/llm_components/parsers.py`：响应归一化与校验
+- `reward_harness/llm_components/use_cases.py`：initializer/proposer/verifier/judge 实现
+- `reward_harness/llm_components/factory.py`：保留的兼容工厂
+- `reward_harness/content_extraction/strategies.py`：`tag` / `regex` / `identity` 提取策略
+- `reward_harness/content_extraction/use_cases.py`：带提取装饰器的 verifier
+- `reward_harness/prompts/loader.py` + `reward_harness/prompts/constants.py`：模板加载与常量回退
 
 ### RL 域（Stage D/E — 活跃设计中）
 
-- `autosr/rl/`：实验注册、血统追踪与外部 RL 训练流程引用脚手架
+- `reward_harness/rl/`：实验注册、血统追踪与外部 RL 训练流程引用脚手架
   - `data_models.py`、`registry.py`、`lineage.py`、`validation.py`、`io.py`
   - `cli/`：`record_manifest`、`record_eval`、`record_result`、`show_lineage`
   - `verl/`：`prepare_training_run`、`run_verl_training`、`finalize_training_run`、`reward_client`
 
 ### RM Artifact 与服务域
 
-- `autosr/rm/data_models.py`：可部署 RM artifact schema 与 deploy manifest schema
-- `autosr/rm/use_cases.py`：artifact 导出与部署记录用例
-- `autosr/rm/export.py`：将搜索结果导出为可部署 RM artifact 的 CLI
-- `autosr/rm/deploy.py`：记录按环境部署 manifest 的 CLI
-- `autosr/rm/server.py`：加载 artifact runtime snapshot 并提供评分 API 的 FastAPI 服务
+- `reward_harness/rm/data_models.py`：可部署 RM artifact schema 与 deploy manifest schema
+- `reward_harness/rm/use_cases.py`：artifact 导出与部署记录用例
+- `reward_harness/rm/export.py`：将搜索结果导出为可部署 RM artifact 的 CLI
+- `reward_harness/rm/deploy.py`：记录按环境部署 manifest 的 CLI
+- `reward_harness/rm/server.py`：加载 artifact runtime snapshot 并提供评分 API 的 FastAPI 服务
 
 ## 项目结构
 
-- `autosr/`：核心包
-- `autosr/rm/`：RM artifact / export / deploy / server 模块
-- `autosr/rl/`：RL 实验血统与外部训练流程引用模块
+- `reward_harness/`：推荐核心包（兼容：`autosr/`）
+- `reward_harness/rm/`：RM artifact / export / deploy / server 模块
+- `reward_harness/rl/`：RL 实验血统与外部训练流程引用模块
 - `prompts/`：提示词模板（支持 `prompts/zh/`、`prompts/en/` 等 locale 子目录）
 - `tests/`：`unittest` 测试集
 - `scripts/`：单测/集测/formal 运行脚本
@@ -120,7 +122,8 @@ uv sync
 建议统一使用 `uv run` 执行命令：
 
 ```bash
-uv run python -m autosr.cli --help
+uv run python -m reward_harness.cli --help
+# 兼容入口：uv run python -m autosr.cli --help
 ```
 
 `uv sync` 会同时安装搜索链路与 RM server 依赖（`fastapi`、`uvicorn`）。
@@ -130,7 +133,7 @@ uv run python -m autosr.cli --help
 默认（evolutionary）：
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
@@ -139,7 +142,7 @@ uv run python -m autosr.cli \
 Iterative 基线：
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/single_case.json \
   --mode iterative \
   --output artifacts/best_rubrics_iterative.json
@@ -148,7 +151,7 @@ uv run python -m autosr.cli \
 自定义选择策略与提示词语言：
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/single_case_with_rank.json \
   --mode evolutionary \
   --output artifacts/best_rubrics_rank.json \
@@ -161,24 +164,24 @@ uv run python -m autosr.cli \
 
 ```bash
 # 1) 搜索最优 rubric
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
 
 # 2) 导出可部署 RM artifact
-uv run python -m autosr.rm.export \
+uv run python -m reward_harness.rm.export \
   --search-output artifacts/best_rubrics.json \
   --out-artifact artifacts/rm_artifacts/rm_v1.json
 
 # 3) 记录部署元数据
-uv run python -m autosr.rm.deploy \
+uv run python -m reward_harness.rm.deploy \
   --artifact artifacts/rm_artifacts/rm_v1.json \
   --deployment-target dev
 
 # 4) 启动 RM server
 export LLM_API_KEY="..."
-uv run python -m autosr.rm.server \
+uv run python -m reward_harness.rm.server \
   --artifact artifacts/rm_artifacts/rm_v1.json \
   --host 0.0.0.0 \
   --port 8080 \
@@ -306,11 +309,11 @@ RM artifact 与部署相关输出：
 
 - `artifacts/rm_artifacts/*.json`：由搜索结果导出的可部署 RM artifact
 - `artifacts/rm_deployments/*.json`：部署记录，含 `deployment_target`、`deployed_by`、`previous_artifact_id`
-- `artifacts/rm_server_logs/requests.jsonl`：`autosr.rm.server` 输出的请求日志
+- `artifacts/rm_server_logs/requests.jsonl`：`reward_harness.rm.server` 输出的请求日志
 
 RM server 说明：
 
-- server 启动依赖 `autosr.rm.export` 产出的、内嵌 runtime snapshot 的 artifact。
+- server 启动依赖 `reward_harness.rm.export` 产出的、内嵌 runtime snapshot 的 artifact。
 - 当前稳定接口：`GET /healthz`、`POST /score`、`POST /batch_score`。
 
 ## 测试
@@ -373,6 +376,6 @@ uv run python -m unittest \
 
 ## 备注
 
-- 新代码优先从 `autosr.data_models` 导入领域实体。
+- 新代码优先从 `reward_harness.data_models` 导入领域实体。
 - 运行时装配优先使用 `ComponentFactory(RuntimeConfig(...))`，避免手工拼装依赖。
 - 密钥只通过环境变量管理（`LLM_API_KEY`，以及可选 `LLM_BASE_URL`、`LLM_MODEL`）。

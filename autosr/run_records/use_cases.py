@@ -210,7 +210,7 @@ def build_reproducible_script(run_manifest: dict[str, Any]) -> str:
         "cmd=(",
         "  python3",
         "  -m",
-        "  autosr.cli",
+        "  reward_harness.cli",
     ])
     for token in argv:
         lines.append(f"  {shlex.quote(token)}")

@@ -1,4 +1,4 @@
-# AutoSR 架构总览地图
+# Reward Harness 架构总览地图
 
 > **定位**: 顶层架构入口（稳定）  
 > **版本**: v1.1 | **状态**: 稳定 | **最后更新**: 2026-04-17
@@ -36,63 +36,63 @@ CLI / Integration Boundary
 
 - 目标：让搜索过程可长时运行、可恢复、可追溯。
 - 核心包：
-  - `autosr/harness/session.py`
-  - `autosr/harness/state.py`
-  - `autosr/harness/storage.py`
+  - `reward_harness/harness/session.py`（兼容：`autosr/harness/session.py`）
+  - `reward_harness/harness/state.py`（兼容：`autosr/harness/state.py`）
+  - `reward_harness/harness/storage.py`（兼容：`autosr/harness/storage.py`）
 - 关键边界：Harness 只通过 `Searcher` / `SteppableSearcher` 公共协议驱动算法，不调用具体搜索器私有方法。
 
 ### 3.2 Search 域（算法层）
 
 - 目标：提供 iterative / evolutionary 等搜索策略与调度能力。
 - 核心包：
-  - `autosr/search/use_cases.py`
-  - `autosr/search/iterative.py`
-  - `autosr/search/evolutionary.py`
-  - `autosr/search/strategies.py`
+  - `reward_harness/search/use_cases.py`
+  - `reward_harness/search/iterative.py`
+  - `reward_harness/search/evolutionary.py`
+  - `reward_harness/search/strategies.py`
 
 ### 3.3 LLM 与内容抽取适配域
 
 - 目标：封装模型调用、提示词加载、文本抽取策略，隔离外部模型差异。
 - 核心包：
-  - `autosr/llm_components/`
-  - `autosr/llm_client.py`
-  - `autosr/prompts/`
-  - `autosr/content_extraction/`
+  - `reward_harness/llm_components/`
+  - `reward_harness/llm_client.py`
+  - `reward_harness/prompts/`
+  - `reward_harness/content_extraction/`
 
 ### 3.4 评估与记录域
 
 - 目标：评估 rubric 质量并持久化 run records。
 - 核心包：
-  - `autosr/evaluator.py`
-  - `autosr/run_records/use_cases.py`
+  - `reward_harness/evaluator.py`
+  - `reward_harness/run_records/use_cases.py`
 
 ### 3.5 RM Artifact 域（阶段 B）
 
 - 目标：将搜索结果升级为可部署、可追溯的 RM 工件。
 - 核心包：
-  - `autosr/rm/data_models.py`
-  - `autosr/rm/use_cases.py`
-  - `autosr/rm/export.py`
-  - `autosr/rm/io.py`
+  - `reward_harness/rm/data_models.py`
+  - `reward_harness/rm/use_cases.py`
+  - `reward_harness/rm/export.py`
+  - `reward_harness/rm/io.py`
 
 ### 3.6 RL 接入与实验记录域（阶段 D）
 
 - 目标：维护 RL 训练接入契约、append-only registry、lineage 查询与比较视图。
 - 核心包：
-  - `autosr/rl/data_models.py`
-  - `autosr/rl/registry.py`
-  - `autosr/rl/lineage.py`
-  - `autosr/rl/comparison.py`
-  - `autosr/rl/verl/`
+  - `reward_harness/rl/data_models.py`
+  - `reward_harness/rl/registry.py`
+  - `reward_harness/rl/lineage.py`
+  - `reward_harness/rl/comparison.py`
+  - `reward_harness/rl/verl/`
 
 ### 3.7 共享模型与类型域
 
 - 目标：统一领域实体、枚举和跨模块契约，降低耦合。
 - 核心包：
-  - `autosr/data_models.py`
-  - `autosr/types.py`
-  - `autosr/config.py`
-  - `autosr/interfaces.py`
+  - `reward_harness/data_models.py`
+  - `reward_harness/types.py`
+  - `reward_harness/config.py`
+  - `reward_harness/interfaces.py`
 
 ---
 
@@ -100,23 +100,23 @@ CLI / Integration Boundary
 
 ```text
 Entry Layer:
-  autosr/cli.py
+  reward_harness/cli.py (legacy: autosr/cli.py)
     -> Composition Layer:
-         autosr/factory.py
-         autosr/config.py
+         reward_harness/factory.py
+         reward_harness/config.py
     -> Use-Case Layer:
-         autosr/*/use_cases.py
+         reward_harness/*/use_cases.py
     -> Domain Layer:
-         autosr/search/*
-         autosr/harness/*
-         autosr/rm/*
-         autosr/data_models.py
-         autosr/types.py
+         reward_harness/search/*
+         reward_harness/harness/*
+         reward_harness/rm/*
+         reward_harness/data_models.py
+         reward_harness/types.py
     -> Infra / Adapter Layer:
-         autosr/llm_client.py
-         autosr/io_utils.py
-         autosr/content_extraction/*
-         autosr/run_records/*
+         reward_harness/llm_client.py
+         reward_harness/io_utils.py
+         reward_harness/content_extraction/*
+         reward_harness/run_records/*
 ```
 
 依赖规则：
@@ -148,7 +148,7 @@ Entry Layer:
 
 发生以下变更时，必须同步更新本文档与相关设计文档：
 
-- 新增或重构核心域边界（例如新增 `autosr/rl/`）。
+- 新增或重构核心域边界（例如新增 `reward_harness/rl/`）。
 - 调整包层级或依赖方向规则。
 - 引入新的顶层运行链路（例如 server/runtime plane）。
 

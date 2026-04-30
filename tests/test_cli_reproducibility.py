@@ -90,7 +90,7 @@ class TestCliReproducibility(unittest.TestCase):
         script = build_reproducible_script(manifest)
         self.assertIn('if [[ -z "${LLM_API_KEY:-}" ]]; then', script)
         self.assertIn("python3", script)
-        self.assertIn("autosr.cli", script)
+        self.assertIn("reward_harness.cli", script)
 
 
 if __name__ == "__main__":

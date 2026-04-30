@@ -1,4 +1,6 @@
-# auto_search_rubric
+# Reward Harness
+
+> **Legacy name**: `auto_search_rubric` / `autosr` — both package names remain supported during the migration period.
 
 English | [中文](README.zh.md)
 
@@ -10,17 +12,17 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 
 ## Highlights
 
-- Unified runtime configuration with typed enums (`autosr.types`) and layered config dataclasses (`autosr.config`)
+- Unified runtime configuration with typed enums (`reward_harness.types`) and layered config dataclasses (`reward_harness.config`)
 - Composition-root factory (`ComponentFactory`) for backend-aware dependency wiring
-- Canonical domain models in `autosr.data_models` with compatibility re-export in `autosr.models`
+- Canonical domain models in `reward_harness.data_models` with legacy compatibility re-export in `autosr.models`
 - Search extensibility:
   - Parent selection: `rank`, `tournament`, `top_k`
   - Adaptive mutation: `fixed`, `success_feedback`, `exploration_decay`, `diversity_driven`
   - Iteration scope: `global_batch` (dataset-level) and `prompt_local` (prompt-level independent evolution)
 - LLM architecture split into transport config (`autosr.llm_config`) and runtime config (`autosr.config`)
 - Deployable RM artifacts with validated schema and embedded runtime snapshot for server startup
-- Deployment tracking via `autosr.rm.deploy` manifests with per-target `previous_artifact_id` resolution
-- RM Server MVP (`autosr.rm.server`) exposing `/healthz`, `/score`, and `/batch_score` with closed-loop LLM scoring
+- Deployment tracking via `reward_harness.rm.deploy` manifests with per-target `previous_artifact_id` resolution
+- RM Server MVP (`reward_harness.rm.server`) exposing `/healthz`, `/score`, and `/batch_score` with closed-loop LLM scoring
 - Reproducibility outputs:
   - `run_manifest` embedded in output JSON
   - archived manifest and replay script under `<output_parent>/run_records/`
@@ -31,78 +33,78 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 
 ### Entry and Composition
 
-- `autosr/cli.py`
+- `reward_harness/cli.py` (legacy: `autosr/cli.py`)
   - Parses CLI args only
   - Builds `RuntimeConfig`
   - Delegates runtime wiring to `ComponentFactory`
-- `autosr/factory.py`
+- `reward_harness/factory.py` (legacy: `autosr/factory.py`)
   - Single composition root for backend selection and component assembly
   - Auto-resolves rank-based judge when all candidates provide `metadata.rank`
 
 ### Config and Types
 
-- `autosr/config.py`
+- `reward_harness/config.py` (legacy: `autosr/config.py`)
   - Runtime-level configuration:
     - `RuntimeConfig`
     - `LLMBackendConfig`
     - `SearchAlgorithmConfig`
     - `ObjectiveConfig` (compat alias: `ObjectiveFunctionConfig`)
     - `InitializerStrategyConfig`, `ContentExtractionConfig`, `VerifierConfig`
-- `autosr/llm_config.py`
+- `reward_harness/llm_config.py` (legacy: `autosr/llm_config.py`)
   - Low-level LLM transport/model config (`LLMConfig`, `RoleModelConfig`)
-- `autosr/types.py`
+- `reward_harness/types.py` (legacy: `autosr/types.py`)
   - Shared enums:
     - `BackendType`, `SearchMode`, `EvolutionIterationScope`, `SelectionStrategy`
     - `AdaptiveMutationSchedule`, `InitializerStrategy`, `ExtractionStrategy`, `LLMRole`
 
 ### Domain and Shared Modules
 
-- `autosr/data_models.py`: canonical domain entities (`Rubric`, `Criterion`, `PromptExample`, ...)
-- `autosr/models.py`: compatibility import layer
-- `autosr/exceptions.py`: shared LLM exceptions (`LLMCallError`, `LLMParseError`)
-- `autosr/io_utils.py`: dataset/rubric I/O and run-record persistence
-- `autosr/run_records/use_cases.py`: run manifest + reproducible shell script generation
+- `reward_harness/data_models.py`: canonical domain entities (`Rubric`, `Criterion`, `PromptExample`, ...)
+- `autosr/models.py`: legacy compatibility import layer
+- `reward_harness/exceptions.py`: shared LLM exceptions (`LLMCallError`, `LLMParseError`)
+- `reward_harness/io_utils.py`: dataset/rubric I/O and run-record persistence
+- `reward_harness/run_records/use_cases.py`: run manifest + reproducible shell script generation
 
 ### Search Domain
 
-- `autosr/search/config.py`: `IterativeConfig`, `EvolutionaryConfig`, `SearchResult`
-- `autosr/search/iterative.py`: iterative baseline implementation
-- `autosr/search/evolutionary.py`: evolutionary algorithm implementation
-- `autosr/search/strategies.py`: reusable search helpers
-- `autosr/search/selection_strategies.py`: parent selection policies
-- `autosr/search/adaptive_mutation.py`: mutation scheduler and diversity metrics
-- `autosr/search/use_cases.py`: searcher entrypoints exports
+- `reward_harness/search/config.py`: `IterativeConfig`, `EvolutionaryConfig`, `SearchResult`
+- `reward_harness/search/iterative.py`: iterative baseline implementation
+- `reward_harness/search/evolutionary.py`: evolutionary algorithm implementation
+- `reward_harness/search/strategies.py`: reusable search helpers
+- `reward_harness/search/selection_strategies.py`: parent selection policies
+- `reward_harness/search/adaptive_mutation.py`: mutation scheduler and diversity metrics
+- `reward_harness/search/use_cases.py`: searcher entrypoints exports
 
 ### LLM + Extraction Domain
 
-- `autosr/llm_components/base.py`: request/retry base + prompt rendering fallback
-- `autosr/llm_components/parsers.py`: response normalization/validation
-- `autosr/llm_components/use_cases.py`: initializer/proposer/verifier/judge implementations
-- `autosr/llm_components/factory.py`: legacy helper kept for compatibility
-- `autosr/content_extraction/strategies.py`: `tag` / `regex` / `identity` extraction
-- `autosr/content_extraction/use_cases.py`: extraction-decorated verifier
-- `autosr/prompts/loader.py` + `autosr/prompts/constants.py`: file templates and constant fallback
+- `reward_harness/llm_components/base.py`: request/retry base + prompt rendering fallback
+- `reward_harness/llm_components/parsers.py`: response normalization/validation
+- `reward_harness/llm_components/use_cases.py`: initializer/proposer/verifier/judge implementations
+- `reward_harness/llm_components/factory.py`: legacy helper kept for compatibility
+- `reward_harness/content_extraction/strategies.py`: `tag` / `regex` / `identity` extraction
+- `reward_harness/content_extraction/use_cases.py`: extraction-decorated verifier
+- `reward_harness/prompts/loader.py` + `reward_harness/prompts/constants.py`: file templates and constant fallback
 
 ### RL Domain (Stage D/E — active design)
 
-- `autosr/rl/`: experiment registry, lineage tracking, and external RL training-run reference scaffolding
+- `reward_harness/rl/`: experiment registry, lineage tracking, and external RL training-run reference scaffolding
   - `data_models.py`, `registry.py`, `lineage.py`, `validation.py`, `io.py`
   - `cli/`: `record_manifest`, `record_eval`, `record_result`, `show_lineage`
   - `verl/`: `prepare_training_run`, `run_verl_training`, `finalize_training_run`, `reward_client`
 
 ### RM Artifact + Serving Domain
 
-- `autosr/rm/data_models.py`: deployable RM artifact schema and deploy manifest schema
-- `autosr/rm/use_cases.py`: artifact export and deployment-record use cases
-- `autosr/rm/export.py`: CLI for exporting search output into a deployable RM artifact
-- `autosr/rm/deploy.py`: CLI for recording per-environment deployment manifests
-- `autosr/rm/server.py`: FastAPI RM server that loads artifact runtime snapshot and serves scoring APIs
+- `reward_harness/rm/data_models.py`: deployable RM artifact schema and deploy manifest schema
+- `reward_harness/rm/use_cases.py`: artifact export and deployment-record use cases
+- `reward_harness/rm/export.py`: CLI for exporting search output into a deployable RM artifact
+- `reward_harness/rm/deploy.py`: CLI for recording per-environment deployment manifests
+- `reward_harness/rm/server.py`: FastAPI RM server that loads artifact runtime snapshot and serves scoring APIs
 
 ## Project Layout
 
-- `autosr/`: core package
-- `autosr/rm/`: RM artifact/export/deploy/server modules
-- `autosr/rl/`: RL experiment lineage and external training-run reference modules
+- `reward_harness/`: recommended core package (legacy: `autosr/`)
+- `reward_harness/rm/`: RM artifact/export/deploy/server modules
+- `reward_harness/rl/`: RL experiment lineage and external training-run reference modules
 - `prompts/`: prompt templates (supports locale folders such as `prompts/zh/` and `prompts/en/`)
 - `tests/`: `unittest` test suite
 - `scripts/`: unit/integration/formal run scripts
@@ -120,7 +122,8 @@ uv sync
 Run commands with `uv run`:
 
 ```bash
-uv run python -m autosr.cli --help
+uv run python -m reward_harness.cli --help
+# Legacy compatibility: uv run python -m autosr.cli --help
 ```
 
 `uv sync` installs both the search stack and RM server dependencies (`fastapi`, `uvicorn`).
@@ -130,7 +133,7 @@ uv run python -m autosr.cli --help
 Default (evolutionary):
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
@@ -139,7 +142,7 @@ uv run python -m autosr.cli \
 Iterative baseline:
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/single_case.json \
   --mode iterative \
   --output artifacts/best_rubrics_iterative.json
@@ -148,7 +151,7 @@ uv run python -m autosr.cli \
 Evolutionary with custom strategy and prompt locale:
 
 ```bash
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/single_case_with_rank.json \
   --mode evolutionary \
   --output artifacts/best_rubrics_rank.json \
@@ -161,24 +164,24 @@ End-to-end RM flow:
 
 ```bash
 # 1) Search for the best rubric
-uv run python -m autosr.cli \
+uv run python -m reward_harness.cli \
   --dataset examples/demo_dataset.json \
   --mode evolutionary \
   --output artifacts/best_rubrics.json
 
 # 2) Export a deployable RM artifact
-uv run python -m autosr.rm.export \
+uv run python -m reward_harness.rm.export \
   --search-output artifacts/best_rubrics.json \
   --out-artifact artifacts/rm_artifacts/rm_v1.json
 
 # 3) Record deployment metadata
-uv run python -m autosr.rm.deploy \
+uv run python -m reward_harness.rm.deploy \
   --artifact artifacts/rm_artifacts/rm_v1.json \
   --deployment-target dev
 
 # 4) Start the RM server
 export LLM_API_KEY="..."
-uv run python -m autosr.rm.server \
+uv run python -m reward_harness.rm.server \
   --artifact artifacts/rm_artifacts/rm_v1.json \
   --host 0.0.0.0 \
   --port 8080 \
@@ -307,11 +310,11 @@ RM artifact and deployment outputs:
 
 - `artifacts/rm_artifacts/*.json`: deployable RM artifacts exported from search results
 - `artifacts/rm_deployments/*.json`: deployment records with `deployment_target`, `deployed_by`, and `previous_artifact_id`
-- `artifacts/rm_server_logs/requests.jsonl`: request logs emitted by `autosr.rm.server`
+- `artifacts/rm_server_logs/requests.jsonl`: request logs emitted by `reward_harness.rm.server`
 
 RM server notes:
 
-- The server requires an artifact with the embedded runtime snapshot produced by `autosr.rm.export`.
+- The server requires an artifact with the embedded runtime snapshot produced by `reward_harness.rm.export`.
 - Stable endpoints: `GET /healthz`, `POST /score`, `POST /batch_score`.
 
 ## Tests
@@ -386,7 +389,7 @@ uv run python -m unittest \
 
 ## Notes
 
-- Import domain entities from `autosr.data_models` in new code.
+- Import domain entities from `reward_harness.data_models` in new code.
 - `autosr.models` is a long-term compatibility re-export shim for historical
   import paths; keep it working, but do not use it in new code.
 - Prefer `ComponentFactory(RuntimeConfig(...))` over manual runtime wiring.
