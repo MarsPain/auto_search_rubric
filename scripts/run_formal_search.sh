@@ -25,7 +25,8 @@ fi
 
 BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
 # LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
-LLM_MODEL="${LLM_MODEL:-stepfun/step-3.5-flash:free}"
+# LLM_MODEL="${LLM_MODEL:-stepfun/step-3.5-flash:free}"
+LLM_MODEL="${LLM_MODEL:-tencent/hy3-preview:free}"
 MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
 MODEL_VERIFIER="${MODEL_VERIFIER:-}"

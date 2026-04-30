@@ -154,17 +154,6 @@ class SearchAlgorithmConfig:
         # Convert string to enum if needed (for backward compatibility)
         if isinstance(self.mode, str):
             object.__setattr__(self, "mode", SearchMode.from_string(self.mode))
-        if self.population_size < 2:
-            raise ValueError("population_size must be >= 2")
-        if self.generations < 1:
-            raise ValueError("generations must be >= 1")
-        if self.mutations_per_round < 1:
-            raise ValueError("mutations_per_round must be >= 1")
-        if self.mutation_parent_count < 1:
-            raise ValueError("mutation_parent_count must be >= 1")
-        if self.mutation_parent_count > self.population_size:
-            raise ValueError("mutation_parent_count must be <= population_size")
-
         if isinstance(self.selection_strategy, str):
             object.__setattr__(
                 self,
@@ -184,7 +173,7 @@ class SearchAlgorithmConfig:
                 AdaptiveMutationSchedule.from_string(self.adaptive_mutation),
             )
 
-        # Validate new selection strategy parameters
+        # Validate enum types after conversion
         if not isinstance(self.selection_strategy, SelectionStrategy):
             raise ValueError(
                 "selection_strategy must be a SelectionStrategy or its string value"
@@ -193,30 +182,28 @@ class SearchAlgorithmConfig:
             raise ValueError(
                 "iteration_scope must be an EvolutionIterationScope or its string value"
             )
-        if self.tournament_size < 2:
-            raise ValueError("tournament_size must be >= 2")
-        if not 0 < self.tournament_p <= 1:
-            raise ValueError("tournament_p must be in (0, 1]")
-        if not 0 < self.top_k_ratio <= 1:
-            raise ValueError("top_k_ratio must be in (0, 1]")
-        if not 0 <= self.diversity_weight <= 1:
-            raise ValueError("diversity_weight must be in [0, 1]")
-
-        # Validate new adaptive mutation parameters
         if not isinstance(self.adaptive_mutation, AdaptiveMutationSchedule):
             raise ValueError(
                 "adaptive_mutation must be an AdaptiveMutationSchedule or its string value"
             )
-        if self.mutation_window_size < 1:
-            raise ValueError("mutation_window_size must be >= 1")
-        if not 0 < self.min_mutation_weight <= 1:
-            raise ValueError("min_mutation_weight must be in (0, 1]")
-        if not 0 < self.exploration_phase_ratio <= 1:
-            raise ValueError("exploration_phase_ratio must be in (0, 1]")
-        if not 0 <= self.diversity_threshold <= 1:
-            raise ValueError("diversity_threshold must be in [0, 1]")
-        if self.distinguish_margin is not None and self.distinguish_margin < 0:
-            raise ValueError("distinguish_margin must be >= 0 when provided")
+
+        _validate_evolutionary_common(
+            population_size=self.population_size,
+            generations=self.generations,
+            mutations_per_round=self.mutations_per_round,
+            mutation_parent_count=self.mutation_parent_count,
+            survival_fraction=self.survival_fraction,
+            elitism_count=self.elitism_count,
+            tournament_size=self.tournament_size,
+            tournament_p=self.tournament_p,
+            top_k_ratio=self.top_k_ratio,
+            diversity_weight=self.diversity_weight,
+            mutation_window_size=self.mutation_window_size,
+            min_mutation_weight=self.min_mutation_weight,
+            exploration_phase_ratio=self.exploration_phase_ratio,
+            diversity_threshold=self.diversity_threshold,
+            distinguish_margin=self.distinguish_margin,
+        )
 
     def to_iterative_kwargs(self) -> dict[str, Any]:
         """Return kwargs for IterativeConfig."""
@@ -256,6 +243,65 @@ class SearchAlgorithmConfig:
     def is_evolutionary(self) -> bool:
         """Check if the search mode is evolutionary."""
         return self.mode is SearchMode.EVOLUTIONARY
+
+
+def _validate_evolutionary_common(
+    *,
+    population_size: int,
+    generations: int,
+    mutations_per_round: int,
+    mutation_parent_count: int,
+    survival_fraction: float,
+    elitism_count: int,
+    tournament_size: int,
+    tournament_p: float,
+    top_k_ratio: float,
+    diversity_weight: float,
+    mutation_window_size: int,
+    min_mutation_weight: float,
+    exploration_phase_ratio: float,
+    diversity_threshold: float,
+    distinguish_margin: float | None,
+) -> None:
+    """Shared validation logic for evolutionary search parameters.
+
+    Centralised here to keep ``SearchAlgorithmConfig`` (CLI/runtime layer)
+    and ``EvolutionaryConfig`` (algorithm layer) consistent.
+    """
+    if population_size < 2:
+        raise ValueError("population_size must be >= 2")
+    if generations < 1:
+        raise ValueError("generations must be >= 1")
+    if mutations_per_round < 1:
+        raise ValueError("mutations_per_round must be >= 1")
+    if mutation_parent_count < 1:
+        raise ValueError("mutation_parent_count must be >= 1")
+    if mutation_parent_count > population_size:
+        raise ValueError("mutation_parent_count must be <= population_size")
+    if not 0 < survival_fraction <= 1:
+        raise ValueError("survival_fraction must be in (0, 1]")
+    if elitism_count < 1:
+        raise ValueError("elitism_count must be >= 1")
+
+    if tournament_size < 2:
+        raise ValueError("tournament_size must be >= 2")
+    if not 0 < tournament_p <= 1:
+        raise ValueError("tournament_p must be in (0, 1]")
+    if not 0 < top_k_ratio <= 1:
+        raise ValueError("top_k_ratio must be in (0, 1]")
+    if not 0 <= diversity_weight <= 1:
+        raise ValueError("diversity_weight must be in [0, 1]")
+
+    if mutation_window_size < 1:
+        raise ValueError("mutation_window_size must be >= 1")
+    if not 0 < min_mutation_weight <= 1:
+        raise ValueError("min_mutation_weight must be in (0, 1]")
+    if not 0 < exploration_phase_ratio <= 1:
+        raise ValueError("exploration_phase_ratio must be in (0, 1]")
+    if not 0 <= diversity_threshold <= 1:
+        raise ValueError("diversity_threshold must be in [0, 1]")
+    if distinguish_margin is not None and distinguish_margin < 0:
+        raise ValueError("distinguish_margin must be >= 0 when provided")
 
 
 @dataclass(frozen=True, slots=True)

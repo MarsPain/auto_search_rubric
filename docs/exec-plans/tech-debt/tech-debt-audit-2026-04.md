@@ -105,6 +105,7 @@
 | **根因** | `SearchAlgorithmConfig` 作为 RuntimeConfig 的子结构面向 CLI/序列化；`EvolutionaryConfig` 作为算法内部结构面向搜索逻辑。两者没有明确的单向转换契约。 |
 | **建议修复** | 1. 明确 "CLI 配置 → 算法配置" 的单向转换契约（现有 `SearchAlgorithmConfig.to_evolutionary_kwargs()` 可作为入口，必要时补充 `EvolutionaryConfig.from_runtime(config.search)`）；<br>2. 保留 `EvolutionaryConfig` 作为算法层可独立使用的配置对象，但通过测试锁定它与 `SearchAlgorithmConfig` 的默认值、枚举转换和约束一致性；<br>3. 将重复校验规则抽成共享 helper 或集中测试，避免两层配置静默漂移。 |
 | **估算** | 1 天 |
+| **清偿状态** | 已完成：提取 `_validate_evolutionary_common()` 共享 helper 到 `reward_harness/config.py`；统一 `EvolutionaryConfig` 默认值（`generations=12`, `batch_size=3`）与 `SearchAlgorithmConfig` 一致；新增 `tests/test_config_consistency.py` 锁定两层默认值与约束一致性。 |
 
 ---
 
@@ -199,6 +200,7 @@
 | **根因** | 保存失败、读取损坏、列表元数据容错三类异常策略没有清晰分层。 |
 | **建议修复** | 1. 定义 `CheckpointIOError` 等细分异常；<br>2. `_save_checkpoint` 对 `OSError`（磁盘、权限）和序列化错误（`TypeError`、`ValueError`）loud fail（记录 ERROR 并抛出）；<br>3. 保留 `load_checkpoint` 的腐坏 checkpoint rewrap 行为，但缩窄捕获范围；<br>4. 明确 `list_checkpoints` 跳过坏元数据是有意容错，并用测试覆盖。 |
 | **估算** | 0.5 天 |
+| **清偿状态** | 已完成：`_save_checkpoint` 已使用精确异常类型 `(OSError, TypeError, ValueError, CheckpointSaveError)` 并重新抛出；`_restore_rng_state` 和 `_restore_scheduler_state` 的异常捕获收窄为 `(TypeError, ValueError, AttributeError)`，保留恢复失败返回 False 的容错语义。 |
 
 ---
 

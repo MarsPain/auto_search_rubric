@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..config import ObjectiveConfig
+from ..config import ObjectiveConfig, _validate_evolutionary_common
 from ..data_models import Rubric
 from ..types import AdaptiveMutationSchedule, EvolutionIterationScope, SelectionStrategy
 
@@ -20,11 +20,11 @@ class IterativeConfig:
 class EvolutionaryConfig:
     # Original parameters
     population_size: int = 8
-    generations: int = 20
+    generations: int = 12
     mutations_per_round: int = 6
     mutation_parent_count: int = 3
     survival_fraction: float = 0.2
-    batch_size: int = 4
+    batch_size: int = 3
     iteration_scope: EvolutionIterationScope = field(
         default_factory=lambda: EvolutionIterationScope.GLOBAL_BATCH
     )
@@ -79,44 +79,28 @@ class EvolutionaryConfig:
             except ValueError:
                 self.adaptive_mutation = AdaptiveMutationSchedule.FIXED
 
-        if self.population_size < 2:
-            raise ValueError("population_size must be >= 2")
-        if self.generations < 1:
-            raise ValueError("generations must be >= 1")
-        if self.mutations_per_round < 1:
-            raise ValueError("mutations_per_round must be >= 1")
-        if self.mutation_parent_count < 1:
-            raise ValueError("mutation_parent_count must be >= 1")
-        if self.mutation_parent_count > self.population_size:
-            raise ValueError("mutation_parent_count must be <= population_size")
-        if not 0 < self.survival_fraction <= 1:
-            raise ValueError("survival_fraction must be in (0, 1]")
-        if self.elitism_count < 1:
-            raise ValueError("elitism_count must be >= 1")
-
-        # Validate new parameters
-        if self.tournament_size < 2:
-            raise ValueError("tournament_size must be >= 2")
-        if not 0 < self.tournament_p <= 1:
-            raise ValueError("tournament_p must be in (0, 1]")
-        if not 0 < self.top_k_ratio <= 1:
-            raise ValueError("top_k_ratio must be in (0, 1]")
-        if not 0 <= self.diversity_weight <= 1:
-            raise ValueError("diversity_weight must be in [0, 1]")
         if not isinstance(self.iteration_scope, EvolutionIterationScope):
             raise ValueError(
                 "iteration_scope must be an EvolutionIterationScope or its string value"
             )
-        if self.mutation_window_size < 1:
-            raise ValueError("mutation_window_size must be >= 1")
-        if not 0 < self.min_mutation_weight <= 1:
-            raise ValueError("min_mutation_weight must be in (0, 1]")
-        if not 0 < self.exploration_phase_ratio <= 1:
-            raise ValueError("exploration_phase_ratio must be in (0, 1]")
-        if not 0 <= self.diversity_threshold <= 1:
-            raise ValueError("diversity_threshold must be in [0, 1]")
-        if self.distinguish_margin is not None and self.distinguish_margin < 0:
-            raise ValueError("distinguish_margin must be >= 0 when provided")
+
+        _validate_evolutionary_common(
+            population_size=self.population_size,
+            generations=self.generations,
+            mutations_per_round=self.mutations_per_round,
+            mutation_parent_count=self.mutation_parent_count,
+            survival_fraction=self.survival_fraction,
+            elitism_count=self.elitism_count,
+            tournament_size=self.tournament_size,
+            tournament_p=self.tournament_p,
+            top_k_ratio=self.top_k_ratio,
+            diversity_weight=self.diversity_weight,
+            mutation_window_size=self.mutation_window_size,
+            min_mutation_weight=self.min_mutation_weight,
+            exploration_phase_ratio=self.exploration_phase_ratio,
+            diversity_threshold=self.diversity_threshold,
+            distinguish_margin=self.distinguish_margin,
+        )
 
 
 @dataclass(slots=True)

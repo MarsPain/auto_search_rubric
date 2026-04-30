@@ -725,7 +725,7 @@ def _restore_rng_state(searcher: Any, rng_state: dict[str, Any]) -> bool:
                 searcher.rng.setstate((version, tuple(raw_state), None))
                 return True
         return False
-    except Exception as exc:
+    except (TypeError, ValueError, AttributeError) as exc:
         logger.warning("Failed to restore RNG state: %s", exc)
         return False
 
@@ -750,7 +750,7 @@ def _restore_scheduler_state(searcher: Any, scheduler_state: dict[str, Any]) -> 
             scheduler.history.generation_count = generation
             return True
         return False
-    except Exception as exc:
+    except (TypeError, ValueError, AttributeError) as exc:
         logger.warning("Failed to restore scheduler state: %s", exc)
         return False
 

@@ -20,7 +20,7 @@
 
 | 计划 | 描述 | 创建日期 | 文档 |
 |------|------|----------|------|
-| Complete Migration to Reward Harness | 将代码主体从 `autosr/` 物理迁移到 `reward_harness/`，完成引用收敛与配置更新 | 2026-04-30 | [complete-reward-harness-migration.md](exec-plans/active/complete-reward-harness-migration.md) |
+| *(无)* | — | — | — |
 
 
 ### 计划模板
@@ -70,6 +70,7 @@
 | Stage E Readiness - Tech Debt Sprint | 清偿进入 Stage E 前的阻塞债务 | 2026-04-25 | [stage-e-readiness-tech-debt-sprint.md](exec-plans/completed/stage-e-readiness-tech-debt-sprint.md) |
 | Tech Debt Follow-up - Local Quality Gates | 继续清理非阻塞技术债，并收敛本地质量门禁；中短期不引入 GitHub CI/CD | 2026-04-26 | [tech-debt-followup-local-quality-gates.md](exec-plans/completed/tech-debt-followup-local-quality-gates.md) |
 | Rename to Reward Harness | 将项目主命名从 `auto_search_rubric` / `autosr` 平滑迁移到 `Reward Harness` / `reward_harness`，保留旧入口兼容 | 2026-04-29 | [rename-to-reward-harness.md](exec-plans/completed/rename-to-reward-harness.md) |
+| Complete Migration to Reward Harness | 将代码主体从 `autosr/` 物理迁移到 `reward_harness/`，完成引用收敛与配置更新 | 2026-04-30 | [complete-reward-harness-migration.md](exec-plans/completed/complete-reward-harness-migration.md) |
 
 ---
 
