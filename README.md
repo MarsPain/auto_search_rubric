@@ -4,11 +4,39 @@
 
 English | [中文](README.zh.md)
 
-Automated search framework for rubric-based reward modeling, inspired by:
-[Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
+Reward Harness is a Harness engineering project for reward model optimization. It started from the rubric-search
+idea in [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500),
+then grew into a broader system for searching, versioning, serving, tracing, and prototyping closed-loop reward
+model workflows.
 
 This repository keeps `iterative` as a baseline and uses `evolutionary` as the default search mode.
-It now covers the path from rubric search to deployable RM artifacts and an RM server MVP for online scoring. RL experiment lineage tracking and external RL training run referencing are under active design (Stage D/E).
+It now covers the path from automated rubric search to deployable RM artifacts, an RM server for online scoring,
+and RL experiment registry/lineage tooling that lets external trainers consume the reward service while preserving
+traceability.
+
+## Project Status
+
+Reward Harness is intentionally paused at the current personal open-source boundary. Stages A-D are the implemented
+and tested core: long-running rubric search, reproducible run records, deployable RM artifacts, RM server scoring,
+and RL training manifest/lineage management. Later stages require real RL/RM training resources that this project
+does not currently assume.
+
+Stage E is therefore provided as prototype design documentation rather than active implementation work:
+[docs/design-docs/03-stage-e-classifier-rm.md](docs/design-docs/03-stage-e-classifier-rm.md). It captures the
+intended next step: using RL training samples to build denoised score/preference datasets and hand them to an
+external classifier RM trainer.
+
+## Harness Idea
+
+The main idea is not just "search a better rubric". Reward Harness treats the reward model lifecycle as an
+engineering harness:
+
+1. automatically search and iterate rubric reward models;
+2. export the selected rubric into a versioned, deployable RM artifact;
+3. deploy that artifact behind an RM server for online scoring;
+4. manage RL training metadata, results, evaluation reports, comparisons, and lineage around that RM server;
+5. prototype a Stage E data plane where RL samples are repeatedly scored, denoised, converted into preference data,
+   and used by an external classifier RM trainer.
 
 ## Highlights
 
@@ -23,6 +51,8 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 - Deployable RM artifacts with validated schema and embedded runtime snapshot for server startup
 - Deployment tracking via `reward_harness.rm.deploy` manifests with per-target `previous_artifact_id` resolution
 - RM Server MVP (`reward_harness.rm.server`) exposing `/healthz`, `/score`, and `/batch_score` with closed-loop LLM scoring
+- RL experiment registry and lineage tooling for external trainer manifests, results, eval reports, comparisons, and regression checks
+- Stage E prototype design for classifier RM distillation from RL samples without requiring this repository to own GPU training
 - Reproducibility outputs:
   - `run_manifest` embedded in output JSON
   - archived manifest and replay script under `<output_parent>/run_records/`
@@ -85,12 +115,13 @@ It now covers the path from rubric search to deployable RM artifacts and an RM s
 - `reward_harness/content_extraction/use_cases.py`: extraction-decorated verifier
 - `reward_harness/prompts/loader.py` + `reward_harness/prompts/constants.py`: file templates and constant fallback
 
-### RL Domain (Stage D/E — active design)
+### RL Domain (Stage D implemented, Stage E documented prototype)
 
-- `reward_harness/rl/`: experiment registry, lineage tracking, and external RL training-run reference scaffolding
+- `reward_harness/rl/`: experiment registry, lineage tracking, comparison, regression detection, and external RL training-run reference scaffolding
   - `data_models.py`, `registry.py`, `lineage.py`, `validation.py`, `io.py`
   - `cli/`: `record_manifest`, `record_eval`, `record_result`, `show_lineage`
   - `verl/`: `prepare_training_run`, `run_verl_training`, `finalize_training_run`, `reward_client`
+- `docs/design-docs/03-stage-e-classifier-rm.md`: prototype design for the future classifier RM data plane
 
 ### RM Artifact + Serving Domain
 

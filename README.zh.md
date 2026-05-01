@@ -4,11 +4,35 @@
 
 [English](README.md) | 中文
 
-面向 Rubric-based Reward Modeling 的自动搜索框架，灵感来自论文：
+Reward Harness 是面向 reward model 优化的 Harness engineering 项目。它最初受论文
 [Chasing the Tail: Effective Rubric-based Reward Modeling for Large Language Model Post-Training](https://arxiv.org/abs/2509.21500)
+中 rubric search 思路启发，但已经逐步发展成更全面的系统：搜索、版本化、服务化、追踪，并为闭环 reward model
+工作流提供原型设计。
 
 本仓库保留 `iterative` 作为基线，并将 `evolutionary` 作为默认搜索模式。
-当前能力已覆盖从 rubric search 到可部署 RM artifact、在线评分 RM server MVP 的主链路。RL 实验血统追踪与外部 RL 训练流程引用尚在活跃设计中（Stage D/E）。
+当前能力已覆盖从自动化 rubric search 到可部署 RM artifact、在线评分 RM server，以及 RL 实验 registry / lineage
+工具链。外部 trainer 可以消费 reward service，同时保留训练、评测与 reward 来源的可追溯性。
+
+## 项目状态
+
+Reward Harness 当前有意暂停在个人开源项目的合理边界上。Stages A-D 是已经实现并测试的核心能力：
+长时运行 rubric search、可复现实验记录、可部署 RM artifact、RM server 评分，以及 RL training manifest / lineage 管理。
+后续阶段需要真实 RL/RM 训练资源，本项目当前不默认具备这些资源。
+
+因此，Stage E 作为原型设计文档提供，而不是当前正在推进的实现工作：
+[docs/design-docs/03-stage-e-classifier-rm.md](docs/design-docs/03-stage-e-classifier-rm.md)。它记录了下一步设计思路：
+利用 RL 训练中的采样构造去噪后的打分/偏好数据，并交由外部 classifier RM trainer 训练。
+
+## Harness 思想
+
+本项目的核心并不只是“搜索一个更好的 rubric”。Reward Harness 将 reward model 生命周期视为一套工程化 harness：
+
+1. 自动搜索并迭代 rubric reward model；
+2. 将选出的 rubric 导出为版本化、可部署的 RM artifact；
+3. 将该 artifact 部署到 RM server 后面，用于在线评分；
+4. 围绕 RM server 管理 RL 训练元数据、结果、评测报告、横向比较与 lineage；
+5. 以 Stage E 原型设计描述一条数据平面：对 RL samples 重复打分、降噪、转为 preference data，
+   再交给外部 classifier RM trainer 使用。
 
 ## 亮点
 
@@ -23,6 +47,8 @@
 - 支持导出可部署 RM artifact，内含通过校验的 schema 与 server 启动所需 runtime snapshot
 - 通过 `reward_harness.rm.deploy` 记录部署 manifest，并按目标环境自动回填 `previous_artifact_id`
 - 提供 RM Server MVP（`reward_harness.rm.server`），暴露 `/healthz`、`/score`、`/batch_score` 闭环评分接口
+- 提供 RL 实验 registry 与 lineage 工具，支持外部 trainer manifest、结果、评测报告、比较视图与回归检测
+- 提供 Stage E 原型设计：基于 RL samples 蒸馏 classifier RM，但不要求本仓库拥有 GPU 训练能力
 - 可复现实验产物：
   - 输出 JSON 内嵌 `run_manifest`
   - `<output_parent>/run_records/` 下归档 manifest 与复现脚本
@@ -85,12 +111,13 @@
 - `reward_harness/content_extraction/use_cases.py`：带提取装饰器的 verifier
 - `reward_harness/prompts/loader.py` + `reward_harness/prompts/constants.py`：模板加载与常量回退
 
-### RL 域（Stage D/E — 活跃设计中）
+### RL 域（Stage D 已实现，Stage E 为文档化原型）
 
-- `reward_harness/rl/`：实验注册、血统追踪与外部 RL 训练流程引用脚手架
+- `reward_harness/rl/`：实验注册、血统追踪、比较视图、回归检测与外部 RL 训练流程引用脚手架
   - `data_models.py`、`registry.py`、`lineage.py`、`validation.py`、`io.py`
   - `cli/`：`record_manifest`、`record_eval`、`record_result`、`show_lineage`
   - `verl/`：`prepare_training_run`、`run_verl_training`、`finalize_training_run`、`reward_client`
+- `docs/design-docs/03-stage-e-classifier-rm.md`：未来 classifier RM 数据平面的原型设计文档
 
 ### RM Artifact 与服务域
 
