@@ -340,6 +340,8 @@ def record_deploy_manifest(
             out_dir=resolved_out_dir,
             deployment_target=deployment_target,
         )
+        if resolved_previous_artifact == artifact.artifact_id:
+            resolved_previous_artifact = None
 
     resolved_deployed_by = deployed_by or os.getenv("USER") or "unknown"
     resolved_rollback_policy = dict(

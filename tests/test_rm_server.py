@@ -18,7 +18,7 @@ from reward_harness.data_models import (
 from reward_harness.evaluator import RubricEvaluator
 from reward_harness.rm.data_models import ArtifactValidationError, RMArtifact
 from reward_harness.rm.io import save_rm_artifact
-from reward_harness.rm.server import (
+from reward_harness.rm.service import (
     RMScoringService,
     RMServerRuntime,
     RequestAuditLogger,

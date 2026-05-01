@@ -6,7 +6,8 @@ set -euo pipefail
 # DATASET_PATH="${1:-examples/call_summary_dataset_with_rank_single.json}"
 DATASET_PATH="${1:-data/writing/writing_prompts_tiny_with_candidates.json}"  # paired PRESET_RUBRICS
 MODE="${2:-evolutionary}"
-OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_call_summary.json}"
+# OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_call_summary.json}"
+OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_writing_260501.json}"
 
 if command -v uv >/dev/null 2>&1; then
   PYTHON_CMD=(uv run python)

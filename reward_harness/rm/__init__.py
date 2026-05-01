@@ -14,7 +14,7 @@ from .use_cases import (
     record_deploy_manifest,
     validate_rm_artifact,
 )
-from .server import (
+from .service import (
     RMScoringService,
     RMServerRuntime,
     RequestAuditLogger,
