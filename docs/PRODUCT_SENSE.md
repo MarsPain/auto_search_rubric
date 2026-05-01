@@ -1,6 +1,6 @@
 # Reward Harness 产品感
 
-> **版本**: v1.1 | **最后更新**: 2026-04-17
+> **版本**: v1.2 | **最后更新**: 2026-05-01
 > 
 > 产品愿景、用户场景、核心价值的统一理解。
 
@@ -100,10 +100,10 @@ Reward Harness（历史名称 AutoSR）不是简单的"搜索更好的prompt"，
 
 ### 4. 兼容现有CLI
 
-`uv run python -m autosr.cli` 继续可用。
+新工作流优先使用 `uv run python -m reward_harness.cli`；legacy 命令 `uv run python -m autosr.cli` 继续可用。
 
 **反例**: 新版本完全废弃旧命令格式。
-**正例**: 新能力通过新增命令或可选参数引入。
+**正例**: 新能力通过 `reward_harness.*` canonical 命令或可选参数引入，同时保留 legacy 兼容入口。
 
 ### 5. 先单机后分布式
 

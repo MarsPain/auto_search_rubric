@@ -1,6 +1,6 @@
-# AutoSR 架构演进图（面向 RM Server + RL 训练闭环）
+# Reward Harness 架构演进图（面向 RM Server + RL 训练闭环）
 
-> **版本**: v1.1 | **状态**: 稳定 | **最后更新**: 2026-04-17
+> **版本**: v1.2 | **状态**: 稳定 | **最后更新**: 2026-05-01
 > 
 > 本文档与 `docs/ROADMAP.md` 保持一致，目标是把当前 Harness 底座延展为：
 > `Rubric Search -> RM Artifact -> RM Server -> RL Training -> Classifier RM Distillation -> Eval & Monitoring -> Search Refresh`
@@ -15,16 +15,16 @@
   - resume 语义契约（`continue_from_checkpoint` / `reseed_from_checkpoint`）
   - scheduler state 可恢复（不再仅 diagnostics）
 - ✅ 阶段 B 核心能力已落地：
-  - `autosr.rm.data_models.RMArtifact`（schema v1）
-  - `autosr.rm.use_cases`（build/export/validate）
-  - `autosr.rm.export` CLI 导出入口
+  - `reward_harness.rm.data_models.RMArtifact`（schema v1）
+  - `reward_harness.rm.use_cases`（build/export/validate）
+  - `reward_harness.rm.export` CLI 导出入口
   - hash 一致性校验（dataset/config）与 rubric 指纹一致性校验
 - ✅ 阶段 B deploy manifest 已完成：
   - `DeployManifest` schema（含发布追溯字段）
   - `record_deploy_manifest` 用例（自动推断 `previous_artifact_id`）
-  - `autosr.rm.deploy` CLI（一部署一文件）
+  - `reward_harness.rm.deploy` CLI（一部署一文件）
 - ✅ 阶段 C RM Server MVP 已完成：
-  - `autosr.rm.server`（FastAPI + Uvicorn）
+  - `reward_harness.rm.server`（FastAPI + Uvicorn）
   - API：`/healthz`、`/score`、`/batch_score`
   - server 内部 LLM 闭环评分（按 criteria 打分，不接受外部传分）
   - 评分同构（复用 `RubricEvaluator` 单候选评分内核）
@@ -37,7 +37,7 @@
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                         CLI Layer                            │
-│                      (autosr/cli.py)                         │
+│                  (reward_harness/cli.py)                     │
 └──────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -188,7 +188,7 @@ RM Artifact -> RM Server -> /score|/batch_score
 
 ### 阶段 D（RL 训练接入）
 
-训练端通过 endpoint 获取 reward，并通过版本化 manifest/result/report 与 `autosr` 建立稳定握手。
+训练端通过 endpoint 获取 reward，并通过版本化 manifest/result/report 与 `reward_harness` 建立稳定握手。
 
 ### 阶段 E（Classifier RM 自动蒸馏）
 
@@ -209,35 +209,35 @@ RM Artifact -> RM Server -> /score|/batch_score
 ### 5.1 当前 API（保留）
 
 ```bash
-uv run python -m autosr.cli --dataset ... --mode evolutionary --output ...
+uv run python -m reward_harness.cli --dataset ... --mode evolutionary --output ...
 ```
 
 ### 5.2 下一步 API（建议）
 
 ```bash
 # 导出 RM artifact（已实现）
-uv run python -m autosr.rm.export --search-output artifacts/best_rubrics.json --out-artifact artifacts/rm_artifacts/rm_v1.json
+uv run python -m reward_harness.rm.export --search-output artifacts/best_rubrics.json --out-artifact artifacts/rm_artifacts/rm_v1.json
 
 # 启动 RM server
-uv run python -m autosr.rm.server --artifact artifacts/rm_artifacts/rm_v1.json --host 0.0.0.0 --port 8080
+uv run python -m reward_harness.rm.server --artifact artifacts/rm_artifacts/rm_v1.json --host 0.0.0.0 --port 8080
 
 # 记录训练前 manifest（规划）
-uv run python -m autosr.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
+uv run python -m reward_harness.rl.record_manifest --manifest artifacts/training_runs/manifests/run_001.json
 
 # 训练结果回填（规划）
-uv run python -m autosr.rl.record_result --result artifacts/training_runs/results/run_001.json
+uv run python -m reward_harness.rl.record_result --result artifacts/training_runs/results/run_001.json
 
 # 评测结果回填（规划）
-uv run python -m autosr.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
+uv run python -m reward_harness.rl.record_eval --report artifacts/training_runs/evals/eval_001.json
 
 # 登记 RL 采样批次（规划）
-uv run python -m autosr.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
+uv run python -m reward_harness.classifier_rm.record_sample_batch --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
 
 # 准备 classifier RM 训练（规划）
-uv run python -m autosr.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
+uv run python -m reward_harness.classifier_rm.prepare_training --preference-dataset preference_dataset_001 --trainer-project external-classifier-rm
 ```
 
-说明：`autosr.rm.export` 与 `autosr.rm.server` 已实现；Stage D 规划的是“契约 + registry + reference flow”，而不是在 `autosr` 内实现 trainer。
+说明：`reward_harness.rm.export` 与 `reward_harness.rm.server` 已实现；Stage D 规划的是“契约 + registry + reference flow”，而不是在 `reward_harness` 内实现 trainer。
 
 ---
 

@@ -1,9 +1,10 @@
-# AutoSR 技术债务全面审计报告
+# Reward Harness 技术债务全面审计报告
 
 > **审计日期**: 2026-04-23  
 > **审计范围**: `autosr/` 核心包全量代码 + `tests/` 测试套件 + `docs/` 文档体系  
 > **审计方法**: 静态代码分析、架构契约审查、测试覆盖缺口扫描、文档一致性校验  
 > **版本基准**: v1.1 (Stage D 已完成，Stage E–G 规划中)  
+> **命名说明**: 本报告基于迁移前的 `autosr/` 物理代码树编写；迁移完成后，当前 canonical 代码位置为 `reward_harness/`，`autosr/` 仅作为 legacy 兼容 shim 保留。
 
 ---
 
@@ -319,7 +320,7 @@
 | **影响** | 低。新开发者可能误用 legacy 入口，导致代码分散在两条实例化路径上。 |
 | **建议修复** | 1. 决定 `autosr.models` 是长期兼容入口还是限期弃用 shim；<br>2. 若限期弃用，在模块导入或相关对象 re-export 处添加清晰 warning / deprecated 注解，并补测试避免 warnings 破坏现有兼容测试；<br>3. 在 `DESIGN.md` 或兼容性说明中记录弃用时间表。 |
 | **估算** | 0.25–0.5 天 |
-| **清偿状态** | 已完成：`autosr.models` 明确作为长期兼容 re-export shim 保留；新代码仍统一使用 `autosr.data_models`，策略已记录在 `docs/DESIGN.md` 与 README。 |
+| **清偿状态** | 已完成：`autosr.models` 明确作为长期兼容 re-export shim 保留；新代码统一使用 `reward_harness.data_models`，策略已记录在 `docs/DESIGN.md` 与 README。 |
 
 ---
 

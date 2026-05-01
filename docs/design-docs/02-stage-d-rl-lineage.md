@@ -1,14 +1,14 @@
-# AutoSR Stage D 设计：RL Handshake 与 Experiment Lineage
+# Reward Harness Stage D 设计：RL Handshake 与 Experiment Lineage
 
-> **版本**: v1.0 | **状态**: 草案 | **最后更新**: 2026-04-17
+> **版本**: v1.1 | **状态**: 草案 | **最后更新**: 2026-05-01
 >
-> 本文档细化 Stage D 的设计边界：`autosr` 不实现 trainer，而是定义并维护 RL 训练接入所需的契约、registry 与 lineage 查询能力。
+> 本文档细化 Stage D 的设计边界：`reward_harness` 不实现 trainer，而是定义并维护 RL 训练接入所需的契约、registry 与 lineage 查询能力。
 
 ---
 
 ## 1. 设计目标
 
-Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是把外部 RL 项目并入 `autosr`，而是补齐以下能力：
+Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是把外部 RL 项目并入 `reward_harness`，而是补齐以下能力：
 
 1. 定义稳定的训练前后契约，使外部 RL repo 可以一致接入 RM server。
 2. 建立 append-only 的实验记录平面，使训练结果可追溯、可比较、可审计。
@@ -17,8 +17,8 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 非目标：
 
-- 不在 `autosr` 内实现 trainer 或 optimizer。
-- 不在 `autosr` 内托管训练 checkpoint、原始日志、模型大文件。
+- 不在 `reward_harness` 内实现 trainer 或 optimizer。
+- 不在 `reward_harness` 内托管训练 checkpoint、原始日志、模型大文件。
 - 不引入在线 experiment tracking service。
 - 不约束外部 RL repo 的内部训练框架选型。
 
@@ -30,7 +30,7 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 #### 方案 A：Manifest-Only Handshake
 
-- `autosr` 只定义 schema。
+- `reward_harness` 只定义 schema。
 - 外部 RL repo 负责生成、保存、校验、查询所有训练记录。
 
 优点：
@@ -43,13 +43,13 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 #### 方案 B：Contract + Registry + Reference Flow
 
-- `autosr` 定义训练前后契约。
-- `autosr` 维护 append-only registry 与 lineage 查询能力。
+- `reward_harness` 定义训练前后契约。
+- `reward_harness` 维护 append-only registry 与 lineage 查询能力。
 - 文档化外部 RL repo 的参考交互时序、目录约定和回填流程。
 
 优点：
 - 保持清晰架构边界。
-- 让追溯链在 `autosr` 中闭合。
+- 让追溯链在 `reward_harness` 中闭合。
 - 与现有 `run_manifest` / `DeployManifest` 风格一致。
 
 缺点：
@@ -57,14 +57,14 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 #### 方案 C：Orchestrated Training Adapter
 
-- `autosr` 内新增 orchestration 层，负责启动 trainer、注入 endpoint、收集结果。
+- `reward_harness` 内新增 orchestration 层，负责启动 trainer、注入 endpoint、收集结果。
 
 优点：
 - 端到端体验更完整。
 
 缺点：
 - 很容易把 trainer 生命周期和框架细节带入本仓库。
-- 现阶段会过早扩大 `autosr` 的职责边界。
+- 现阶段会过早扩大 `reward_harness` 的职责边界。
 
 ### 2.2 选定方案
 
@@ -72,7 +72,7 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 结论：
 
-- `autosr` 是 reward harness 与 lineage registry 的供给方。
+- `reward_harness` 是 reward harness 与 lineage registry 的供给方。
 - 外部 RL repo 是训练执行方。
 - 双方通过版本化 manifest/result/report 契约握手，而不是通过代码耦合。
 
@@ -80,9 +80,9 @@ Stage C 已完成 `RM Artifact -> RM Server` 主链路。Stage D 的目标不是
 
 ## 3. 系统边界与职责
 
-Stage D 在 `autosr` 中新增的不是“训练子系统”，而是 **RL integration metadata plane**。
+Stage D 在 `reward_harness` 中新增的不是“训练子系统”，而是 **RL integration metadata plane**。
 
-### 3.1 `autosr` 负责
+### 3.1 `reward_harness` 负责
 
 - 定义 `TrainingManifest` 契约。
 - 定义 `TrainingResultManifest` 契约。
@@ -97,7 +97,7 @@ Stage D 在 `autosr` 中新增的不是“训练子系统”，而是 **RL integ
 - 训练实现、checkpoint、resume、retry。
 - 调用 RM server 获取 reward。
 - 产出训练结果与评测指标。
-- 依据 `autosr` 契约回填 manifest/result/report。
+- 依据 `reward_harness` 契约回填 manifest/result/report。
 
 ### 3.3 主数据流
 
@@ -227,7 +227,7 @@ SearchSession
 - `training_run_id -> search_session_id`
 - `training_run_id -> eval_run_ids`
 
-### 4.5 `autosr` 侧目录约定
+### 4.5 `reward_harness` 侧目录约定
 
 建议在现有 `artifacts/` 下新增：
 
@@ -268,8 +268,8 @@ manifests/
 约束：
 
 - RL repo 对 checkpoint、日志、模型文件等大件产物负责。
-- `autosr` 只保存结构化 JSON 记录和路径引用。
-- `autosr` 不把 RL repo 的目录结构当作硬契约。
+- `reward_harness` 只保存结构化 JSON 记录和路径引用。
+- `reward_harness` 不把 RL repo 的目录结构当作硬契约。
 
 ---
 
@@ -278,7 +278,7 @@ manifests/
 ### 5.1 阶段 1：准备训练上下文
 
 1. RL repo 选定 `rm_artifact_id` 或 `rm_deploy_id`。
-2. 通过 `autosr` 侧流程记录一份 `TrainingManifest`。
+2. 通过 `reward_harness` 侧流程记录一份 `TrainingManifest`。
 3. RL repo 将该 manifest 作为本次训练的只读上下文使用。
 
 关键约束：
@@ -307,7 +307,7 @@ manifests/
 
 设计原则：
 
-- `autosr` 不负责训练恢复。
+- `reward_harness` 不负责训练恢复。
 - RL repo 自行实现 retry / resume 策略。
 
 ### 5.4 阶段 4：训练结果回填
@@ -456,8 +456,8 @@ RMArtifact
 Stage D 起步阶段不新增 HTTP 写接口，采用文件回填：
 
 - 外部 RL repo 生成结构化 JSON
-- 通过 `autosr` CLI 或脚本落入约定目录
-- `autosr` 负责 schema 与引用校验
+- 通过 `reward_harness` CLI 或脚本落入约定目录
+- `reward_harness` 负责 schema 与引用校验
 
 原因：
 
@@ -470,19 +470,19 @@ Stage D 起步阶段不新增 HTTP 写接口，采用文件回填：
 
 ```bash
 # 记录训练前 manifest
-uv run python -m autosr.rl.record_manifest \
+uv run python -m reward_harness.rl.record_manifest \
   --manifest /path/to/training_manifest.json
 
 # 回填训练结果
-uv run python -m autosr.rl.record_result \
+uv run python -m reward_harness.rl.record_result \
   --result /path/to/training_result.json
 
 # 回填评测报告
-uv run python -m autosr.rl.record_eval \
+uv run python -m reward_harness.rl.record_eval \
   --report /path/to/eval_report.json
 
 # 查询 lineage
-uv run python -m autosr.rl.show_lineage \
+uv run python -m reward_harness.rl.show_lineage \
   --training-run-id train_20260417_001
 ```
 
@@ -504,7 +504,7 @@ uv run python -m autosr.rl.show_lineage \
 - `finalize_training_run.py`
   - 生成 `TrainingResultManifest`
   - 可选生成 `EvalReport`
-  - 调用 `autosr` CLI 完成回填
+  - 调用 `reward_harness` CLI 完成回填
 
 这样可将训练逻辑与协议接入逻辑解耦。
 
@@ -514,7 +514,7 @@ uv run python -m autosr.rl.show_lineage \
 
 ### 8.1 失败恢复职责划分
 
-- `autosr` 负责“记录不丢、事实可追溯”
+- `reward_harness` 负责“记录不丢、事实可追溯”
 - 外部 RL repo 负责“训练怎么恢复、怎么续跑”
 
 ### 8.2 失败场景

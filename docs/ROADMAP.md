@@ -1,8 +1,8 @@
 # Reward Harness Roadmap: 从 Rubric Search 到 RM+RL 闭环
 
-> **版本**: v1.2 | **最后更新**: 2026-04-26
+> **版本**: v1.3 | **最后更新**: 2026-05-01
 > 
-> 将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。新代码优先使用 `reward_harness` 包名；`autosr` 在迁移期内保持兼容。
+> 将项目从"单次运行的 rubric 搜索器"演进为"可用于 RL 训练与评测的 Reward Harness"。`reward_harness` 是代码与文档的 canonical 名称；`autosr` 仅作为 legacy 兼容 shim 保留。
 
 ---
 
@@ -45,7 +45,7 @@
 1. **闭环优先**：任何新增能力必须服务 `Search -> RM -> RL -> Classifier RM -> Eval` 链路。
 2. **契约先行**：先定义 artifact/API/指标契约，再做实现。
 3. **可回滚**：每次 RM 发布、每次训练实验都可追溯到明确版本。
-4. **兼容现有 CLI**：`uv run python -m autosr.cli` 继续可用。
+4. **兼容现有 CLI**：新文档和新脚本优先使用 `uv run python -m reward_harness.cli`；`uv run python -m autosr.cli` 作为 legacy 入口继续可用。
 5. **先单机后分布式**：未证明价值前不提前引入复杂基础设施。
 
 ---
@@ -273,14 +273,17 @@ uv run python -m reward_harness.classifier_rm.prepare_training --preference-data
 
 ## 变更日志
 
+### 2026-05-01
+- 文档主叙述收敛到 `reward_harness` canonical 命名；`autosr` 仅在 legacy 兼容和历史记录语境中出现。
+
 ### 2026-04-16
-- 阶段 B 收尾完成：新增 `DeployManifest` schema、`record_deploy_manifest` 用例、CLI 命令 `autosr.rm.deploy`。
+- 阶段 B 收尾完成：新增 `DeployManifest` schema、`record_deploy_manifest` 用例、CLI 命令 `reward_harness.rm.deploy`。
 - deploy manifest 默认写入 `artifacts/rm_deployments/*.json`（一部署一文件），支持按 `deployment_target` 自动推断 `previous_artifact_id`。
 - 发布记录补齐 `artifact_id/source_session_id/dataset_hash/config_hash` 链路，满足部署追溯要求。
 
 ### 2026-04-17
 - 明确 Stage D 方向采用 “Contract + Registry + Reference Flow”：
-  `autosr` 负责训练契约、append-only registry 与 lineage 查询；外部 RL repo 负责 trainer 执行与结果回填。
+  `reward_harness` 负责训练契约、append-only registry 与 lineage 查询；外部 RL repo 负责 trainer 执行与结果回填。
 - 新增 Stage D 详细设计文档 `docs/design-docs/02-stage-d-rl-lineage.md`，补齐 TrainingManifest / TrainingResultManifest / EvalReport、参考交互时序、目录约定与失败恢复策略。
 - 新增 Stage E 方向：基于 RL 采样自动蒸馏 classifier RM，位于 Stage D 之后、监控之前。
 - 新增 Stage E 详细设计文档 `docs/design-docs/03-stage-e-classifier-rm.md`，补齐 sample batch / repeated score dataset / preference dataset / classifier training handshake。
@@ -288,7 +291,7 @@ uv run python -m reward_harness.classifier_rm.prepare_training --preference-data
 
 ### 2026-04-04
 - 阶段 A 收尾完成：RNG state 恢复修复、`checkpoint_interval_seconds` 生效、resume 语义落地、scheduler state 可恢复。
-- 阶段 B 核心能力落地：新增 `autosr.rm` 子包，包含 `RMArtifact` schema v1、导出命令 `autosr.rm.export`、artifact 校验器。
+- 阶段 B 核心能力落地：新增 `reward_harness.rm` 子包，包含 `RMArtifact` schema v1、导出命令 `reward_harness.rm.export`、artifact 校验器。
 - `run_manifest` 新增 harness 会话信息回写（用于 artifact 的 `source_session_id` 追溯）。
 
 ### 2026-04-03
@@ -299,7 +302,7 @@ uv run python -m reward_harness.classifier_rm.prepare_training --preference-data
 ---
 
 ### 2026-04-22
-- 阶段 D3 完成：补齐 Comparative Experiment View，实现 `autosr/rl/comparison.py` 核心比较引擎。
+- 阶段 D3 完成：补齐 Comparative Experiment View，实现 `reward_harness/rl/comparison.py` 核心比较引擎。
 - 新增 CLI：`compare_runs`、`compare_artifacts`、`check_regression`、`list_runs`；增强 `show_lineage --with-baseline-delta`。
 - Registry 新增过滤查询：`list_runs_by_artifact`、`list_runs_by_dataset_version`、`list_runs_by_status`。
 - 新增 `tests/test_rl_comparison.py`，38 个测试覆盖比较、回归、异常、聚合、CLI 集成。

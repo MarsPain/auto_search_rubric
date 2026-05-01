@@ -1,6 +1,6 @@
-# AutoSR Stage E 设计：基于 RL 采样的 Classifier RM 自动蒸馏
+# Reward Harness Stage E 设计：基于 RL 采样的 Classifier RM 自动蒸馏
 
-> **版本**: v1.0 | **状态**: 草案 | **最后更新**: 2026-04-17
+> **版本**: v1.1 | **状态**: 草案 | **最后更新**: 2026-05-01
 >
 > 本文档细化 Stage E 的设计边界：基于 Stage D 已建立的 RL handshake 与 lineage 平面，自动收集 RL 训练采样、执行重复打分降噪、构建 classifier RM 训练数据，并通过外部 trainer 完成 classifier RM 训练。
 
@@ -33,10 +33,10 @@ Rubric RM Server
 
 非目标：
 
-- 不在 `autosr` 内实现 classifier trainer。
+- 不在 `reward_harness` 内实现 classifier trainer。
 - 不在本阶段定义 classifier RM 的线上 serving 方案。
 - 不把 RL repo 或 classifier RM repo 的内部训练框架并入本仓库。
-- 不强制保存所有大体量原始样本到 `autosr` 仓库内。
+- 不强制保存所有大体量原始样本到 `reward_harness` 仓库内。
 
 ---
 
@@ -47,11 +47,11 @@ Rubric RM Server
 #### 方案 A：RL Repo 内部自管数据构造与训练
 
 - RL repo 自己导出采样、自行重打分、自行构造偏好对、自行训练 classifier RM。
-- `autosr` 只保留最终 artifact 引用。
+- `reward_harness` 只保留最终 artifact 引用。
 
 优点：
 
-- `autosr` 改动最少。
+- `reward_harness` 改动最少。
 - 单个项目可快速试验。
 
 缺点：
@@ -60,9 +60,9 @@ Rubric RM Server
 - 去噪、pairing、lineage 分散在多个 repo，长期不可维护。
 - 无法稳定比较不同 classifier RM 的数据来源。
 
-#### 方案 B：`autosr` 负责数据平面，外部项目负责训练
+#### 方案 B：`reward_harness` 负责数据平面，外部项目负责训练
 
-- `autosr` 维护采样导入、重复打分、偏好构造、数据 registry 与训练契约。
+- `reward_harness` 维护采样导入、重复打分、偏好构造、数据 registry 与训练契约。
 - 外部 classifier RM repo 只负责读取训练 manifest、执行训练、回填结果。
 
 优点：
@@ -73,11 +73,11 @@ Rubric RM Server
 
 缺点：
 
-- `autosr` 需要新增一层数据蒸馏平面。
+- `reward_harness` 需要新增一层数据蒸馏平面。
 
-#### 方案 C：`autosr` 内置端到端 classifier RM 训练
+#### 方案 C：`reward_harness` 内置端到端 classifier RM 训练
 
-- `autosr` 内部实现数据构造、训练循环、模型导出与评测。
+- `reward_harness` 内部实现数据构造、训练循环、模型导出与评测。
 
 优点：
 
@@ -90,11 +90,11 @@ Rubric RM Server
 
 ### 2.2 选定方案
 
-本阶段采用 **方案 B：`autosr` 负责数据平面，外部项目负责训练**。
+本阶段采用 **方案 B：`reward_harness` 负责数据平面，外部项目负责训练**。
 
 结论：
 
-- `autosr` 是 rubric RM 蒸馏数据与 classifier RM lineage 的 system of record。
+- `reward_harness` 是 rubric RM 蒸馏数据与 classifier RM lineage 的 system of record。
 - 外部 RL repo 负责提供采样。
 - 外部 classifier RM repo 负责 trainer 执行。
 - 双方通过版本化 manifest/result/artifact 契约握手，而不是通过代码耦合。
@@ -103,7 +103,7 @@ Rubric RM Server
 
 ## 3. 系统边界与职责
 
-### 3.1 `autosr` 负责
+### 3.1 `reward_harness` 负责
 
 - 定义 RL 采样批次导入契约。
 - 基于固定 `rm_artifact_id` / `rm_deploy_id` 执行重复打分与聚合。
@@ -117,7 +117,7 @@ Rubric RM Server
 
 - 训练过程中的采样导出。
 - 样本 payload 的生成与持久化。
-- 将采样 batch 通过 manifest 方式登记到 `autosr`。
+- 将采样 batch 通过 manifest 方式登记到 `reward_harness`。
 
 ### 3.3 外部 classifier RM repo 负责
 
@@ -191,7 +191,7 @@ TrainingManifest / TrainingResultManifest
 
 - `sample_batch_id` 是 Stage E 数据构造的入口主键。
 - `response_hash` 用于去重与重打分幂等。
-- payload 可以存放在外部 RL repo、本地路径或对象存储，`autosr` 只要求可寻址与可校验。
+- payload 可以存放在外部 RL repo、本地路径或对象存储，`reward_harness` 只要求可寻址与可校验。
 
 ### 4.2 `RepeatedScoreDatasetManifest`
 
@@ -381,7 +381,7 @@ TrainingManifest / TrainingResultManifest
 - `artifact_uri`
 - `metadata`
 
-### 4.7 `autosr` 侧目录约定
+### 4.7 `reward_harness` 侧目录约定
 
 建议在现有 `artifacts/` 下新增：
 
@@ -402,7 +402,7 @@ artifacts/
 
 约定：
 
-- registry JSON 放在 `autosr` 管理目录下。
+- registry JSON 放在 `reward_harness` 管理目录下。
 - 大体量 payload 默认通过 manifest 中的 `uri` 引用外部路径或对象存储。
 - 如需本地落盘，可按 `<id>/part-*.jsonl` 的方式组织，但这不是硬契约。
 
@@ -414,7 +414,7 @@ artifacts/
 
 1. 外部 RL repo 在训练中或训练后导出 `(query, response)` 采样批次。
 2. 生成 `RLSampleBatchManifest`，声明该批次来自哪个 `training_run_id`、哪个 teacher RM。
-3. `autosr` 校验：
+3. `reward_harness` 校验：
    - `training_run_id` 已在 Stage D registry 中存在
    - `rm_artifact_id` / `rm_deploy_id` 与来源训练 run 不冲突
    - payload `sha256`、`row_count` 与 manifest 一致
@@ -486,14 +486,14 @@ pair 保留条件建议同时满足：
 
 ### 5.5 classifier RM 训练编排
 
-1. `autosr` 基于 `PreferenceDatasetManifest` 生成 `ClassifierRMTrainingManifest`。
+1. `reward_harness` 基于 `PreferenceDatasetManifest` 生成 `ClassifierRMTrainingManifest`。
 2. 外部 classifier RM repo 消费该 manifest。
 3. 训练完成后回填 `ClassifierRMTrainingResult`。
 4. 如训练成功，再登记 `ClassifierRMArtifact`。
 
 这一段和 Stage D 的原则一致：
 
-- `autosr` 负责契约和 registry。
+- `reward_harness` 负责契约和 registry。
 - trainer 进程生命周期、分布式策略、checkpoint 管理由外部 repo 自行处理。
 
 ---
@@ -544,37 +544,37 @@ classifier_rm_artifact
 
 ```bash
 # 登记 RL 采样批次
-uv run python -m autosr.classifier_rm.record_sample_batch \
+uv run python -m reward_harness.classifier_rm.record_sample_batch \
   --manifest artifacts/classifier_rm/sample_batches/manifests/sample_batch_001.json
 
 # 基于 teacher RM 重复打分并构建原始打分数据
-uv run python -m autosr.classifier_rm.build_score_dataset \
+uv run python -m reward_harness.classifier_rm.build_score_dataset \
   --sample-batch sample_batch_001 \
   --repeat-count 5 \
   --aggregation mean
 
 # 构建偏好对
-uv run python -m autosr.classifier_rm.build_preference_dataset \
+uv run python -m reward_harness.classifier_rm.build_preference_dataset \
   --score-dataset score_dataset_001 \
   --pairing-policy hybrid \
   --min-margin 0.8
 
 # 生成 classifier RM 训练 manifest
-uv run python -m autosr.classifier_rm.prepare_training \
+uv run python -m reward_harness.classifier_rm.prepare_training \
   --preference-dataset preference_dataset_001 \
   --trainer-project external-classifier-rm
 
 # 回填训练结果
-uv run python -m autosr.classifier_rm.record_training_result \
+uv run python -m reward_harness.classifier_rm.record_training_result \
   --result artifacts/classifier_rm/training_runs/results/classifier_run_001.json
 ```
 
 模块职责建议：
 
-- `autosr/classifier_rm/data_models.py`: schema
-- `autosr/classifier_rm/use_cases.py`: record/build/prepare
-- `autosr/classifier_rm/io.py`: manifest/payload IO
-- `autosr/classifier_rm/lineage.py`: cross-stage lineage query
+- `reward_harness/classifier_rm/data_models.py`: schema
+- `reward_harness/classifier_rm/use_cases.py`: record/build/prepare
+- `reward_harness/classifier_rm/io.py`: manifest/payload IO
+- `reward_harness/classifier_rm/lineage.py`: cross-stage lineage query
 
 ---
 
