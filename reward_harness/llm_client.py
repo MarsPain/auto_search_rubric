@@ -105,15 +105,20 @@ class LLMClient:
 
     def _request_text(self, request: ChatRequest) -> str:
         try:
-            response = self._client.chat.completions.create(
-                model=request.model,
-                messages=[
+            kwargs: dict[str, Any] = {
+                "model": request.model,
+                "messages": [
                     {"role": "system", "content": request.system_prompt},
                     {"role": "user", "content": request.user_prompt},
                 ],
-                temperature=self.config.temperature,
-                timeout=self.config.timeout,
-            )
+                "temperature": self.config.temperature,
+                "timeout": self.config.timeout,
+            }
+            if self.config.reasoning_effort is not None:
+                kwargs["reasoning_effort"] = self.config.reasoning_effort
+            if self.config.extra_body is not None:
+                kwargs["extra_body"] = self.config.extra_body
+            response = self._client.chat.completions.create(**kwargs)
         except Exception as exc:  # pragma: no cover - external SDK behavior
             error_cls = (
                 LLMFatalCallError if _is_fatal_call_exception(exc) else LLMCallError

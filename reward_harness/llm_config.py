@@ -38,6 +38,8 @@ class LLMConfig:
     retry_backoff_base: float = 0.5
     retry_backoff_max: float = 8.0
     retry_jitter: float = 0.2
+    reasoning_effort: str | None = None
+    extra_body: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not self.base_url.strip():

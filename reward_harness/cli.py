@@ -129,6 +129,18 @@ def build_parser() -> argparse.ArgumentParser:
         default="zh",
         help="Language for LLM prompt templates (loads from prompts/<lang>/, fallback prompts/; default: constants)",
     )
+    llm_group.add_argument(
+        "--reasoning-effort",
+        default=None,
+        choices=["low", "medium", "high"],
+        help="Reasoning effort level (low/medium/high). Passed to the LLM API as reasoning_effort.",
+    )
+    llm_group.add_argument(
+        "--thinking-type",
+        default=None,
+        choices=["enabled", "disabled"],
+        help="Thinking mode type (enabled/disabled). When set, passed as extra_body={'thinking': {'type': ...}}.",
+    )
 
     # === Search algorithm parameters ===
     search_group = parser.add_argument_group("Search Algorithm Options")
@@ -374,6 +386,8 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             verifier_model=args.model_verifier,
             judge_model=args.model_judge,
             prompt_language=getattr(args, "prompt_language", None),
+            reasoning_effort=getattr(args, "reasoning_effort", None),
+            extra_body=({"thinking": {"type": args.thinking_type}} if getattr(args, "thinking_type", None) else None),
         ),
         search=SearchAlgorithmConfig(
             mode=args.mode,

@@ -23,10 +23,12 @@ if [[ -z "${LLM_API_KEY:-}" ]]; then
   exit 1
 fi
 
-BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
+# BASE_URL="${LLM_BASE_URL:-https://openrouter.ai/api/v1}"
+BASE_URL="${LLM_BASE_URL:-https://api.deepseek.com}"
 # LLM_MODEL="${LLM_MODEL:-deepseek/deepseek-v3.2}"
 # LLM_MODEL="${LLM_MODEL:-stepfun/step-3.5-flash:free}"
-LLM_MODEL="${LLM_MODEL:-tencent/hy3-preview:free}"
+# LLM_MODEL="${LLM_MODEL:-tencent/hy3-preview:free}"
+LLM_MODEL="${LLM_MODEL:-deepseek-v4-flash}"
 MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
 MODEL_VERIFIER="${MODEL_VERIFIER:-}"
@@ -34,6 +36,8 @@ MODEL_JUDGE="${MODEL_JUDGE:-}"
 LLM_TIMEOUT="${LLM_TIMEOUT:-30}"
 LLM_MAX_RETRIES="${LLM_MAX_RETRIES:-0}"
 LLM_FAIL_SOFT="${LLM_FAIL_SOFT:-true}"
+LLM_REASONING_EFFORT="${LLM_REASONING_EFFORT:-}"
+LLM_THINKING_TYPE="${LLM_THINKING_TYPE:-disabled}"
 
 # Initial rubric configuration
 INITIALIZER_STRATEGY="${INITIALIZER_STRATEGY:-preset}"
@@ -168,6 +172,12 @@ if [[ -n "${EXTRACT_TAG:-}" ]]; then
 fi
 if [[ "${LLM_FAIL_SOFT}" == "true" ]]; then
   cmd+=(--llm-fail-soft)
+fi
+if [[ -n "${LLM_REASONING_EFFORT:-}" ]]; then
+  cmd+=(--reasoning-effort "${LLM_REASONING_EFFORT}")
+fi
+if [[ -n "${LLM_THINKING_TYPE:-}" ]]; then
+  cmd+=(--thinking-type "${LLM_THINKING_TYPE}")
 fi
 
 echo "Running command (${PYTHON_DESC}): ${cmd[*]}"

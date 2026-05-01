@@ -92,6 +92,8 @@ class ComponentFactory:
                 retry_backoff_base=llm_cfg.retry_backoff_base,
                 retry_backoff_max=llm_cfg.retry_backoff_max,
                 retry_jitter=llm_cfg.retry_jitter,
+                reasoning_effort=llm_cfg.reasoning_effort,
+                extra_body=llm_cfg.extra_body,
             )
             self._llm_client = LLMClient(llm_config)
         return self._llm_client

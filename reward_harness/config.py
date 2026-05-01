@@ -41,6 +41,8 @@ class LLMBackendConfig:
     retry_backoff_max: float = 8.0
     retry_jitter: float = 0.2
     fail_soft: bool = False
+    reasoning_effort: str | None = None
+    extra_body: dict[str, Any] | None = None
 
     # Model configuration
     default_model: str = "stepfun/step-3.5-flash:free"
