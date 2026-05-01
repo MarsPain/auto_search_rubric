@@ -120,6 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Relative jitter ratio applied to retry delay (0 disables jitter)",
     )
     llm_group.add_argument(
+        "--llm-temperature",
+        type=float,
+        default=1.0,
+        help="Sampling temperature for LLM requests (default: 1.0)",
+    )
+    llm_group.add_argument(
         "--llm-fail-soft",
         action="store_true",
         help="Keep search running by applying role-specific fallbacks when an LLM call exhausts retries",
@@ -379,6 +385,7 @@ def build_runtime_config(args: Any) -> RuntimeConfig:
             retry_backoff_base=getattr(args, "llm_retry_backoff_base", 0.5),
             retry_backoff_max=getattr(args, "llm_retry_backoff_max", 8.0),
             retry_jitter=getattr(args, "llm_retry_jitter", 0.2),
+            temperature=getattr(args, "llm_temperature", 1.0),
             fail_soft=getattr(args, "llm_fail_soft", False),
             default_model=args.model_default,
             initializer_model=args.model_initializer,

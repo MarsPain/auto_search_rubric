@@ -2,8 +2,9 @@
 set -euo pipefail
 
 # DATASET_PATH="${1:-examples/single_case_with_rank.json}"
-DATASET_PATH="${1:-examples/call_summary_dataset_with_rank.json}"
+# DATASET_PATH="${1:-examples/call_summary_dataset_with_rank.json}"
 # DATASET_PATH="${1:-examples/call_summary_dataset_with_rank_single.json}"
+DATASET_PATH="${1:-data/writing/writing_prompts_tiny_with_candidates.json}"  # paired PRESET_RUBRICS
 MODE="${2:-evolutionary}"
 OUTPUT_PATH="${3:-artifacts/best_rubrics_formal_call_summary.json}"
 
@@ -33,20 +34,23 @@ MODEL_INITIALIZER="${MODEL_INITIALIZER:-}"
 MODEL_PROPOSER="${MODEL_PROPOSER:-}"
 MODEL_VERIFIER="${MODEL_VERIFIER:-}"
 MODEL_JUDGE="${MODEL_JUDGE:-}"
-LLM_TIMEOUT="${LLM_TIMEOUT:-30}"
+LLM_TIMEOUT="${LLM_TIMEOUT:-300}"
 LLM_MAX_RETRIES="${LLM_MAX_RETRIES:-0}"
 LLM_FAIL_SOFT="${LLM_FAIL_SOFT:-true}"
+LLM_TEMPERATURE="${LLM_TEMPERATURE:-1}"
 LLM_REASONING_EFFORT="${LLM_REASONING_EFFORT:-}"
 LLM_THINKING_TYPE="${LLM_THINKING_TYPE:-disabled}"
 
 # Initial rubric configuration
 INITIALIZER_STRATEGY="${INITIALIZER_STRATEGY:-preset}"
-PRESET_RUBRICS="${PRESET_RUBRICS:-examples/call_summary_initial_rubric.json}"
+# PRESET_RUBRICS="${PRESET_RUBRICS:-examples/call_summary_initial_rubric.json}"
+PRESET_RUBRICS="${PRESET_RUBRICS:-data/writing/writing_rubrics_tiny.json}"
 PRESET_STRICT="${PRESET_STRICT:-}"
 
 # Content extraction configuration for call summary dataset
 # The call_summary dataset wraps conversation content in <通话内容> tags
-EXTRACT_STRATEGY="${EXTRACT_STRATEGY:-tag}"
+# EXTRACT_STRATEGY="${EXTRACT_STRATEGY:-tag}"
+EXTRACT_STRATEGY="${EXTRACT_STRATEGY:-identity}"  # don't extract
 EXTRACT_TAG="${EXTRACT_TAG:-通话内容}"
 EVOLUTION_ITERATION_SCOPE="${EVOLUTION_ITERATION_SCOPE:-prompt_local}"
 
@@ -107,6 +111,7 @@ cmd=(
   --model-default "${LLM_MODEL}"
   --llm-timeout "${LLM_TIMEOUT}"
   --llm-max-retries "${LLM_MAX_RETRIES}"
+  --llm-temperature "${LLM_TEMPERATURE}"
   --initializer-strategy "${INITIALIZER_STRATEGY}"
   --extract-strategy "${EXTRACT_STRATEGY}"
   --generations 2
